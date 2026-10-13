@@ -1,0 +1,8 @@
+{
+  "providers": {
+    "openai": { "api_key": "sk-...", "models": ["<bấm Kiểm tra trên dashboard để điền>"] },
+    "ollama": { "base_url": "http://127.0.0.1:11434" },
+    "custom-lab": { "label": "Lab server", "base_url": "http://10.0.0.5:8000/v1", "api_key": "..." }
+  },
+  "gateway_key": "<tự sinh>"
+}

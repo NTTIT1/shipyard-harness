@@ -1,0 +1,13 @@
+{
+  "defaults": {
+    "main": "claude:claude-opus-5-5",
+    "plan-critic": "claude:claude-opus-5-5",
+    "impl-worker": "claude:claude-opus-5-5",
+    "code-review": "claude:claude-opus-5-5",
+    "qc-local": "claude:claude-opus-5-5",
+    "senior-gate": "claude:claude-opus-5-5",
+    "ticketer": "claude:claude-opus-5-5",
+    "dev-qc": "claude:claude-opus-5-5",
+    "impl_agents": 1
+  }
+}

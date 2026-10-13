@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Run ONE ship-feature sub-step (an agent, or the code-review skill) as its own
+# headless `claude -p` process on the model chosen for that step. A Claude model
+# runs on the machine's own Claude login; any other provider's model is reached
+# through the LiteLLM gateway (bin/gateway.sh). One process per step is what lets
+# a single pipeline mix providers — a Claude Code process talks to ONE endpoint.
+#   run-step.sh <N> <step> <prompt-file>
+# Model: state models.<step> -> config/models.json defaults.<step> -> Opus.
+# Exit: 0 done · 2 provider/gateway/claude error · 3 no verdict line · 64 usage
+set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_common.sh"
+CODE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+usage() { echo "usage: run-step.sh <N> <step> <prompt-file>" >&2; exit 64; }
+require_lane "${1:-}"
+N="$1"; STEP="${2:-}"; PROMPT_FILE="${3:-}"
+[ -f "$PROMPT_FILE" ] || usage
+
+case "$STEP" in
+  plan-critic) AGENT=""; VERDICT_RE="" ;;
+  impl-worker) AGENT="impl-worker"; VERDICT_RE='^IMPL: ' ;;
+  code-review) AGENT=""; VERDICT_RE="" ;;
+  qc-local) AGENT="qc-local"; VERDICT_RE='^LOCAL-QC: ' ;;
+  senior-gate) AGENT="senior-gate-reviewer"; VERDICT_RE='^VERDICT: ' ;;
+  ticketer) AGENT="ticketer"; VERDICT_RE='^TICKET: ' ;;
+  dev-qc) AGENT="dev-qc"; VERDICT_RE='^DEV-QC: ' ;;
+  *) usage ;;
+esac
+
+STATE_FILE="$(lane_state_file "$N")"
+MODEL="$(python3 - "$STATE_FILE" "$HARNESS_ROOT/config/models.json" "$STEP" <<'PY'
+import json, sys
+state, cfg, step = sys.argv[1:4]
+def load(p):
+    try: return json.load(open(p))
+    except Exception: return {}
+print((load(state).get("models") or {}).get(step)
+      or (load(cfg).get("defaults") or {}).get(step)
+      or "claude:claude-opus-5-5")
+PY
+)"
+PROVIDER="${MODEL%%:*}"; MID="${MODEL#*:}"
+ID="$STEP-$(date +%s)-$$"
+record() { bash "$CODE_ROOT/bin/state.sh" "$N" append steps "$1" >/dev/null 2>&1 || true; }
+jstr() { python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$1"; }
+now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+record "{\"id\":\"$ID\",\"step\":\"$STEP\",\"model\":$(jstr "$MODEL"),\"event\":\"start\",\"at\":\"$(now)\"}"
+finish_step() {  # <exit> <verdict> <error>
+  record "{\"id\":\"$ID\",\"step\":\"$STEP\",\"model\":$(jstr "$MODEL"),\"event\":\"end\",\"at\":\"$(now)\",\"exit\":$1,\"verdict\":$(jstr "$2"),\"error\":$(jstr "$3")}"
+  exit "$1"
+}
+
+ARGS=(-p --output-format json --permission-mode "${STEP_PERMISSION_MODE:-auto}")
+[ -n "$AGENT" ] && ARGS+=(--agent "$AGENT")
+if [ "$PROVIDER" = "claude" ]; then
+  ARGS+=(--model "$MID")
+else
+  GW="http://127.0.0.1:${GATEWAY_PORT:-4000}"
+  if ! curl -fsS -m 3 "$GW/health/liveliness" >/dev/null 2>&1; then
+    bash "$CODE_ROOT/bin/gateway.sh" start >&2 || finish_step 2 "" "gateway not reachable at $GW"
+  fi
+  GW_KEY="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("gateway_key",""))' "$HARNESS_ROOT/config/providers.json" 2>/dev/null || true)"
+  [ -n "$GW_KEY" ] || finish_step 2 "" "no gateway_key in config/providers.json"
+  ALIAS="$PROVIDER/$MID"
+  export ANTHROPIC_BASE_URL="$GW" ANTHROPIC_AUTH_TOKEN="$GW_KEY"
+  export ANTHROPIC_SMALL_FAST_MODEL="$ALIAS" ANTHROPIC_DEFAULT_HAIKU_MODEL="$ALIAS"
+  unset ANTHROPIC_API_KEY
+  ARGS+=(--model "$ALIAS")
+fi
+
+cd "$(lane_dir "$N")"
+ERRF="$(mktemp)"; trap 'rm -f "$ERRF"' EXIT
+set +e
+RAW="$("${CLAUDE_BIN:-claude}" "${ARGS[@]}" "$(cat "$PROMPT_FILE")" 2>"$ERRF")"; RC=$?
+set -e
+if [ "$RC" -ne 0 ]; then
+  finish_step 2 "" "claude exited $RC: $(tail -c 400 "$ERRF" | tr '\n' ' ')"
+fi
+PARSED="$(python3 - "$RAW" <<'PY'
+import json, sys
+try:
+    d = json.loads(sys.argv[1])
+except Exception:
+    print("ERR\tunparseable claude output"); sys.exit()
+res = d.get("result") or ""
+if d.get("is_error") or d.get("subtype") != "success":
+    print("ERR\t" + res.replace("\n", " ")[:400]); sys.exit()
+print("OK\t" + json.dumps(res))
+PY
+)"
+KIND="${PARSED%%$'\t'*}"; BODY="${PARSED#*$'\t'}"
+[ "$KIND" = "OK" ] || finish_step 2 "" "$BODY"
+RESULT="$(python3 -c 'import json,sys;print(json.loads(sys.argv[1]))' "$BODY")"
+printf '%s\n' "$RESULT"
+
+LAST="$(printf '%s\n' "$RESULT" | awk 'NF{l=$0} END{print l}')"
+if [ -n "$VERDICT_RE" ]; then
+  printf '%s\n' "$LAST" | grep -Eq "$VERDICT_RE" || finish_step 3 "" "model did not end with a ${VERDICT_RE#^} line"
+fi
+finish_step 0 "$LAST" ""
