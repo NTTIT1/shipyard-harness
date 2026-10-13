@@ -16,6 +16,12 @@ export default function LaneOverview({ lane, config, archived }) {
         <Badge>CI {lane.ci_status || '—'}</Badge>
         {!archived && <Badge tone={lane.liveness === 'dead' ? 'danger' : 'neutral'}>♥ {age}</Badge>}
         {!archived && lane.stage_age_sec != null && <Badge>{lane.stage} · {fmtDur(lane.stage_age_sec)}</Badge>}
+        {lane.progress != null && (
+          <span className="ov-prog" title={`Tiến độ ${lane.progress}%`}>
+            <span className="ov-bar"><i style={{ width: `${Math.max(0, Math.min(100, Number(lane.progress) || 0))}%` }} /></span>{lane.progress}%
+          </span>
+        )}
+        {lane.head && <span className="ov-head mono" title={lane.head}>{String(lane.head).slice(0, 8)}</span>}
       </div>
       {!archived && lane.needs_action && <div className="ov-callout warn">Cần bạn: {lane.needs_action}</div>}
       {lane.notes && <div className="ov-callout">{lane.notes}</div>}

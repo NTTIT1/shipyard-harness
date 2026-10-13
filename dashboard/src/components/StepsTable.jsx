@@ -8,7 +8,7 @@ const LABEL = { 'plan-critic': 'Phản biện plan', 'impl-worker': 'Code song s
 
 export default function StepsTable({ steps }) {
   const rows = mergeSteps(steps).slice(-12).reverse();
-  if (!rows.length) return <p className="empty">Chưa có bước con nào chạy.</p>;
+  if (!rows.length) return <p className="muted-empty">Chưa có bước con nào chạy.</p>;
   return (
     <table className="steps">
       <thead><tr><th>Bước</th><th>AI</th><th>Kết quả</th><th>Lúc</th></tr></thead>

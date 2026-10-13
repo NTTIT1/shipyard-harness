@@ -2,7 +2,7 @@ import React from 'react';
 import { FileText, ExternalLink } from 'lucide-react';
 const FILES = [['spec.md', 'Spec — yêu cầu & tiêu chí'], ['plan.md', 'Plan — cách làm'], ['tasks.md', 'Tasks — danh sách việc'], ['qc-plan.md', 'QC plan — kịch bản kiểm thử']];
 export default function SpecLinks({ lane }) {
-  if (!lane.spec_dir) return <p className="empty">Tính năng này chưa có thư mục spec.</p>;
+  if (!lane.spec_dir) return <p className="muted-empty">Tính năng này chưa có thư mục spec.</p>;
   return (
     <div className="speclinks">
       <p className="faint mono">{lane.spec_dir}</p>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Plus, Server, Settings2, Sun, Moon, X, Ship } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import IconButton from './ui/IconButton.jsx';
@@ -19,17 +19,40 @@ function dotTone(l) {
   return 'neutral';
 }
 
-export default function Sidebar({ lanes, selected, onSelect, onAssign, onAddLane, onProviders, theme, onToggleTheme, open, onClose }) {
+export default function Sidebar({ lanes, selected, onSelect, onAssign, onAddLane, onProviders, theme, onToggleTheme, open, onClose, returnFocusRef }) {
+  const asideRef = useRef(null);
+  const closeRef = useRef(null);
+  const wasOpen = useRef(false);
+  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 900px)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)');
+    const h = e => setNarrow(e.matches);
+    mq.addEventListener('change', h);
+    return () => mq.removeEventListener('change', h);
+  }, []);
+  useEffect(() => {
+    if (open) { closeRef.current?.focus(); wasOpen.current = true; }
+    else if (wasOpen.current) { wasOpen.current = false; returnFocusRef?.current?.focus(); }
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const h = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }, [open, onClose]);
+  const drawerClosed = narrow && !open;
+  const drawerOpen = narrow && open;
   const sorted = sortLanes(lanes);
   const running = lanes.filter(l => l.status === 'running').length;
   const need = lanes.filter(l => laneAttention(l)).length;
   return (
     <>
       {open && <div className="sb-scrim" onClick={onClose} />}
-      <aside className={`sidebar${open ? ' open' : ''}`} aria-label="Lanes">
+      <aside ref={asideRef} className={`sidebar${open ? ' open' : ''}`} aria-label="Lanes" inert={drawerClosed ? '' : undefined}
+        {...(drawerOpen ? { role: 'dialog', 'aria-modal': 'true' } : {})}>
         <div className="sb-brand">
           <Ship size={18} strokeWidth={1.75} aria-hidden="true" /> <b>Shipyard</b>
-          <IconButton className="sb-close" icon={X} label="Đóng" onClick={onClose} />
+          <IconButton ref={closeRef} className="sb-close" icon={X} label="Đóng" onClick={onClose} />
         </div>
         <Button variant="primary" icon={Plus} className="sb-assign" onClick={() => onAssign(null)}>Giao việc</Button>
         <div className="sb-head">

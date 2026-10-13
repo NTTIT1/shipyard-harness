@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLanes } from './hooks/useLanes.js';
 import { useProof } from './hooks/useProof.js';
 import { useReviews } from './hooks/useReviews.js';
@@ -153,11 +153,19 @@ export default function App() {
 
   const { theme, toggle } = useTheme();
   const [drawer, setDrawer] = useState(false);
+  const menuBtn = useRef(null);
   const [tab, setTab] = useState('overview');
   const attn = selectedLaneData ? laneAttention(selectedLaneData) : null;
-  // A lane that needs an answer opens on Chat; switching lanes otherwise resets to Overview.
-  useEffect(() => { setTab(attn === 'question' || attn === 'approve' ? 'chat' : 'overview'); }, [selectedLane]);
-  useEffect(() => { if (attn === 'question' || attn === 'approve') setTab('chat'); }, [attn]);
+  const needsChat = !viewingPast && (attn === 'question' || attn === 'approve');
+  // Switching lanes resets to Overview (or Chat if it needs an answer); afterwards jump to Chat only
+  // when attention NEWLY becomes question/approve, so polling never yanks the user around.
+  const prevNeeds = useRef(false);
+  useEffect(() => { setTab(needsChat ? 'chat' : 'overview'); prevNeeds.current = needsChat; }, [selectedLane]);
+  useEffect(() => {
+    if (needsChat && !prevNeeds.current) setTab('chat');
+    prevNeeds.current = needsChat;
+  }, [needsChat]);
+  useEffect(() => { if (viewingPast && tab === 'chat') setTab('overview'); }, [viewingPast, tab]);
   const proofCount = (() => {
     const f = (proof?.features || []).find(x => x.slug === (selectedSlug || proof?._cur));
     return f ? Object.values(f.groups || {}).reduce((a, g) => a + g.length, 0) : 0;
@@ -168,10 +176,10 @@ export default function App() {
     <div className="app">
       <Sidebar lanes={lanes} selected={selectedLane} onSelect={setSelectedLane}
         onAssign={n => setAssign(n)} onAddLane={() => setAddLane(true)} onProviders={() => setProviders(true)}
-        theme={theme} onToggleTheme={toggle} open={drawer} onClose={() => setDrawer(false)} />
+        theme={theme} onToggleTheme={toggle} open={drawer} onClose={() => setDrawer(false)} returnFocusRef={menuBtn} />
       <main className="main">
         <div className="topbar">
-          <IconButton icon={MenuIcon} label="Mở danh sách lane" onClick={() => setDrawer(true)} />
+          <IconButton ref={menuBtn} icon={MenuIcon} label="Mở danh sách lane" onClick={() => setDrawer(true)} />
           <b>Shipyard</b>
         </div>
         {!selectedLaneData ? (
@@ -190,13 +198,13 @@ export default function App() {
               <>
                 <Tabs value={tab} onChange={setTab} items={[
                   { id: 'overview', label: 'Tổng quan' },
-                  { id: 'chat', label: 'Chat', dot: attn === 'question' || attn === 'approve' },
+                  ...(viewingPast ? [] : [{ id: 'chat', label: 'Chat', dot: needsChat }]),
                   { id: 'proof', label: 'Ảnh QC', badge: proofCount || null },
                   ...(headLane.spec_dir ? [{ id: 'spec', label: 'Spec' }] : []),
                 ]} />
                 <div className="tabpanel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
                   {tab === 'overview' && <LaneOverview lane={mapLane} config={config} archived={viewingPast} />}
-                  {tab === 'chat' && <ChatPanel key={selectedLane} lane={selectedLaneData} />}
+                  {tab === 'chat' && !viewingPast && <ChatPanel key={selectedLane} lane={selectedLaneData} />}
                   {tab === 'proof' && <ProofGallery proof={proof} selectedLane={selectedLane} selectedSlug={selectedSlug}
                     onSelectFeature={selectFeature} onShot={openShot} onGallery={openGallery} onCleanup={handleCleanup} />}
                   {tab === 'spec' && <SpecLinks lane={headLane} />}

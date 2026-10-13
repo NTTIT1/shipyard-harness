@@ -32,7 +32,7 @@ body { margin: 0; padding: 0; background: var(--bg); -webkit-font-smoothing: ant
 .mono { font-family: var(--mono) } .faint { color: var(--text-faint) }
 .lh-actions { display: flex; gap: 8px; align-items: center }
 .tabpanel { padding-top: 18px; min-width: 0 }
-.empty { color: var(--text-faint); font-size: 13px } .empty-state { max-width: 420px; margin: 12vh auto; text-align: center }
+.muted-empty { color: var(--text-faint); font-size: 13px } .empty-state { max-width: 420px; margin: 12vh auto; text-align: center }
 .ov { display: grid; gap: 18px } .ov-chips { display: flex; gap: 6px; flex-wrap: wrap }
 .ov-callout { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; font-size: 13px; color: var(--text-muted); background: var(--bg-subtle) }
 .ov-callout.warn { border-color: var(--warn-soft); background: var(--warn-soft); color: var(--text) }
@@ -49,10 +49,14 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 @media (max-width: 900px) {
   .app { grid-template-columns: minmax(0, 1fr) }
   .sidebar { position: fixed; inset: 0 auto 0 0; width: min(300px, 86vw); z-index: 50; transform: translateX(-100%);
-    transition: transform .18s var(--ease); box-shadow: var(--shadow-md) }
-  .sidebar.open { transform: none }
+    transition: transform .18s var(--ease), visibility 0s linear .18s; visibility: hidden; box-shadow: var(--shadow-md) }
+  .sidebar.open { transform: none; visibility: visible; transition-delay: 0s }
   .sb-close { display: inline-grid }
   .sb-scrim { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.4) }
   .topbar { display: flex; align-items: center; gap: 8px; margin: -8px 0 12px }
   .main { padding: 16px 16px 40px }
 }
+.ov-prog { display: inline-flex; align-items: center; gap: 6px; font: 500 11.5px var(--mono); color: var(--text-muted); padding: 0 6px }
+.ov-bar { width: 64px; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden }
+.ov-bar i { display: block; height: 100%; background: var(--accent) }
+.ov-head { font-size: 11.5px; color: var(--text-faint); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center }

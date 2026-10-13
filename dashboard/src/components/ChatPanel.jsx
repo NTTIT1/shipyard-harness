@@ -109,7 +109,7 @@ export default function ChatPanel({ lane }) {
   const blocked = lane.status === 'blocked' && status.session_running;
 
   if (!events.length && !status.session_running && !status.session_resumable) {
-    return <p className="empty">Chưa có phiên chat cho lane này — bấm “Giao việc” để bắt đầu.</p>;
+    return <p className="muted-empty">Chưa có phiên chat cho lane này — bấm “Giao việc” để bắt đầu.</p>;
   }
 
   return (
