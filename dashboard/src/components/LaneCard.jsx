@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { fmtAge, fmtDur, prNum, hbClass } from '../lib/format.js';
 
 function LaneCardInner({ lane, selected, featureState, onSelect, onAction, onCreds, onAssign }) {
@@ -19,6 +19,16 @@ function LaneCardInner({ lane, selected, featureState, onSelect, onAction, onCre
   const free = !viewing && !lane.session_running && ['idle', 'down', ''].includes(lane.status || '');
 
   const stop = e => e.stopPropagation();
+  const [menu, setMenu] = useState(false);
+  useEffect(() => {
+    if (!menu) return undefined;
+    const close = () => setMenu(false);
+    const key = e => { if (e.key === 'Escape') setMenu(false); };
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', key); };
+  }, [menu]);
+  const pick = fn => e => { stop(e); setMenu(false); fn(); };
 
   return (
     <div className={`card ${st}${dead ? ' dead-card' : ''}${selected ? ' sel' : ''}`}
@@ -83,15 +93,23 @@ function LaneCardInner({ lane, selected, featureState, onSelect, onAction, onCre
       {!viewing && lane.needs_action && <div className="needs-line">{'\u{1F64B}'} {lane.needs_action}</div>}
       {(viewing ? viewing.notes : lane.notes) && <div className="notes">{viewing ? viewing.notes : lane.notes}</div>}
       <div className="actions">
-        {free && <button className="add" onClick={e => { stop(e); onAssign(lane.lane); }} title="giao việc cho lane này">＋ Giao việc</button>}
+        {free && <button className="primary" onClick={e => { stop(e); onAssign(lane.lane); }} title="giao việc cho lane này">＋ Giao việc</button>}
         <button onClick={e => { stop(e); onAction(lane.lane, 'up'); }} title="boot / rebuild this lane's stack">{'▶'} up</button>
         <button onClick={e => { stop(e); onAction(lane.lane, 'down'); }} title="stop this lane's stack">{'■'} down</button>
-        <button onClick={e => { stop(e); onAction(lane.lane, 'clear'); }} title="reset the status fields only">{'\u{1F9F9}'} clear</button>
-        <button onClick={e => { stop(e); onCreds(lane.lane, 'agents'); }} title="re-push harness templates">{'♻'} agents</button>
-        <button onClick={e => { stop(e); onCreds(lane.lane, 'creds'); }} title="edit accounts">{'\u{1F511}'} creds</button>
         <span className="spacer" />
-        <button className="warn" onClick={e => { stop(e); onAction(lane.lane, 'reset'); }} title="clean dev + fresh DB">{'⟳'} reset</button>
-        <button className="warn" onClick={e => { stop(e); onAction(lane.lane, 'remove'); }} title="delete lane">{'\u{1F5D1}'}</button>
+        <div className="more">
+          <button className="more-btn" aria-haspopup="menu" aria-expanded={menu} title="more actions"
+            onClick={e => { stop(e); setMenu(m => !m); }}>{'⋯'}</button>
+          {menu && (
+            <div className="more-menu" role="menu" onClick={stop}>
+              <button role="menuitem" onClick={pick(() => onAction(lane.lane, 'clear'))} title="reset the status fields only">{'\u{1F9F9}'} clear</button>
+              <button role="menuitem" onClick={pick(() => onCreds(lane.lane, 'agents'))} title="re-push harness templates">{'♻'} agents</button>
+              <button role="menuitem" onClick={pick(() => onCreds(lane.lane, 'creds'))} title="edit accounts">{'\u{1F511}'} creds</button>
+              <button role="menuitem" className="warn" onClick={pick(() => onAction(lane.lane, 'reset'))} title="clean dev + fresh DB">{'⟳'} reset</button>
+              <button role="menuitem" className="warn" onClick={pick(() => onAction(lane.lane, 'remove'))} title="delete lane">{'\u{1F5D1}'} remove</button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
