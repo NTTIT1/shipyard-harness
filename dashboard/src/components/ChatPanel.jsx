@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useChat } from '../hooks/useChat.js';
 import StepModels from './StepModels.jsx';
-import { sendChat, answerChat, stopSession, resumeSession, fetchProviders, saveLaneModels } from '../lib/api.js';
+import { sendChat, answerChat, fetchProviders, saveLaneModels } from '../lib/api.js';
 
 // Shown when the lane is blocked (typically a step failed on its provider): edit the
 // feature's step models, save, and tell the session to continue.
@@ -91,23 +91,6 @@ function Event({ ev, pendingId, onAnswer }) {
   return null;
 }
 
-function StepsLine({ steps }) {
-  const byId = {};
-  for (const e of steps || []) byId[e.id] = { ...(byId[e.id] || {}), ...e };
-  const list = Object.values(byId).slice(-8);
-  if (!list.length) return null;
-  return (
-    <div className="steps-line">
-      {list.map(s => (
-        <span key={s.id} className={`schip ${s.event === 'end' ? (s.exit === 0 ? 'ok' : 'bad') : 'run'}`}
-          title={s.error || s.verdict || ''}>
-          {s.step} → {String(s.model).replace(/^claude:claude-/, '')} · {s.event === 'end' ? (s.exit === 0 ? 'xong' : `lỗi ${s.exit}`) : 'đang chạy'}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 export default function ChatPanel({ lane }) {
   const n = lane.lane;
   const { events, status } = useChat(n);
@@ -125,18 +108,12 @@ export default function ChatPanel({ lane }) {
   const [changing, setChanging] = useState(false);
   const blocked = lane.status === 'blocked' && status.session_running;
 
-  if (!events.length && !status.session_running && !status.session_resumable) return null;
+  if (!events.length && !status.session_running && !status.session_resumable) {
+    return <p className="empty">Chưa có phiên chat cho lane này — bấm “Giao việc” để bắt đầu.</p>;
+  }
 
   return (
     <div className="chat">
-      <div className="chat-head">
-        <b>Lane {n}</b> · {lane.feature_title || '—'} · <span className="stagechip q">{lane.stage}</span>
-        <span className="chat-actions">
-          {status.session_running && <button className="warn" onClick={act(() => stopSession(n))}>⏹ Dừng</button>}
-          {!status.session_running && status.session_resumable && <button className="add" onClick={act(() => resumeSession(n))}>▶ Tiếp tục</button>}
-        </span>
-      </div>
-      <StepsLine steps={lane.steps} />
       <div className="chat-log" ref={logRef}>
         {events.map((ev, i) => <Event key={`${i}-${ev.seq}`} ev={ev} pendingId={pendingId} onAnswer={answer} />)}
       </div>

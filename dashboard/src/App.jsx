@@ -3,10 +3,16 @@ import { useLanes } from './hooks/useLanes.js';
 import { useProof } from './hooks/useProof.js';
 import { useReviews } from './hooks/useReviews.js';
 import { postAction, deleteProof } from './lib/api.js';
-import { fmtAge, hbClass } from './lib/format.js';
-import Header from './components/Header.jsx';
-import LaneGrid from './components/LaneGrid.jsx';
-import PipelineMap from './components/PipelineMap.jsx';
+import { useTheme } from './hooks/useTheme.js';
+import { laneAttention } from './lib/laneview.js';
+import { Menu as MenuIcon, Plus } from 'lucide-react';
+import Sidebar from './components/Sidebar.jsx';
+import LaneHeader from './components/LaneHeader.jsx';
+import LaneOverview from './components/LaneOverview.jsx';
+import SpecLinks from './components/SpecLinks.jsx';
+import Tabs from './components/ui/Tabs.jsx';
+import Button from './components/ui/Button.jsx';
+import IconButton from './components/ui/IconButton.jsx';
 import ProofGallery from './components/ProofGallery.jsx';
 import ReviewTable from './components/ReviewTable.jsx';
 import Lightbox from './components/Lightbox.jsx';
@@ -41,9 +47,6 @@ export default function App() {
   }, [lanes, selectedLane]);
 
   const selectedLaneData = lanes.find(l => l.lane === selectedLane);
-  const [selHbText, selHbAgeCls] = fmtAge(selectedLaneData?.heartbeat_age_sec);
-  const selHbCls = hbClass(selectedLaneData?.liveness, selHbAgeCls);
-  const selDead = selectedLaneData?.liveness === 'dead';
 
   const { proof, loadProof, selectFeature, selectedSlug } = useProof(selectedLane, lanes);
   const { reviews, loadReviews } = useReviews(selectedLane, lanes);
@@ -71,7 +74,6 @@ export default function App() {
           feature_title: selectedFeatureState.feature_title || selectedSlug,
           stage_age_sec: null, liveness: 'idle' }
       : proofOnly;
-  const cardFeatureState = !viewingPast ? null : (selectedFeatureState || proofOnly);
 
   // soft refresh proof/reviews on each data tick
   useEffect(() => {
@@ -149,38 +151,61 @@ export default function App() {
     setGallery({ slug, g, imgs: f.groups[g] || [], lane: proof.lane });
   }, [proof]);
 
-  return (
-    <>
-      <Header lanes={lanes} onAddLane={() => setAddLane(true)} onProviders={() => setProviders(true)} onAssign={n => setAssign(n)} />
+  const { theme, toggle } = useTheme();
+  const [drawer, setDrawer] = useState(false);
+  const [tab, setTab] = useState('overview');
+  const attn = selectedLaneData ? laneAttention(selectedLaneData) : null;
+  // A lane that needs an answer opens on Chat; switching lanes otherwise resets to Overview.
+  useEffect(() => { setTab(attn === 'question' || attn === 'approve' ? 'chat' : 'overview'); }, [selectedLane]);
+  useEffect(() => { if (attn === 'question' || attn === 'approve') setTab('chat'); }, [attn]);
+  const proofCount = (() => {
+    const f = (proof?.features || []).find(x => x.slug === (selectedSlug || proof?._cur));
+    return f ? Object.values(f.groups || {}).reduce((a, g) => a + g.length, 0) : 0;
+  })();
+  const headLane = viewingPast ? mapLane : selectedLaneData;
 
-      {selectedLaneData && (
-        selectedLaneData.mode === 'pr-review' ? (
-          <div className="mapwrap">
-            <div className="maphead">
-              <b>Lane {selectedLaneData.lane}</b>
-              <span className="stagechip q">{selectedLaneData.stage}</span>
-              <span style={{ color: 'var(--dim)' }}>{selectedLaneData.feature_title || '(idle)'}</span>
-              {selDead && <span className="badge b-dead"><span className="dot" />{' '}dead — review loop stopped</span>}
-              <span className={`hbchip ${selHbCls}`} title="review-loop heartbeat">{'♥'} {selHbText}</span>
-              <span className="hint">click a card to map another lane</span>
-            </div>
-            <ReviewTable reviews={reviews} needsAction={selectedLaneData.needs_action} config={config} />
+  return (
+    <div className="app">
+      <Sidebar lanes={lanes} selected={selectedLane} onSelect={setSelectedLane}
+        onAssign={n => setAssign(n)} onAddLane={() => setAddLane(true)} onProviders={() => setProviders(true)}
+        theme={theme} onToggleTheme={toggle} open={drawer} onClose={() => setDrawer(false)} />
+      <main className="main">
+        <div className="topbar">
+          <IconButton icon={MenuIcon} label="Mở danh sách lane" onClick={() => setDrawer(true)} />
+          <b>Shipyard</b>
+        </div>
+        {!selectedLaneData ? (
+          <div className="empty-state">
+            <h1>Chưa có lane nào</h1>
+            <p>Thêm lane để bắt đầu, rồi giao việc cho nó.</p>
+            <Button variant="primary" icon={Plus} onClick={() => setAddLane(true)}>Thêm lane</Button>
           </div>
         ) : (
           <>
-            <PipelineMap lane={mapLane} config={config} archived={viewingPast} />
-            {!viewingPast && <ChatPanel key={selectedLane} lane={selectedLaneData} />}
-            <div className="mapwrap" style={{ padding: '0 18px 6px', marginTop: '-12px', borderTop: 'none', boxShadow: 'none', background: 'transparent' }}>
-              <ProofGallery proof={proof} selectedLane={selectedLane} selectedSlug={selectedSlug}
-                onSelectFeature={selectFeature} onShot={openShot} onGallery={openGallery}
-                onCleanup={handleCleanup} />
-            </div>
+            <LaneHeader lane={headLane} archived={viewingPast} onAction={handleAction} onCreds={handleCreds}
+              onAssign={n => setAssign(n)} onTab={setTab} />
+            {selectedLaneData.mode === 'pr-review' ? (
+              <div className="tabpanel"><ReviewTable reviews={reviews} needsAction={selectedLaneData.needs_action} config={config} /></div>
+            ) : (
+              <>
+                <Tabs value={tab} onChange={setTab} items={[
+                  { id: 'overview', label: 'Tổng quan' },
+                  { id: 'chat', label: 'Chat', dot: attn === 'question' || attn === 'approve' },
+                  { id: 'proof', label: 'Ảnh QC', badge: proofCount || null },
+                  ...(headLane.spec_dir ? [{ id: 'spec', label: 'Spec' }] : []),
+                ]} />
+                <div className="tabpanel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+                  {tab === 'overview' && <LaneOverview lane={mapLane} config={config} archived={viewingPast} />}
+                  {tab === 'chat' && <ChatPanel key={selectedLane} lane={selectedLaneData} />}
+                  {tab === 'proof' && <ProofGallery proof={proof} selectedLane={selectedLane} selectedSlug={selectedSlug}
+                    onSelectFeature={selectFeature} onShot={openShot} onGallery={openGallery} onCleanup={handleCleanup} />}
+                  {tab === 'spec' && <SpecLinks lane={headLane} />}
+                </div>
+              </>
+            )}
           </>
-        )
-      )}
-
-      <LaneGrid lanes={lanes} selectedLane={selectedLane} featureState={cardFeatureState}
-        onSelect={n => setSelectedLane(n)} onAction={handleAction} onCreds={handleCreds} onAssign={n => setAssign(n)} />
+        )}
+      </main>
 
       {confirm && (
         <ConfirmModal lane={confirm.lane} action={confirm.action}
@@ -202,6 +227,6 @@ export default function App() {
       )}
       <GalleryModal gallery={gallery} onClose={() => setGallery(null)} onShot={openShot} />
       <Lightbox shot={shot} onClose={() => setShot(null)} onNav={shotNav} />
-    </>
+    </div>
   );
 }
