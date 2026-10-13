@@ -169,7 +169,7 @@ export default function App() {
         ) : (
           <>
             <PipelineMap lane={mapLane} config={config} archived={viewingPast} />
-            {!viewingPast && <ChatPanel lane={selectedLaneData} />}
+            {!viewingPast && <ChatPanel key={selectedLane} lane={selectedLaneData} />}
             <div className="mapwrap" style={{ padding: '0 18px 6px', marginTop: '-12px', borderTop: 'none', boxShadow: 'none', background: 'transparent' }}>
               <ProofGallery proof={proof} selectedLane={selectedLane} selectedSlug={selectedSlug}
                 onSelectFeature={selectFeature} onShot={openShot} onGallery={openGallery}

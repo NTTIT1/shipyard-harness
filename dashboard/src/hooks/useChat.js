@@ -6,6 +6,8 @@ export function useChat(n) {
   const [events, setEvents] = useState([]);
   const [status, setStatus] = useState({ session_running: false, session_resumable: false, pending_kind: '' });
   useEffect(() => {
+    setEvents([]);
+    setStatus({ session_running: false, session_resumable: false, pending_kind: '' });
     if (n == null) return undefined;
     const es = new EventSource(`/api/lane/${n}/chat/stream`);
     es.onmessage = m => {

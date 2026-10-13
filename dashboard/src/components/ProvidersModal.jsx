@@ -37,14 +37,22 @@ export default function ProvidersModal({ onClose }) {
     } catch (e) { setMsg(m => ({ ...m, [id]: `✗ ${e.message}` })); }
   };
 
-  const remove = async id => { await saveProviders({ [id]: { remove: true } }); await load(); };
+  const remove = async id => {
+    const label = info?.providers[id]?.label || id;
+    if (!window.confirm(`Xoá nhà cung cấp ${label}? Key đã lưu sẽ mất.`)) return;
+    try { setError(''); await saveProviders({ [id]: { remove: true } }); await load(); }
+    catch (e) { setError(e.message); }
+  };
 
   const addCustom = async () => {
     const slug = newCustom.trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-|-$/g, '');
     if (!slug) return;
-    await saveProviders({ [`custom-${slug}`]: { label: newCustom.trim(), base_url: '' } });
-    setNewCustom('');
-    await load();
+    try {
+      setError('');
+      await saveProviders({ [`custom-${slug}`]: { label: newCustom.trim(), base_url: '' } });
+      setNewCustom('');
+      await load();
+    } catch (e) { setError(e.message); }
   };
 
   const save = async () => {
