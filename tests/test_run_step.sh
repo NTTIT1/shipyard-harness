@@ -8,15 +8,21 @@ export CLAUDE_BIN="$TMPH/fakebin/claude"
 # Fake claude: records argv + gateway env, replies with $FAKE_RESULT as -p json output.
 cat > "$CLAUDE_BIN" <<'EOF'
 #!/usr/bin/env bash
-{ printf '%s\n' "$@"; echo "BASE=${ANTHROPIC_BASE_URL:-}"; echo "TOKEN=${ANTHROPIC_AUTH_TOKEN:-}"; echo "PWD=$PWD"; } > "$HARNESS_ROOT/claude.args"
+{ printf '%s\n' "$@"; echo "BASE=${ANTHROPIC_BASE_URL:-}"; echo "TOKEN=${ANTHROPIC_AUTH_TOKEN:-}"; echo "PWD=$PWD"; echo "OPUS=${ANTHROPIC_DEFAULT_OPUS_MODEL:-}"; echo "SONNET=${ANTHROPIC_DEFAULT_SONNET_MODEL:-}"; echo "HAIKU=${ANTHROPIC_DEFAULT_HAIKU_MODEL:-}"; echo "STDIN=$(readlink /proc/self/fd/0)"; } > "$HARNESS_ROOT/claude.args"
+[ -n "${FAKE_ERRJSON:-}" ] && { echo '{"type":"result","subtype":"error_during_execution","is_error":true,"result":"API Error: 529 overloaded_error"}'; exit 1; }
 [ -n "${FAKE_EXIT:-}" ] && { echo "API Error: 401 invalid key" >&2; exit "$FAKE_EXIT"; }
 python3 -c 'import json,os;print(json.dumps({"type":"result","subtype":"success","is_error":os.environ.get("FAKE_ERR")=="1","result":os.environ["FAKE_RESULT"]}))'
 EOF
 cat > "$TMPH/fakebin/curl" <<'EOF'
 #!/usr/bin/env bash
+[ -n "${FAKE_CURL_FAIL:-}" ] && exit 7
 exit 0
 EOF
-chmod +x "$CLAUDE_BIN" "$TMPH/fakebin/curl"
+cat > "$TMPH/fakebin/docker" <<'EOF'
+#!/usr/bin/env bash
+exit 1
+EOF
+chmod +x "$CLAUDE_BIN" "$TMPH/fakebin/curl" "$TMPH/fakebin/docker"
 export PATH="$TMPH/fakebin:$PATH"
 P="$TMPH/prompt.md"; echo "review the gate" > "$P"
 rs() { bash "$REPO/bin/run-step.sh" "$@"; }
@@ -65,7 +71,56 @@ assert_contains "$LAST" "rate limited" "error recorded in steps[]"
 EVENTS="$(st 2 get steps | python3 -c 'import json,sys;print(" ".join(e["event"] for e in json.load(sys.stdin)))')"
 assert_eq "start end start end start end start end start end start end" "$EVENTS" "start+end recorded per run"
 
-# 6. usage
+# 6. hardening
+echo "gate" > "$P"
+# 6.1 real error text from stdout JSON, empty stderr
+FAKE_ERRJSON=1 FAKE_RESULT=x rs 2 senior-gate "$P" >/dev/null 2>&1; rc=$?
+assert_eq "2" "$rc" "stdout error JSON -> exit 2"
+LAST="$(st 2 get steps | python3 -c 'import json,sys;print(json.load(sys.stdin)[-1]["error"])')"
+assert_contains "$LAST" "API Error: 529 overloaded_error" "error text taken from stdout JSON result"
+# 6.2 stdin is /dev/null
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" >/dev/null
+assert_contains "$(cat "$HARNESS_ROOT/claude.args")" "STDIN=/dev/null" "claude stdin is /dev/null"
+# 6.3 gateway aliases for opus/sonnet/haiku
+FAKE_RESULT='ok' rs 2 code-review "$P" >/dev/null
+A="$(cat "$HARNESS_ROOT/claude.args")"
+assert_contains "$A" "OPUS=openai/gpt-x" "opus alias -> gateway alias"
+assert_contains "$A" "SONNET=openai/gpt-x" "sonnet alias -> gateway alias"
+# 6.4 Claude branch drops inherited gateway env
+FAKE_RESULT='VERDICT: GO' ANTHROPIC_BASE_URL=http://x ANTHROPIC_AUTH_TOKEN=t ANTHROPIC_DEFAULT_OPUS_MODEL=o ANTHROPIC_DEFAULT_SONNET_MODEL=s ANTHROPIC_DEFAULT_HAIKU_MODEL=h rs 2 senior-gate "$P" >/dev/null
+A="$(cat "$HARNESS_ROOT/claude.args")"
+assert_contains "$A" $'BASE=\nTOKEN=\n' "claude branch: no inherited base url/token"
+assert_contains "$A" $'OPUS=\nSONNET=\nHAIKU=\n' "claude branch: no inherited model aliases"
+# 6.5 oversized prompt -> 64, no claude call
+rm -f "$HARNESS_ROOT/claude.args"
+head -c 120000 /dev/zero | tr '\0' 'a' > "$TMPH/big.md"
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$TMPH/big.md" >/dev/null 2>"$TMPH/err"; rc=$?
+assert_eq "64" "$rc" "oversized prompt -> 64"
+assert_contains "$(cat "$TMPH/err")" "too large" "oversized prompt message"
+[ ! -e "$HARNESS_ROOT/claude.args" ]; assert_eq "0" "$?" "claude not called for oversized prompt"
+# 6.6 gateway unreachable and start fails
+FAKE_CURL_FAIL=1 FAKE_RESULT=ok rs 2 code-review "$P" >/dev/null 2>&1; rc=$?
+assert_eq "2" "$rc" "gateway down + start fails -> exit 2"
+LAST="$(st 2 get steps | python3 -c 'import json,sys;print(json.load(sys.stdin)[-1]["error"])')"
+assert_contains "$LAST" "gateway not reachable" "gateway failure recorded"
+# 6.7 missing gateway_key
+echo '{"providers":{}}' > "$HARNESS_ROOT/config/providers.json"
+FAKE_RESULT=ok rs 2 code-review "$P" >/dev/null 2>&1; rc=$?
+assert_eq "2" "$rc" "no gateway_key -> exit 2"
+LAST="$(st 2 get steps | python3 -c 'import json,sys;print(json.load(sys.stdin)[-1]["error"])')"
+assert_contains "$LAST" "no gateway_key" "missing key recorded"
+echo '{"providers":{},"gateway_key":"sk-gw-test"}' > "$HARNESS_ROOT/config/providers.json"
+# 6.8 plan-critic has no --agent
+FAKE_RESULT=ok rs 2 plan-critic "$P" >/dev/null
+case "$(cat "$HARNESS_ROOT/claude.args")" in *--agent*) assert_eq "no agent" "agent" "plan-critic has no --agent";; *) assert_eq 1 1 x;; esac
+# 6.9 record failure is reported on stderr, non-fatal
+chmod -R a-w "$HARNESS_ROOT/state/lane2"
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" >/dev/null 2>"$TMPH/err"; rc=$?
+chmod -R u+w "$HARNESS_ROOT/state/lane2"
+assert_eq "0" "$rc" "record failure is non-fatal"
+assert_contains "$(cat "$TMPH/err")" "harness: run-step: could not record step event" "record failure reported"
+
+# 7. usage
 rs 2 nope "$P" >/dev/null 2>&1; assert_eq "64" "$?" "unknown step -> 64"
 
 finish
