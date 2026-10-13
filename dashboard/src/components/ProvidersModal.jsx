@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { Trash2, Plus, Check } from 'lucide-react';
+import Button from './ui/Button.jsx';
 import Modal from './Modal.jsx';
 import StepModels from './StepModels.jsx';
 import { fetchProviders, saveProviders, testProvider, saveModelDefaults, restartGateway } from '../lib/api.js';
@@ -32,9 +34,9 @@ export default function ProvidersModal({ onClose }) {
     try {
       await saveKeys();
       const r = await testProvider(id);
-      setMsg(m => ({ ...m, [id]: `✓ ${r.models.length} model` }));
+      setMsg(m => ({ ...m, [id]: `${r.models.length} model` }));
       await load();
-    } catch (e) { setMsg(m => ({ ...m, [id]: `✗ ${e.message}` })); }
+    } catch (e) { setMsg(m => ({ ...m, [id]: `lỗi: ${e.message}` })); }
   };
 
   const remove = async id => {
@@ -66,8 +68,8 @@ export default function ProvidersModal({ onClose }) {
 
   const gw = async () => {
     setMsg(m => ({ ...m, _gw: 'đang khởi động lại…' }));
-    try { const r = await restartGateway(); setMsg(m => ({ ...m, _gw: r.ok ? '✓ đã chạy' : `✗ ${r.output}` })); await load(); }
-    catch (e) { setMsg(m => ({ ...m, _gw: `✗ ${e.message}` })); }
+    try { const r = await restartGateway(); setMsg(m => ({ ...m, _gw: r.ok ? 'đã chạy' : `lỗi: ${r.output}` })); await load(); }
+    catch (e) { setMsg(m => ({ ...m, _gw: `lỗi: ${e.message}` })); }
   };
 
   return (
@@ -77,7 +79,7 @@ export default function ProvidersModal({ onClose }) {
         <>
           <div className="prov-row">
             <span className="prov-name">Claude</span>
-            <span className="prov-ok">✓ dùng tài khoản Claude đã đăng nhập trên máy</span>
+            <span className="prov-ok"><Check size={13} strokeWidth={2} aria-hidden="true" /> dùng tài khoản Claude đã đăng nhập trên máy</span>
           </div>
           {Object.entries(info.providers).map(([id, p]) => (
             <div className="prov-row" key={id}>
@@ -91,20 +93,20 @@ export default function ProvidersModal({ onClose }) {
                   placeholder={p.key_hint ? `đã lưu ${p.key_hint} — nhập để thay` : 'API key'}
                   onChange={e => edit(id, 'api_key', e.target.value)} />
               )}
-              <button onClick={() => test(id)}>Kiểm tra</button>
-              {(p.configured || p.custom) && <button className="warn" onClick={() => remove(id)} title="xoá nhà cung cấp này">🗑</button>}
+              <Button size="sm" onClick={() => test(id)}>Kiểm tra</Button>
+              {(p.configured || p.custom) && <Button size="sm" variant="danger" icon={Trash2} onClick={() => remove(id)} title="xoá nhà cung cấp này" aria-label="xoá nhà cung cấp này" />}
               <span className="prov-msg">{msg[id] || (p.models.length ? `${p.models.length} model` : '')}</span>
             </div>
           ))}
           <div className="prov-row">
             <input className="prov-in" placeholder="Tên nhà cung cấp tuỳ chỉnh (URL tương thích OpenAI)"
               value={newCustom} onChange={e => setNewCustom(e.target.value)} />
-            <button onClick={addCustom}>＋ Thêm</button>
+            <Button size="sm" icon={Plus} onClick={addCustom}>Thêm</Button>
           </div>
           <div className="prov-row">
             <span className="prov-name">Gateway</span>
             <span className={info.gateway.running ? 'prov-ok' : 'prov-msg'}>{info.gateway.running ? '● đang chạy :4000' : '○ chưa chạy (tự bật khi cần)'}</span>
-            <button onClick={gw}>Khởi động lại</button>
+            <Button size="sm" onClick={gw}>Khởi động lại</Button>
             <span className="prov-msg">{msg._gw || ''}</span>
           </div>
           <div className="m-l" style={{ marginTop: 14 }}>AI mặc định cho từng bước</div>

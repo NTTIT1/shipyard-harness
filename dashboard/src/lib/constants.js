@@ -1,16 +1,21 @@
+import {
+  FileText, Compass, Hammer, FlaskConical, Clapperboard, Eye, Search, ShieldCheck, GitPullRequest,
+  RefreshCw, GitMerge, Globe, CircleCheck, Wrench, OctagonX, Ticket,
+} from 'lucide-react';
+
 export const NODES = [
-  ['intake', '\u{1F4DD}', 43], ['plan', '\u{1F9ED}', 151], ['implement', '\u{1F6E0}️', 258], ['gates', '\u{1F9EA}', 366],
-  ['e2e', '\u{1F3AD}', 474], ['review', '\u{1F440}', 581], ['QC', '\u{1F50D}', 689], ['sr gate', '\u{1F6A6}', 797],
-  ['PR', '\u{1F500}', 904], ['watch PR', '\u{1F501}', 1012], ['merged', '\u{1F91D}', 1120], ['dev QC', '\u{1F310}', 1227],
-  ['done', '✅', 1335],
+  ['intake', FileText, 43], ['plan', Compass, 151], ['implement', Hammer, 258], ['gates', FlaskConical, 366],
+  ['e2e', Clapperboard, 474], ['review', Eye, 581], ['QC', Search, 689], ['sr gate', ShieldCheck, 797],
+  ['PR', GitPullRequest, 904], ['watch PR', RefreshCw, 1012], ['merged', GitMerge, 1120], ['dev QC', Globe, 1227],
+  ['done', CircleCheck, 1335],
 ];
 
 export const MAINY = 66;
 export const BUS = 196;
 export const BLKY = 146;
-export const FIXN = ['fix on branch', '\u{1F527}', 366, BUS];
-export const BLKN = ['', '⛔', 845, BLKY];
-export const TKT = ['ticket', '\u{1F3AB}', 948, 20];
+export const FIXN = ['fix on branch', Wrench, 366, BUS];
+export const BLKN = ['', OctagonX, 845, BLKY];
+export const TKT = ['ticket', Ticket, 948, 20];
 
 // One inner array per NODES entry; phaseIdx(stage) -> node index. Stage names
 // from the RETIRED integration flow (integrate/dev-gates/e2e-on-dev/push-dev,

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Play } from 'lucide-react';
 import Modal from './Modal.jsx';
 import StepModels from './StepModels.jsx';
 import { fetchProviders, fetchSpecs, assignLane } from '../lib/api.js';
@@ -43,7 +44,7 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
 
   return (
     <Modal wide title="Giao việc" onClose={onClose}
-      buttons={[{ label: 'Huỷ', fn: onClose, disabled: busy }, { label: busy ? 'Đang bắt đầu…' : '▶ Bắt đầu', cls: 'add', fn: submit, disabled: !canSubmit }]}>
+      buttons={[{ label: 'Huỷ', fn: onClose, disabled: busy }, { label: busy ? 'Đang bắt đầu…' : 'Bắt đầu', icon: busy ? undefined : Play, cls: 'add', fn: submit, disabled: !canSubmit }]}>
       {!free.length && initialLane == null ? <p className="m-text">Không có lane nào rảnh. Thêm lane hoặc chờ lane xong việc.</p> : (
         <>
           <label className="m-l">Lane
@@ -53,8 +54,8 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
           </label>
           <div className="m-l">Yêu cầu
             <span className="seg">
-              <label><input type="radio" checked={mode === 'new'} onChange={() => setMode('new')} /> Mô tả mới</label>
-              <label><input type="radio" checked={mode === 'spec'} disabled={!specs.length} onChange={() => setMode('spec')} /> Spec có sẵn</label>
+              <label className={mode === 'new' ? 'on' : ''}><input type="radio" name="assign-mode" checked={mode === 'new'} onChange={() => setMode('new')} /> Mô tả mới</label>
+              <label className={mode === 'spec' ? 'on' : ''}><input type="radio" name="assign-mode" checked={mode === 'spec'} disabled={!specs.length} onChange={() => setMode('spec')} /> Spec có sẵn</label>
             </span>
           </div>
           {mode === 'new'

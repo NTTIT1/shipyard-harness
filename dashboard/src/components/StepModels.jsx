@@ -1,4 +1,5 @@
 import React from 'react';
+import { TriangleAlert } from 'lucide-react';
 import ModelSelect from './ModelSelect.jsx';
 
 // One row per pipeline step. `value` = { [stepId]: "<provider>:<model>", impl_agents }.
@@ -18,7 +19,7 @@ export default function StepModels({ info, value, onChange }) {
                   onChange={e => set('impl_agents', parseInt(e.target.value, 10) || 1)} />
               </label>
             )}
-            {external && s.warn && <span className="step-warn">⚠ {s.warn}</span>}
+            {external && s.warn && <span className="step-warn"><TriangleAlert size={12} strokeWidth={1.75} aria-hidden="true" /> {s.warn}</span>}
           </div>
         );
       })}

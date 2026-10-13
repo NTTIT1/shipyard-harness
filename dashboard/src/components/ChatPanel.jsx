@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Check, CircleHelp, ShieldQuestion, Settings, OctagonX, Send } from 'lucide-react';
+import Button from './ui/Button.jsx';
 import { useChat } from '../hooks/useChat.js';
 import StepModels from './StepModels.jsx';
 import { sendChat, answerChat, fetchProviders, saveLaneModels } from '../lib/api.js';
@@ -25,7 +27,7 @@ function ChangeModels({ lane, onDone }) {
   return (
     <div className="chat-approve" style={{ display: 'block' }}>
       <StepModels info={info} value={value} onChange={setValue} />
-      <button className="add" onClick={save}>Lưu và tiếp tục</button>
+      <Button variant="primary" onClick={save}>Lưu và tiếp tục</Button>
       {error && <p className="m-err">{error}</p>}
     </div>
   );
@@ -64,7 +66,7 @@ function QuestionForm({ ev, onAnswer }) {
             onChange={e => setOther(s => ({ ...s, [q.question]: e.target.value }))} />
         </div>
       ))}
-      <button className="add" disabled={!complete} onClick={submit}>Gửi câu trả lời</button>
+      <Button variant="primary" disabled={!complete} onClick={submit}>Gửi câu trả lời</Button>
     </div>
   );
 }
@@ -72,21 +74,21 @@ function QuestionForm({ ev, onAnswer }) {
 function Event({ ev, pendingId, onAnswer }) {
   if (ev.kind === 'assistant') return <div className="ev ev-a">{ev.text}</div>;
   if (ev.kind === 'user') return <div className="ev ev-u">{ev.text}</div>;
-  if (ev.kind === 'tool') return <div className="ev ev-t">⚙ {ev.name} <span className="ev-s">{ev.summary}</span></div>;
+  if (ev.kind === 'tool') return <div className="ev ev-t"><Settings size={12} strokeWidth={1.75} aria-hidden="true" /> {ev.name} <span className="ev-s">{ev.summary}</span></div>;
   if (ev.kind === 'system' || ev.kind === 'ended') return <div className="ev ev-sys">{ev.kind === 'ended' ? 'phiên đã dừng' : ev.text}</div>;
   if (ev.kind === 'result') return null;
   if (ev.kind === 'answered') return <div className="ev ev-sys">↳ đã trả lời: {ev.text}</div>;
   if (ev.kind === 'question') {
     return ev.id === pendingId
-      ? <div className="ev ev-q">❓ Agent hỏi:<QuestionForm ev={ev} onAnswer={onAnswer} /></div>
-      : <div className="ev ev-sys">❓ {ev.questions.map(q => q.question).join(' · ')}</div>;
+      ? <div className="ev ev-q"><CircleHelp size={14} strokeWidth={1.75} aria-hidden="true" /> Agent hỏi:<QuestionForm ev={ev} onAnswer={onAnswer} /></div>
+      : <div className="ev ev-sys"><CircleHelp size={12} strokeWidth={1.75} aria-hidden="true" /> {ev.questions.map(q => q.question).join(' · ')}</div>;
   }
   if (ev.kind === 'permission') {
     return ev.id === pendingId
-      ? <div className="ev ev-q">🔐 Agent xin chạy <b>{ev.tool}</b>: <span className="ev-s">{ev.summary}</span>
-          <div><button className="add" onClick={() => onAnswer({ allow: true })}>Cho phép</button>{' '}
-          <button className="warn" onClick={() => onAnswer({ allow: false })}>Từ chối</button></div></div>
-      : <div className="ev ev-sys">🔐 {ev.tool}</div>;
+      ? <div className="ev ev-q"><ShieldQuestion size={14} strokeWidth={1.75} aria-hidden="true" /> Agent xin chạy <b>{ev.tool}</b>: <span className="ev-s">{ev.summary}</span>
+          <div className="ev-btns"><Button variant="primary" size="sm" onClick={() => onAnswer({ allow: true })}>Cho phép</Button>
+          <Button variant="danger" size="sm" onClick={() => onAnswer({ allow: false })}>Từ chối</Button></div></div>
+      : <div className="ev ev-sys"><ShieldQuestion size={12} strokeWidth={1.75} aria-hidden="true" /> {ev.tool}</div>;
   }
   return null;
 }
@@ -120,13 +122,13 @@ export default function ChatPanel({ lane }) {
       {awaitingSpec && (
         <div className="chat-approve">
           Spec/plan/tasks đã sẵn sàng{lane.spec_dir ? <> — <a href={`/spec/${n}/${lane.spec_dir}/spec.md`} target="_blank" rel="noreferrer">spec</a> · <a href={`/spec/${n}/${lane.spec_dir}/plan.md`} target="_blank" rel="noreferrer">plan</a> · <a href={`/spec/${n}/${lane.spec_dir}/tasks.md`} target="_blank" rel="noreferrer">tasks</a></> : null}
-          {' '}<button className="add" onClick={() => send('ok')}>✓ Duyệt</button>
+          {' '}<Button variant="primary" size="sm" icon={Check} onClick={() => send('ok')}>Duyệt</Button>
           <span className="hint">hoặc gõ yêu cầu sửa bên dưới</span>
         </div>
       )}
       {blocked && !changing && (
         <div className="chat-approve">
-          ⛔ {lane.notes || 'lane bị chặn'} <button onClick={() => setChanging(true)}>Đổi model bước này</button>
+          <OctagonX size={14} strokeWidth={1.75} aria-hidden="true" /> {lane.notes || 'lane bị chặn'} <Button size="sm" onClick={() => setChanging(true)}>Đổi model bước này</Button>
         </div>
       )}
       {blocked && changing && <ChangeModels lane={lane} onDone={() => setChanging(false)} />}
@@ -134,7 +136,7 @@ export default function ChatPanel({ lane }) {
         <div className="chat-input">
           <textarea rows={2} value={text} placeholder="Nhắn cho lane…" onChange={e => setText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && text.trim()) { e.preventDefault(); send(text.trim()); } }} />
-          <button className="add" disabled={!text.trim()} onClick={() => send(text.trim())}>Gửi</button>
+          <Button variant="primary" icon={Send} disabled={!text.trim()} onClick={() => send(text.trim())}>Gửi</Button>
         </div>
       )}
       {error && <p className="m-err">{error}</p>}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Eye, EyeOff, Hourglass, Check, X } from 'lucide-react';
 import Modal from './Modal.jsx';
 import { fetchCreds, postAction } from '../lib/api.js';
 
@@ -10,7 +11,7 @@ function PwField({ id, label, value, onChange }) {
         <input id={id} type={show ? 'text' : 'password'} value={value} onChange={onChange}
           autoComplete="off" autoCapitalize="off" spellCheck="false" />
         <button type="button" className={`m-eye ${show ? 'on' : ''}`} tabIndex={-1}
-          onClick={() => setShow(!show)} title="show / hide">{'\u{1F441}'}</button>
+          onClick={() => setShow(!show)} title="show / hide" aria-label="show / hide">{show ? <EyeOff size={14} strokeWidth={1.75} aria-hidden="true" /> : <Eye size={14} strokeWidth={1.75} aria-hidden="true" />}</button>
       </span>
     </label>
   );
@@ -39,7 +40,7 @@ export default function CredentialsModal({ lane, mode, config, onClose, onDone }
       <Modal title={`Lane ${lane}${mode === 'agents' ? ': agents re-populated' : ': credentials'}`}
         onClose={() => { onClose(); onDone(); }}
         buttons={[{ label: 'Close', fn: () => { onClose(); onDone(); } }]}>
-        <div className={`m-status ${result.ok ? 'ok' : 'bad'}`}>{result.ok ? '✓ done' : '✕ failed'}</div>
+        <div className={`m-status ${result.ok ? 'ok' : 'bad'}`}>{result.ok ? <Check size={14} strokeWidth={2} aria-hidden="true" /> : <X size={14} strokeWidth={2} aria-hidden="true" />} {result.ok ? 'done' : 'failed'}</div>
         <pre className="m-out">{result.output || '(no output)'}</pre>
       </Modal>
     );
@@ -49,7 +50,7 @@ export default function CredentialsModal({ lane, mode, config, onClose, onDone }
     return (
       <Modal title={`Lane ${lane}${mode === 'agents' ? ': re-populating agents' : ': applying credentials'}`}
         onClose={() => {}} buttons={[]}>
-        <p className="m-spin">{'⏳'} Writing creds → re-embedding agents → {mode === 'agents' ? 'syncing MCP' : 're-seeding sessions'} — please wait…</p>
+        <p className="m-spin"><Hourglass size={14} strokeWidth={1.75} aria-hidden="true" /> Writing creds → re-embedding agents → {mode === 'agents' ? 'syncing MCP' : 're-seeding sessions'} — please wait…</p>
       </Modal>
     );
   }
@@ -57,7 +58,7 @@ export default function CredentialsModal({ lane, mode, config, onClose, onDone }
   if (!creds) {
     return (
       <Modal title="Loading…" onClose={onClose} buttons={[{ label: 'Cancel', fn: onClose }]}>
-        <p className="m-spin">{'⏳'} Loading current credentials…</p>
+        <p className="m-spin"><Hourglass size={14} strokeWidth={1.75} aria-hidden="true" /> Loading current credentials…</p>
       </Modal>
     );
   }
