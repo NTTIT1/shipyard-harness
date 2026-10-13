@@ -1,7 +1,7 @@
 import React from 'react';
 import { fmtAge, fmtDur, prNum, hbClass } from '../lib/format.js';
 
-function LaneCardInner({ lane, selected, featureState, onSelect, onAction, onCreds }) {
+function LaneCardInner({ lane, selected, featureState, onSelect, onAction, onCreds, onAssign }) {
   const viewing = featureState || null;
   const st = viewing ? (viewing.status || 'idle') : (lane.status || 'idle');
   const gd = (viewing ? (viewing.gate_decision || '') : (lane.gate_decision || '')).toUpperCase();
@@ -16,6 +16,7 @@ function LaneCardInner({ lane, selected, featureState, onSelect, onAction, onCre
   const hasProgress = lane.progress != null;
   const awaiting = !viewing && st === 'waiting' && /-review$/.test(lane.stage || '');
   const specDir = viewing ? viewing.spec_dir : lane.spec_dir;
+  const free = !viewing && !lane.session_running && ['idle', 'down', ''].includes(lane.status || '');
 
   const stop = e => e.stopPropagation();
 
@@ -27,7 +28,8 @@ function LaneCardInner({ lane, selected, featureState, onSelect, onAction, onCre
         <span className="badges">
           {lane.needs_action && <span className="badge b-needs"><span className="dot" />{' '}needs you</span>}
           {dead && <span className="badge b-dead" title={`no heartbeat for ${age} — its Claude session likely died`}><span className="dot" />{' '}dead</span>}
-          {awaiting && <span className="badge b-waiting" title="lane đang chờ bạn duyệt — trả lời trong terminal của lane"><span className="dot" />{' '}⏸ chờ duyệt</span>}
+          {awaiting && <span className="badge b-waiting" title="lane đang chờ bạn duyệt — trả lời trong khung chat trên dashboard"><span className="dot" />{' '}⏸ chờ duyệt</span>}
+          {lane.pending_kind && <span className="badge b-waiting" title="agent đang hỏi — trả lời trong khung chat trên dashboard"><span className="dot" />{' '}❓ đang hỏi</span>}
           {!awaiting && <span className={`badge b-${st}`}><span className="dot" />{' '}{st}</span>}
         </span>
       </div>
@@ -81,6 +83,7 @@ function LaneCardInner({ lane, selected, featureState, onSelect, onAction, onCre
       {!viewing && lane.needs_action && <div className="needs-line">{'\u{1F64B}'} {lane.needs_action}</div>}
       {(viewing ? viewing.notes : lane.notes) && <div className="notes">{viewing ? viewing.notes : lane.notes}</div>}
       <div className="actions">
+        {free && <button className="add" onClick={e => { stop(e); onAssign(lane.lane); }} title="giao việc cho lane này">＋ Giao việc</button>}
         <button onClick={e => { stop(e); onAction(lane.lane, 'up'); }} title="boot / rebuild this lane's stack">{'▶'} up</button>
         <button onClick={e => { stop(e); onAction(lane.lane, 'down'); }} title="stop this lane's stack">{'■'} down</button>
         <button onClick={e => { stop(e); onAction(lane.lane, 'clear'); }} title="reset the status fields only">{'\u{1F9F9}'} clear</button>

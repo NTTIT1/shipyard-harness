@@ -14,6 +14,9 @@ import GalleryModal from './components/GalleryModal.jsx';
 import ConfirmModal from './components/ConfirmModal.jsx';
 import CredentialsModal from './components/CredentialsModal.jsx';
 import AddLaneModal from './components/AddLaneModal.jsx';
+import ProvidersModal from './components/ProvidersModal.jsx';
+import AssignModal from './components/AssignModal.jsx';
+import ChatPanel from './components/ChatPanel.jsx';
 
 export default function App() {
   const { data, refreshNow } = useLanes();
@@ -23,6 +26,8 @@ export default function App() {
   const [confirm, setConfirm] = useState(null);
   const [credsModal, setCredsModal] = useState(null);
   const [addLane, setAddLane] = useState(false);
+  const [providers, setProviders] = useState(false);
+  const [assign, setAssign] = useState(undefined); // undefined = closed, null = open w/o preselected lane, number = preselected
 
   const lanes = data?.lanes || [];
   const config = data?.config || {};
@@ -146,7 +151,7 @@ export default function App() {
 
   return (
     <>
-      <Header lanes={lanes} onAddLane={() => setAddLane(true)} />
+      <Header lanes={lanes} onAddLane={() => setAddLane(true)} onProviders={() => setProviders(true)} onAssign={n => setAssign(n)} />
 
       {selectedLaneData && (
         selectedLaneData.mode === 'pr-review' ? (
@@ -164,6 +169,7 @@ export default function App() {
         ) : (
           <>
             <PipelineMap lane={mapLane} config={config} archived={viewingPast} />
+            {!viewingPast && <ChatPanel lane={selectedLaneData} />}
             <div className="mapwrap" style={{ padding: '0 18px 6px', marginTop: '-12px', borderTop: 'none', boxShadow: 'none', background: 'transparent' }}>
               <ProofGallery proof={proof} selectedLane={selectedLane} selectedSlug={selectedSlug}
                 onSelectFeature={selectFeature} onShot={openShot} onGallery={openGallery}
@@ -174,7 +180,7 @@ export default function App() {
       )}
 
       <LaneGrid lanes={lanes} selectedLane={selectedLane} featureState={cardFeatureState}
-        onSelect={n => setSelectedLane(n)} onAction={handleAction} onCreds={handleCreds} />
+        onSelect={n => setSelectedLane(n)} onAction={handleAction} onCreds={handleCreds} onAssign={n => setAssign(n)} />
 
       {confirm && (
         <ConfirmModal lane={confirm.lane} action={confirm.action}
@@ -185,6 +191,11 @@ export default function App() {
       {credsModal && (
         <CredentialsModal lane={credsModal.lane} mode={credsModal.mode} config={config}
           onClose={() => setCredsModal(null)} onDone={refreshNow} />
+      )}
+      {providers && <ProvidersModal onClose={() => setProviders(false)} />}
+      {assign !== undefined && (
+        <AssignModal lanes={lanes} initialLane={assign} onClose={() => setAssign(undefined)}
+          onDone={n => { setSelectedLane(n); refreshNow(); }} />
       )}
       {addLane && (
         <AddLaneModal onClose={() => setAddLane(false)} onDone={refreshNow} />

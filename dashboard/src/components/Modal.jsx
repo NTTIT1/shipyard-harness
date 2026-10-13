@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-export default function Modal({ title, children, buttons, onClose }) {
+export default function Modal({ title, children, buttons, onClose, wide }) {
   useEffect(() => {
     const h = e => {
       if (e.key === 'Escape') {
@@ -14,7 +14,7 @@ export default function Modal({ title, children, buttons, onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-panel" onClick={e => e.stopPropagation()}>
+      <div className={`modal-panel${wide ? ' wide' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="modal-title">{title}</div>
         <div className="modal-body">{children}</div>
         <div className="modal-foot">
