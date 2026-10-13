@@ -12,3 +12,14 @@ export function specFile(n, relpath) {
   if (p.startsWith(base + path.sep) && /\.md$/i.test(p) && fs.statSync(p).isFile()) return p;
   return null;
 }
+
+// Spec dirs in the lane clone that have a spec.md — newest first (dirs are date-prefixed).
+export function listSpecs(n) {
+  const dir = path.join(process.env.LANES_ROOT || LANES_ROOT, `lane${n}`, 'specs');
+  try {
+    return fs.readdirSync(dir, { withFileTypes: true })
+      .filter(e => e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'spec.md')))
+      .map(e => `specs/${e.name}`)
+      .sort().reverse();
+  } catch { return []; }
+}

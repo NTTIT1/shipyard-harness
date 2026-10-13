@@ -1,0 +1,30 @@
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import agentuiRoutes from './routes/agentui.js';
+import lanesRoutes from './routes/lanes.js';
+import proofRoutes from './routes/proof.js';
+import credsRoutes from './routes/creds.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export function createApp() {
+  const app = express();
+  app.use(express.json());
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && !origin.startsWith(`http://127.0.0.1:`) && !origin.startsWith(`http://localhost:`)) {
+      return res.status(403).end('Forbidden');
+    }
+    next();
+  });
+  // agentui first: its POST /api/lane/:n/assign would otherwise hit lanes' /:action.
+  app.use(agentuiRoutes);
+  app.use(lanesRoutes);
+  app.use(proofRoutes);
+  app.use(credsRoutes);
+  const dist = path.join(__dirname, '..', 'dist');
+  app.use(express.static(dist));
+  app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
+  return app;
+}

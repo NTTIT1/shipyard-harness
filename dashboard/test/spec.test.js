@@ -36,3 +36,11 @@ describe('specFile', () => {
     expect(specFile(7, 'specs/a/spec.md')).toBeNull();
   });
 });
+
+describe('listSpecs', () => {
+  it('lists spec dirs that have a spec.md', async () => {
+    const { listSpecs } = await import('../server/services/spec.js');
+    expect(listSpecs(2)).toEqual(['specs/2026-10-12-x']);
+    expect(listSpecs(7)).toEqual([]);
+  });
+});

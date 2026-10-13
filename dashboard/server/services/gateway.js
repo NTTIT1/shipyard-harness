@@ -1,4 +1,4 @@
-import { spawnSync } from 'child_process';
+import { spawnSync, spawn } from 'child_process';
 import path from 'path';
 import { BIN } from './config.js';
 
@@ -22,3 +22,8 @@ export async function ensureGateway() {
 }
 
 export function restartGateway() { return run('restart'); }
+
+// Non-blocking: a running gateway is stale after keys/models change.
+export function restartGatewayInBackground() {
+  spawn('bash', [path.join(BIN, 'gateway.sh'), 'restart'], { detached: true, stdio: 'ignore' }).unref();
+}
