@@ -121,4 +121,24 @@ describe('sessions', () => {
     expect(log).toContain('***');
     S.stopSession(6);
   });
+
+  it('survives a malformed providers.json: still redacts key shapes and can be stopped', async () => {
+    const pf = path.join(tmp, 'config', 'providers.json');
+    const good = fs.readFileSync(pf, 'utf8');
+    fs.writeFileSync(pf, '{not json');
+    try {
+      S.configureSessions({ query: fakeQuery([{ type: 'assistant', message: { content: [{ type: 'text', text: 'key sk-live-SECRETSECRET' }] } }, { waitInput: true }]) });
+      expect(() => S.startSession(7, { model: 'claude-opus-5-5', prompt: 'x' })).not.toThrow();
+      await tick();
+      const log = fs.readFileSync(path.join(tmp, 'run', 'lane7', 'chat.jsonl'), 'utf8');
+      expect(log).not.toContain('SECRETSECRET');
+      expect(log).toContain('***');
+      S.stopSession(7);
+      await tick();
+      expect(S.history(7).at(-1).kind).toBe('ended');
+      expect(S.isRunning(7)).toBe(false);
+    } finally {
+      fs.writeFileSync(pf, good);
+    }
+  });
 });

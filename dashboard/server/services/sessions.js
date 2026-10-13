@@ -30,10 +30,12 @@ const seqs = new Map();
 const KEY_SHAPES = /(sk-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{20,}|gsk_[A-Za-z0-9]{20,}|xai-[A-Za-z0-9]{20,})/g;
 export function redact(text) {
   let s = String(text ?? '');
-  const { providers, gateway_key } = readProviders();
-  for (const v of [gateway_key, ...Object.values(providers).map(p => p.api_key)]) {
-    if (v && v.length >= 6) s = s.split(v).join('***');
-  }
+  try {
+    const { providers, gateway_key } = readProviders();
+    for (const v of [gateway_key, ...Object.values(providers).map(p => p.api_key)]) {
+      if (v && v.length >= 6) s = s.split(v).join('***');
+    }
+  } catch { /* unreadable providers.json: fall back to key-shape redaction only */ }
   return s.replace(KEY_SHAPES, '***');
 }
 
@@ -62,8 +64,10 @@ function emit(n, ev) {
   const full = { seq, ts: new Date().toISOString(), ...ev };
   if (full.text !== undefined) full.text = redact(full.text);
   if (full.summary !== undefined) full.summary = redact(full.summary);
-  fs.mkdirSync(runDir(n), { recursive: true });
-  fs.appendFileSync(chatFile(n), JSON.stringify(full) + '\n');
+  try {
+    fs.mkdirSync(runDir(n), { recursive: true });
+    fs.appendFileSync(chatFile(n), JSON.stringify(full) + '\n');
+  } catch { /* log unwritable: still notify listeners */ }
   for (const fn of listeners.get(n) || []) { try { fn(full); } catch { /* listener gone */ } }
 }
 
@@ -122,7 +126,7 @@ export function startSession(n, { model, prompt, resume }) {
   if (resume) options.resume = resume;
   const q = deps.query({ prompt: input, options });
   live.set(n, { q, input, pending: null });
-  if (prompt) emit(n, { kind: 'user', text: prompt });
+  try { if (prompt) emit(n, { kind: 'user', text: prompt }); } catch { /* never strand the lane */ }
   (async () => {
     try {
       for await (const m of q) {
@@ -139,7 +143,7 @@ export function startSession(n, { model, prompt, resume }) {
       live.delete(n);
       emit(n, { kind: 'ended' });
     }
-  })();
+  })().catch(() => {});
 }
 
 export function sendMessage(n, text) {
