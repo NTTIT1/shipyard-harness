@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check, TriangleAlert } from 'lucide-react';
 import { NODES, MAINY, FIXN, BLKN, TKT, BLKY } from '../lib/constants.js';
 import { phaseIdx } from '../lib/constants.js';
 
@@ -10,7 +11,7 @@ function evidence(l) {
   };
 }
 
-function Node({ name, icon, x, y, cls, tip }) {
+function Node({ name, icon: Icon, x, y, cls, tip }) {
   const isCur = cls.includes('cur');
   const haloMood = cls.includes('bad') ? 'bad' : cls.includes('warn') ? 'warn' : '';
   return (
@@ -18,9 +19,11 @@ function Node({ name, icon, x, y, cls, tip }) {
       {tip && <title>{tip}</title>}
       {isCur && <circle className={`halo ${haloMood}`} cx={x} cy={y} r="16" />}
       <circle className={`node ${cls}`} cx={x} cy={y} r="15" />
-      <text x={x} y={y + 4.5} textAnchor="middle" fontSize="13">{icon}</text>
-      {cls.includes('done') && !cls.includes('evwarn') && <text x={x + 10} y={y - 10} fontSize="9" fill="var(--green)">{'✓'}</text>}
-      {cls.includes('evwarn') && <text x={x + 10} y={y - 11} fontSize="10">{'⚠️'}</text>}
+      <Icon className={`n-ic ${cls}`} x={x - 8} y={y - 8} width={16} height={16} strokeWidth={1.75} aria-hidden="true" />
+      {cls.includes('done') && !cls.includes('evwarn') &&
+        <Check className="n-tick ok" x={x + 6} y={y - 16} width={10} height={10} strokeWidth={3} aria-hidden="true" />}
+      {cls.includes('evwarn') &&
+        <TriangleAlert className="n-tick warn" x={x + 6} y={y - 17} width={11} height={11} strokeWidth={2.25} aria-hidden="true" />}
       <text className={`n-label ${isCur ? 'cur' : ''}`} x={x} y={y + 31} textAnchor="middle">{name}</text>
     </g>
   );
@@ -60,7 +63,7 @@ export default function PipelineNodes({ lane, config }) {
   const badges = (
     <g>
       <title>preflight collision / base-sync conflict → resolved in place on the branch</title>
-      <text x="382" y={MAINY - 14} textAnchor="middle" fontSize="12" fill="#fbbf24">{'↻'}</text>
+      <text x="382" y={MAINY - 14} textAnchor="middle" fontSize="12" style={{ fill: 'var(--warn)' }}>{'↻'}</text>
     </g>
   );
 

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Hourglass, KeyRound } from 'lucide-react';
 import Modal from './Modal.jsx';
 import { postAction } from '../lib/api.js';
 
@@ -36,17 +37,17 @@ export default function AddLaneModal({ onClose, onDone }) {
       ]}>
       <p className="m-text">
         Sets up the next free lane: clone → deps → DB → MCPs → agents → sessions.
-        It shows <b>{'⏳'} provisioning</b> with live progress and only turns ready when fully done.
+        It shows <b><Hourglass size={13} strokeWidth={1.75} aria-hidden="true" /> provisioning</b> with live progress and only turns ready when fully done.
       </p>
-      <label className="m-l">dev-QC email <span style={{ color: 'var(--faint)' }}>(optional)</span>
+      <label className="m-l">dev-QC email <span className="m-opt">(optional)</span>
         <input ref={focusRef} type="email" value={email} onChange={e => setEmail(e.target.value)}
           placeholder="qa account email" autoComplete="off" />
       </label>
-      <label className="m-l">dev-QC password <span style={{ color: 'var(--faint)' }}>(optional)</span>
+      <label className="m-l">dev-QC password <span className="m-opt">(optional)</span>
         <input type="password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="off" />
       </label>
       <p className="m-hint">
-        Set the dev-QC account now so it's embedded in the lane's agents — or leave blank and set it later with {'\u{1F511}'} creds.
+        Set the dev-QC account now so it's embedded in the lane's agents — or leave blank and set it later with <KeyRound size={12} strokeWidth={1.75} aria-hidden="true" /> creds.
       </p>
       {error && <p className="m-err">{error}</p>}
     </Modal>

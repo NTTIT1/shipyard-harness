@@ -1,4 +1,6 @@
 import React from 'react';
+import { Camera, Ticket, ExternalLink, Check, Eraser, Trash2, Square, SquareCheck } from 'lucide-react';
+import Button from './ui/Button.jsx';
 import { fmtWhen, prNum } from '../lib/format.js';
 
 function imgUrl(n, slug, grp, img) {
@@ -8,7 +10,7 @@ function imgUrl(n, slug, grp, img) {
 function handleImgError(e) {
   e.target.onerror = null;
   e.target.style.opacity = '.12';
-  e.target.style.background = '#1a2029';
+  e.target.style.background = 'var(--panel-hover)';
 }
 
 export default function ProofGallery({ proof, selectedLane, selectedSlug, onSelectFeature, onShot, onGallery, onCleanup }) {
@@ -58,7 +60,7 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
 
   const head = (
     <>
-      <span className="pf-slug">{'\u{1F4F8}'} {sel ? labelOf(sel) : '(current feature)'}</span>
+      <span className="pf-slug"><Camera size={14} strokeWidth={1.75} aria-hidden="true" /> {sel ? labelOf(sel) : '(current feature)'}</span>
       {sel === d._cur
         ? <span className="pf-cur">current</span>
         : <span className="pf-prev">past</span>}
@@ -66,21 +68,21 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
       {f && f.ticket_report && (
         <a className="pf-ticket" href={`/proof/${n}/${encodeURI(f.ticket_report)}`}
           target="_blank" rel="noreferrer" title="ticketer task report">
-          {'\u{1F3AB}'} task report {'↗'}
+          <Ticket size={13} strokeWidth={1.75} aria-hidden="true" /> task report <ExternalLink size={11} strokeWidth={1.75} aria-hidden="true" />
         </a>
       )}
       {hasShots && (
-        <button className={`pf-clean${cleanup ? ' on' : ''}`} onClick={() => setCleanup(c => !c)}
-          title="toggle screenshot cleanup mode">
-          {cleanup ? '✓ done' : '🧹 clean up'}
-        </button>
+        <Button size="sm" variant={cleanup ? 'primary' : 'secondary'} icon={cleanup ? Check : Eraser}
+          onClick={() => setCleanup(c => !c)} title="toggle screenshot cleanup mode">
+          {cleanup ? 'done' : 'clean up'}
+        </Button>
       )}
       {hasShots && cleanup && (
-        <button className="pf-clear-all warn"
+        <Button size="sm" variant="danger" icon={Trash2}
           onClick={() => onCleanup(n, { slug: f.slug }, `all screenshots for "${labelOf(f.slug)}"`)}
           title="delete every screenshot for this feature">
           clear all screenshots
-        </button>
+        </Button>
       )}
     </>
   );
@@ -96,9 +98,9 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
         <span className="pf-state-chip">status: {st.status || '—'}</span>
         <span className={`pf-state-chip gchip ${gc}`}>{gd || '—'}</span>
         {st.pr_url
-          ? <a href={st.pr_url} target="_blank" rel="noreferrer" style={{ fontSize: '10.5px' }}>PR {prNum(st.pr_url)} {'↗'}</a>
+          ? <a href={st.pr_url} target="_blank" rel="noreferrer" style={{ fontSize: '11px' }}>PR {prNum(st.pr_url)} <ExternalLink size={11} strokeWidth={1.75} aria-hidden="true" /></a>
           : <span className="pf-state-chip">PR —</span>}
-        {st.ticket_url && <a href={st.ticket_url} target="_blank" rel="noreferrer" style={{ fontSize: '10.5px' }}>{'\u{1F3AB}'} ticket {'↗'}</a>}
+        {st.ticket_url && <a href={st.ticket_url} target="_blank" rel="noreferrer" style={{ fontSize: '11px' }}><Ticket size={12} strokeWidth={1.75} aria-hidden="true" /> ticket <ExternalLink size={11} strokeWidth={1.75} aria-hidden="true" /></a>}
         {st._archived_at && <span className="pf-state-chip" style={{ color: 'var(--faint)' }}>cleared {fmtWhen(st._archived_at)}</span>}
       </div>
     );
@@ -108,7 +110,7 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
     return (
       <div className="proof">
         <div className="pf-feat">{head}{stateBar}</div>
-        <span className="pf-empty">{'\u{1F4F8}'} no QC proof captured yet for this feature</span>
+        <span className="pf-empty"><Camera size={13} strokeWidth={1.75} aria-hidden="true" /> no QC proof captured yet for this feature</span>
       </div>
     );
   }
@@ -138,7 +140,7 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
                 {cleanup && (
                   <button className="pf-del-grp" title={`delete the whole ${g} group`}
                     onClick={() => onCleanup(n, { slug: f.slug, group: g }, `the entire "${g}" group (${imgs.length} screenshot${imgs.length > 1 ? 's' : ''})`)}>
-                    🗑
+                    <Trash2 size={12} strokeWidth={1.75} aria-hidden="true" />
                   </button>
                 )}
               </span>
@@ -155,7 +157,7 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
                       }}
                       title={cleanup ? `${img} — click to select` : `${img} — click to preview`}>
                       <img loading="lazy" src={imgUrl(n, f.slug, g, img)} onError={handleImgError} />
-                      {cleanup && <span className="pf-check">{isSel ? '☑' : '☐'}</span>}
+                      {cleanup && <span className="pf-check">{isSel ? <SquareCheck size={16} aria-hidden="true" /> : <Square size={16} aria-hidden="true" />}</span>}
                     </a>
                   );
                 })}
@@ -173,8 +175,8 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
       {cleanup && selected.size > 0 && (
         <div className="pf-bar">
           <span>{selected.size} selected</span>
-          <button className="warn" onClick={deleteSelected}>delete {selected.size} selected</button>
-          <button onClick={() => setSelected(new Set())}>clear selection</button>
+          <Button size="sm" variant="danger" icon={Trash2} onClick={deleteSelected}>delete {selected.size} selected</Button>
+          <Button size="sm" onClick={() => setSelected(new Set())}>clear selection</Button>
         </div>
       )}
     </div>

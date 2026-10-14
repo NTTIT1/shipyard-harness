@@ -14,6 +14,10 @@ usage() { echo "usage: run-step.sh <N> <step> <prompt-file>" >&2; exit 64; }
 require_lane "${1:-}"
 N="$1"; STEP="${2:-}"; PROMPT_FILE="${3:-}"
 [ -f "$PROMPT_FILE" ] || usage
+# The prompt travels as one argv element (stdin is /dev/null); argv caps near 128KB.
+if [ "$(wc -c < "$PROMPT_FILE")" -gt 100000 ]; then
+  echo "harness: run-step: prompt file too large (>100000 bytes) for argv: $PROMPT_FILE" >&2; exit 64
+fi
 
 case "$STEP" in
   plan-critic) AGENT=""; VERDICT_RE="" ;;
@@ -40,7 +44,10 @@ PY
 )"
 PROVIDER="${MODEL%%:*}"; MID="${MODEL#*:}"
 ID="$STEP-$(date +%s)-$$"
-record() { bash "$CODE_ROOT/bin/state.sh" "$N" append steps "$1" >/dev/null 2>&1 || true; }
+record() {
+  bash "$CODE_ROOT/bin/state.sh" "$N" append steps "$1" >/dev/null 2>&1 \
+    || echo "harness: run-step: could not record step event" >&2
+}
 jstr() { python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$1"; }
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 record "{\"id\":\"$ID\",\"step\":\"$STEP\",\"model\":$(jstr "$MODEL"),\"event\":\"start\",\"at\":\"$(now)\"}"
@@ -52,6 +59,9 @@ finish_step() {  # <exit> <verdict> <error>
 ARGS=(-p --output-format json --permission-mode "${STEP_PERMISSION_MODE:-auto}")
 [ -n "$AGENT" ] && ARGS+=(--agent "$AGENT")
 if [ "$PROVIDER" = "claude" ]; then
+  # The Claude branch must run on the machine's own login, never an inherited gateway.
+  unset ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN ANTHROPIC_SMALL_FAST_MODEL \
+        ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL
   ARGS+=(--model "$MID")
 else
   GW="http://127.0.0.1:${GATEWAY_PORT:-4000}"
@@ -63,6 +73,7 @@ else
   ALIAS="$PROVIDER/$MID"
   export ANTHROPIC_BASE_URL="$GW" ANTHROPIC_AUTH_TOKEN="$GW_KEY"
   export ANTHROPIC_SMALL_FAST_MODEL="$ALIAS" ANTHROPIC_DEFAULT_HAIKU_MODEL="$ALIAS"
+  export ANTHROPIC_DEFAULT_OPUS_MODEL="$ALIAS" ANTHROPIC_DEFAULT_SONNET_MODEL="$ALIAS"
   unset ANTHROPIC_API_KEY
   ARGS+=(--model "$ALIAS")
 fi
@@ -70,10 +81,22 @@ fi
 cd "$(lane_dir "$N")"
 ERRF="$(mktemp)"; trap 'rm -f "$ERRF"' EXIT
 set +e
-RAW="$("${CLAUDE_BIN:-claude}" "${ARGS[@]}" "$(cat "$PROMPT_FILE")" 2>"$ERRF")"; RC=$?
+RAW="$("${CLAUDE_BIN:-claude}" "${ARGS[@]}" "$(cat "$PROMPT_FILE")" 2>"$ERRF" </dev/null)"; RC=$?
 set -e
 if [ "$RC" -ne 0 ]; then
-  finish_step 2 "" "claude exited $RC: $(tail -c 400 "$ERRF" | tr '\n' ' ')"
+  # With --output-format json a failing claude usually reports on STDOUT, not stderr.
+  ERRTXT="$(python3 - "$RAW" <<'PY'
+import json, sys
+try:
+    d = json.loads(sys.argv[1])
+    print((d.get("result") or "").replace("\n", " ")[:400] if isinstance(d, dict) else "")
+except Exception:
+    print("")
+PY
+)"
+  [ -n "$ERRTXT" ] || ERRTXT="$(tail -c 400 "$ERRF" | tr '\n' ' ')"
+  [ -n "$ERRTXT" ] || ERRTXT="claude exited $RC"
+  finish_step 2 "" "claude exited $RC: $ERRTXT"
 fi
 PARSED="$(python3 - "$RAW" <<'PY'
 import json, sys
