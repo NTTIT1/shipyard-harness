@@ -1,0 +1,15 @@
+server:
+  port: 9083
+
+spring:
+  application:
+    name: lane-service
+  datasource:
+    url: jdbc:postgresql://${PG_HOST:127.0.0.1}:${PG_PORT:5433}/lane_db
+    username: ${PG_USER:postgres}
+    password: ${PG_PASS:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false

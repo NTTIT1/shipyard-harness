@@ -1,0 +1,11 @@
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\AuthServiceApplication.java
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\config\SecurityConfig.java
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\controller\AuthController.java
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\dto\AuthResponse.java
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\dto\LoginRequest.java
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\dto\RegisterRequest.java
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\entity\RefreshToken.java
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\entity\User.java
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\repository\RefreshTokenRepository.java
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\repository\UserRepository.java
+C:\AI Factory\shipyard-harness\platform\auth-service\src\main\java\com\shipyard\platform\auth\service\AuthService.java
