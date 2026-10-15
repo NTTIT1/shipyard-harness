@@ -44,6 +44,15 @@ stop_one() {
   rm -f "$RUN_DIR/$name.pid"
 }
 
+# Five JVMs booting together take a while — poll every port for up to 3 minutes.
+wait_up() {
+  for _ in $(seq 1 90); do
+    local down=0
+    for s in "${SERVICES[@]}"; do (exec 3<>"/dev/tcp/127.0.0.1/${s##*:}") 2>/dev/null || down=1; done
+    [ "$down" = 0 ] && return 0; sleep 2
+  done
+}
+
 status() {
   for s in "${SERVICES[@]}"; do
     local name="${s%%:*}" port="${s##*:}" up=DOWN
@@ -56,7 +65,7 @@ case "${1:-status}" in
   infra-up) infra_up ;;
   infra-down) docker compose -f "$PLATFORM_DIR/docker-compose.yml" down ;;
   build) mvn -f "$PLATFORM_DIR/pom.xml" clean package -DskipTests ;;
-  start) infra_up; for s in "${SERVICES[@]}"; do start_one "$s"; done; sleep 15; status ;;
+  start) infra_up; for s in "${SERVICES[@]}"; do start_one "$s"; done; wait_up; status ;;
   stop) for s in "${SERVICES[@]}"; do stop_one "$s"; done ;;
   restart) for s in "${SERVICES[@]}"; do stop_one "$s"; done; sleep 2; for s in "${SERVICES[@]}"; do start_one "$s"; done ;;
   status) status ;;
