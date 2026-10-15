@@ -51,4 +51,9 @@ public class ProjectDto {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    private java.util.List<String> currentUserRoles;
+
+    public java.util.List<String> getCurrentUserRoles() { return currentUserRoles; }
+    public void setCurrentUserRoles(java.util.List<String> currentUserRoles) { this.currentUserRoles = currentUserRoles; }
 }
