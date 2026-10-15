@@ -193,7 +193,7 @@ export default function App({ user, onLogout }) {
         </div>
         {view === 'inbox' && <InboxView items={inbox.items} error={inbox.error} onOpen={i => openReview({ runId: i.runId, approvalId: i.approvalId })} />}
         {view === 'review' && review && <ReviewView key={review.runId + (review.approvalId || '')} runId={review.runId} approvalId={review.approvalId}
-          inboxItem={inbox.items.find(i => i.approvalId === review.approvalId)} onBack={() => setView('inbox')} onDecided={inbox.refresh} />}
+          inboxItems={inbox.items} onBack={() => setView('inbox')} onDecided={inbox.refresh} />}
         {view === 'projects' && <ProjectsView user={user} onOpenRun={runId => openReview({ runId })} />}
         {view === 'lanes' && (<>
         {!selectedLaneData ? (

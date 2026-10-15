@@ -13,10 +13,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export function createApp(authOpts) {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: '5mb' })); // reviewers' edited documents can be large
   app.use((req, res, next) => {
+    // Same origin only: the lane apps on localhost:300N (AI-written code) are "same-site" for
+    // SameSite cookies, so a host-wide allowlist would let them act with the reviewer's session.
     const origin = req.headers.origin;
-    if (origin && !origin.startsWith(`http://127.0.0.1:`) && !origin.startsWith(`http://localhost:`)) {
+    if (origin && origin !== `${req.protocol}://${req.headers.host}`) {
       return res.status(403).end('Forbidden');
     }
     next();

@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import os from 'os';
+import path from 'path';
+import { spawnSync } from 'child_process';
+import { BIN } from '../services/config.js';
 import { PLATFORM_URL, AT_COOKIE, parseCookies } from '../services/auth.js';
 import * as S from '../services/sessions.js';
 
@@ -24,11 +27,19 @@ export function resumeLane(n, message, sessions = S) {
   return true;
 }
 
-export function platformRouter({ gatewayUrl = PLATFORM_URL, sessions = S, hostname = os.hostname(), fetchImpl = fetch } = {}) {
+const ACTIONS = new Set(['APPROVE', 'REQUEST_CHANGES', 'SEND_BACK', 'CANCEL']);
+
+function stateRunId(n) {
+  const r = spawnSync('bash', [path.join(BIN, 'state.sh'), String(n), 'get', 'run_id'], { encoding: 'utf8', timeout: 10000 });
+  return r.status === 0 ? r.stdout.trim() : '';
+}
+
+export function platformRouter({ gatewayUrl = PLATFORM_URL, sessions = S, hostname = os.hostname(), fetchImpl = fetch,
+  laneRunId = stateRunId } = {}) {
   const router = Router();
   router.all('/api/platform/*', async (req, res) => {
     const sub = req.params[0] || '';
-    if (!SAFE.test(sub) || sub.split('/').some(s => s === '..' || s === '.') || /^internal(\/|$)/i.test(sub)) {
+    if (!SAFE.test(sub) || sub.split('/').some(s => s === '..' || s === '.' || s === '') || /^internal(\/|$)/i.test(sub)) {
       return res.status(400).json({ success: false, message: 'Đường dẫn không hợp lệ' });
     }
     const qi = req.originalUrl.indexOf('?');
@@ -48,10 +59,13 @@ export function platformRouter({ gatewayUrl = PLATFORM_URL, sessions = S, hostna
     const body = await r.json().catch(() => ({ success: r.ok }));
     if (r.ok && req.method === 'POST' && /^approvals\/[^/]+\/decision$/.test(sub) && body?.data) {
       const n = laneOf(body.data.laneRef, hostname);
-      const msg = `Cổng ${(req.body || {}).step || body.data.step || ''} đã có quyết định: ${(req.body || {}).action || ''}. `
+      // Server data + an allowlisted action only: nothing the browser typed reaches the Claude session.
+      const action = ACTIONS.has((req.body || {}).action) ? req.body.action : 'DECIDED';
+      const msg = `Cổng duyệt đã có quyết định: ${action}. Bước hiện tại của run: ${body.data.step || body.data.mode}. `
         + 'Tiếp tục vòng lặp role: chạy orch.sh next.';
       body.resumed = false;
-      if (n != null) {
+      // The lane may since run another feature: only wake it for the run it is driving.
+      if (n != null && laneRunId(n) === body.data.runId) {
         try { body.resumed = resumeLane(n, msg, sessions); } catch { body.resumed = false; }
       }
     }

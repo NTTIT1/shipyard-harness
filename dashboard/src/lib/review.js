@@ -47,3 +47,22 @@ export function lineDiff(a, b) {
   while (j < B.length) out.push({ t: 'add', s: B[j++] });
   return out;
 }
+
+/** The inbox entry that lets this user decide the revision on screen (however the screen was opened). */
+export function inboxItemFor(items, rev) {
+  return rev?.approvalId ? (items || []).find(i => i.approvalId === rev.approvalId) : undefined;
+}
+
+/** hasUi to send with an ARCH approval: only when the reviewer changed the AI's answer. */
+export function hasUiToSend(fromAi, chosen) {
+  return chosen === fromAi || chosen == null ? undefined : chosen;
+}
+
+export function isMember(rows, userId) {
+  return (rows || []).some(r => r.userId === userId);
+}
+
+/** Revision images must be served by this dashboard. */
+export function safeImageSrc(p) {
+  return typeof p === 'string' && /^\/(spec|proof)\/\d+\//.test(p) && !p.includes('..') ? p : '';
+}

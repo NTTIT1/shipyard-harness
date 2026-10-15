@@ -5,7 +5,7 @@ import Badge from './ui/Badge.jsx';
 import Tabs from './ui/Tabs.jsx';
 import Markdown from './Markdown.jsx';
 import { platform } from '../lib/platform.js';
-import { STEPS, STEP_LABEL, ROLE_LABEL, STATUS_LABEL, ACTION_LABEL, validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff } from '../lib/review.js';
+import { STEPS, STEP_LABEL, ROLE_LABEL, STATUS_LABEL, ACTION_LABEL, validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, inboxItemFor, hasUiToSend, safeImageSrc } from '../lib/review.js';
 
 function Stepper({ steps, current }) {
   return (
@@ -19,12 +19,29 @@ function Stepper({ steps, current }) {
   );
 }
 
+function ZoomedImage({ src, onClose }) {
+  const btn = React.useRef(null);
+  useEffect(() => {
+    const prev = document.activeElement;
+    btn.current?.focus();
+    const h = e => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', h);
+    return () => { document.removeEventListener('keydown', h); prev?.focus?.(); };
+  }, [onClose]);
+  return (
+    <div className="rv-zoom" onClick={onClose} role="dialog" aria-modal="true" aria-label="Ảnh phóng to">
+      <button ref={btn} className="sh-x" onClick={onClose} aria-label="Đóng (Esc)">✕</button>
+      <img src={src} alt="" />
+    </div>
+  );
+}
+
 function Diff({ before, after }) {
   const d = useMemo(() => lineDiff(before || '', after || ''), [before, after]);
   return <pre className="diff">{d.map((x, i) => <div key={i} className={x.t}>{x.t === 'add' ? '+ ' : x.t === 'del' ? '- ' : '  '}{x.s}</div>)}</pre>;
 }
 
-export default function ReviewView({ runId, approvalId, inboxItem, onBack, onDecided }) {
+export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDecided }) {
   const [view, setView] = useState(null);
   const [revId, setRevId] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -60,7 +77,7 @@ export default function ReviewView({ runId, approvalId, inboxItem, onBack, onDec
       if (!alive) return;
       setDetail(d); setPrev(pd);
       setDoc(Object.keys(d.documents || {})[0] || '');
-      setEdits({}); setMode('view'); setFeedback(''); setSendBackTo(''); setHasUi(d.meta?.hasUi ?? null);
+      setEdits({}); setMode('view'); setFeedback(''); setSendBackTo(''); setHasUi(view.run.hasUi ?? null);
     }).catch(e => setErr(e.message));
     return () => { alive = false; };
   }, [view, revId, runId]);
@@ -70,7 +87,8 @@ export default function ReviewView({ runId, approvalId, inboxItem, onBack, onDec
 
   const rev = detail.revision;
   const pending = rev.approvalStatus === 'PENDING';
-  const canDecide = pending && !!inboxItem && inboxItem.approvalId === rev.approvalId;
+  const inboxItem = inboxItemFor(inboxItems, rev);
+  const canDecide = pending && !!inboxItem;
   const docs = { ...(detail.documents || {}) };
   const names = Object.keys(docs);
   const current = doc && (edits[doc] ?? docs[doc]);
@@ -88,7 +106,8 @@ export default function ReviewView({ runId, approvalId, inboxItem, onBack, onDec
       const body = { action, step: rev.step, feedback: feedback.trim() || undefined };
       if (Object.keys(realEdits).length) body.editedDocuments = realEdits;
       if (action === 'SEND_BACK') body.sendBackTo = sendBackTo;
-      if (rev.step === 'ARCH' && action === 'APPROVE' && hasUi !== null) body.hasUi = hasUi;
+      const ui = rev.step === 'ARCH' && action === 'APPROVE' ? hasUiToSend(view.run.hasUi ?? null, hasUi) : undefined;
+      if (ui !== undefined) body.hasUi = ui;
       const r = await platform.decide(rev.approvalId, body);
       setMsg(r.resumed
         ? { tone: 'ok', text: `Đã ${ACTION_LABEL[action].toLowerCase()} — lane đã được đánh thức để làm tiếp.` }
@@ -96,8 +115,9 @@ export default function ReviewView({ runId, approvalId, inboxItem, onBack, onDec
       onDecided?.();
       await load();
     } catch (e) {
-      setMsg({ tone: 'warn', text: e.status === 409 ? 'Bước này vừa được người khác quyết định — đã tải lại.' : e.message });
-      if (e.status === 409) await load();
+      setMsg({ tone: 'warn', text: e.status === 409 ? 'Bước này vừa được người khác quyết định — đã tải lại.'
+        : e.status === 413 ? 'Tài liệu sửa quá lớn để gửi.' : e.message });
+      if (e.status === 409) { onDecided?.(); await load(); }
     } finally { setBusy(false); }
   };
 
@@ -111,7 +131,10 @@ export default function ReviewView({ runId, approvalId, inboxItem, onBack, onDec
             {inboxItem?.decideAs === 'OWNER_FALLBACK' && ' · bạn duyệt thay với tư cách Owner'}</p>
         </div>
         <label className="rv-sub">Bản sửa đổi{' '}
-          <select value={revId} onChange={e => setRevId(e.target.value)}>
+          <select value={revId} onChange={e => {
+            const dirty = Object.keys(edits).some(k => edits[k] !== docs[k]);
+            if (!dirty || window.confirm('Bỏ các chỗ đã sửa tay chưa gửi?')) setRevId(e.target.value);
+          }}>
             {view.revisions.map(r => <option key={r.id} value={r.id}>{STEP_LABEL[r.step]} · bản {r.revisionNo} · {r.approvalStatus || ''}</option>)}
           </select>
         </label>
@@ -152,7 +175,7 @@ export default function ReviewView({ runId, approvalId, inboxItem, onBack, onDec
       {(detail.images || []).length > 0 && (
         <div className="rv-box"><h2>Hình ảnh ({detail.images.length})</h2>
           <div className="rv-imgs">
-            {detail.images.map((im, i) => (
+            {detail.images.filter(im => safeImageSrc(im.path)).map((im, i) => (
               <figure key={i} style={{ margin: 0 }}>
                 <button onClick={() => setZoom(im.path)} aria-label={`Phóng to ${im.caption || im.path}`}><img src={im.path} alt={im.caption || ''} loading="lazy" /></button>
                 <figcaption>{im.caption || im.path.split('/').pop()}</figcaption>
@@ -161,7 +184,7 @@ export default function ReviewView({ runId, approvalId, inboxItem, onBack, onDec
           </div>
         </div>
       )}
-      {zoom && <div className="rv-zoom" onClick={() => setZoom(null)} role="dialog" aria-label="Ảnh phóng to"><img src={zoom} alt="" /></div>}
+      {zoom && <ZoomedImage src={zoom} onClose={() => setZoom(null)} />}
 
       {Object.keys(meta).length > 0 && (
         <div className="rv-box"><h2>Thông tin kỹ thuật</h2>

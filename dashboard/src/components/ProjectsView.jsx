@@ -5,7 +5,7 @@ import Badge from './ui/Badge.jsx';
 import Tabs from './ui/Tabs.jsx';
 import MemoryPanel from './MemoryPanel.jsx';
 import { platform } from '../lib/platform.js';
-import { STEPS, STEP_LABEL, ROLE_LABEL } from '../lib/review.js';
+import { STEPS, STEP_LABEL, ROLE_LABEL, isMember } from '../lib/review.js';
 
 const ROLES = ['OWNER', 'MAINTAINER', 'PM', 'BA', 'TECH_LEAD', 'DESIGNER', 'DEVELOPER', 'TESTER', 'VIEWER'];
 
@@ -14,6 +14,7 @@ function Members({ pid, canManage }) {
   const [users, setUsers] = useState({});
   const [email, setEmail] = useState('');
   const [err, setErr] = useState('');
+  const [saving, setSaving] = useState(false);
   const load = useCallback(async () => {
     try {
       const m = await platform.members(pid);
@@ -25,13 +26,15 @@ function Members({ pid, canManage }) {
   }, [pid]);
   useEffect(() => { load(); }, [load]);
   const setRoles = async (userId, roles) => {
-    try { await platform.setMemberRoles(pid, userId, roles); await load(); } catch (e) { setErr(e.message); }
+    setSaving(true);
+    try { await platform.setMemberRoles(pid, userId, roles); await load(); } catch (e) { setErr(e.message); } finally { setSaving(false); }
   };
   const add = async e => {
     e.preventDefault();
     setErr('');
     try {
       const u = await platform.lookupUser(email.trim());
+      if (isMember(rows, u.id)) { setErr(`${email.trim()} đã là thành viên — đổi vai trò trong bảng.`); return; }
       await platform.setMemberRoles(pid, u.id, ['VIEWER']);
       setEmail('');
       await load();
@@ -48,7 +51,7 @@ function Members({ pid, canManage }) {
               <td>{users[r.userId]?.fullName || r.userId}<div className="faint">{users[r.userId]?.email}</div></td>
               <td>{canManage ? (
                 <div className="role-checks">{ROLES.map(role => (
-                  <label key={role}><input type="checkbox" checked={r.roles.includes(role)}
+                  <label key={role}><input type="checkbox" disabled={saving} checked={r.roles.includes(role)}
                     onChange={e => {
                       const next = e.target.checked ? [...r.roles, role] : r.roles.filter(x => x !== role);
                       if (next.length) setRoles(r.userId, next);
@@ -151,10 +154,10 @@ export default function ProjectsView({ onOpenRun }) {
             <p className="rv-sub">Để lane chạy quy trình role cho dự án này, đặt <span className="mono">PLATFORM_PROJECT_ID="{project.id}"</span> trong integrations.env của profile.</p>
             <Tabs value={tab} onChange={setTab} items={[{ id: 'members', label: 'Thành viên' }, { id: 'gates', label: 'Cổng duyệt' },
               { id: 'runs', label: 'Tính năng' }, { id: 'memory', label: 'Bộ nhớ' }]} />
-            {tab === 'members' && <Members pid={project.id} canManage={canManage} />}
-            {tab === 'gates' && <GatePolicy pid={project.id} canManage={canManage} />}
-            {tab === 'runs' && <Runs pid={project.id} onOpenRun={onOpenRun} />}
-            {tab === 'memory' && <MemoryPanel projectId={project.id} canManage={canManage} />}
+            {tab === 'members' && <Members key={project.id} pid={project.id} canManage={canManage} />}
+            {tab === 'gates' && <GatePolicy key={project.id} pid={project.id} canManage={canManage} />}
+            {tab === 'runs' && <Runs key={project.id} pid={project.id} onOpenRun={onOpenRun} />}
+            {tab === 'memory' && <MemoryPanel key={project.id} projectId={project.id} canManage={canManage} />}
           </div>
         ) : <p className="muted-empty">Chọn hoặc tạo một dự án.</p>}
       </div>

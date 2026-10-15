@@ -57,3 +57,28 @@ describe('labels', () => {
     for (const s of ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST']) expect(STEP_LABEL[s]).toBeTruthy();
   });
 });
+
+import { inboxItemFor, hasUiToSend, isMember, safeImageSrc } from '../src/lib/review.js';
+
+describe('review screen helpers', () => {
+  it('finds the inbox item for the revision being reviewed, however the screen was opened', () => {
+    const items = [{ approvalId: 'a1' }, { approvalId: 'a2' }];
+    expect(inboxItemFor(items, { approvalId: 'a2' })).toBe(items[1]);
+    expect(inboxItemFor(items, { approvalId: null })).toBeUndefined();
+  });
+  it('sends hasUi only when the reviewer changed the AI\'s answer', () => {
+    expect(hasUiToSend(true, true)).toBeUndefined();
+    expect(hasUiToSend(true, false)).toBe(false);
+    expect(hasUiToSend(null, true)).toBe(true);
+  });
+  it('detects existing members', () => {
+    expect(isMember([{ userId: 'u1' }], 'u1')).toBe(true);
+    expect(isMember([{ userId: 'u1' }], 'u2')).toBe(false);
+  });
+  it('only serves lane images', () => {
+    expect(safeImageSrc('/spec/2/specs/x/design/a.png')).toBe('/spec/2/specs/x/design/a.png');
+    expect(safeImageSrc('/proof/2/x/qc/1.png')).toBe('/proof/2/x/qc/1.png');
+    expect(safeImageSrc('https://evil.example/a.png')).toBe('');
+    expect(safeImageSrc('javascript:alert(1)')).toBe('');
+  });
+});

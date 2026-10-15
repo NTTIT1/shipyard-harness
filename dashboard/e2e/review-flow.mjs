@@ -18,7 +18,8 @@ const login = await (await fetch(`${GW}/api/v1/auth/login`, { method: 'POST', he
 const AT = login.data.accessToken;
 const A = { ...J, Authorization: `Bearer ${AT}` };
 const me = (await (await fetch(`${GW}/api/v1/auth/me`, { headers: A })).json()).data;
-const proj = (await (await fetch(`${GW}/api/v1/projects`, { method: 'POST', headers: A, body: JSON.stringify({ name: 'UI E2E', slug: `ui${Date.now()}`, repoUrl: 'https://example.com/r.git' }) })).json()).data;
+const PNAME = `UI E2E ${Date.now() % 100000}`;
+const proj = (await (await fetch(`${GW}/api/v1/projects`, { method: 'POST', headers: A, body: JSON.stringify({ name: PNAME, slug: `ui${Date.now()}`, repoUrl: 'https://example.com/r.git' }) })).json()).data;
 const S = { ...J, 'X-Service-Token': TOKEN };
 const run = (await (await fetch(`${ORCH}/internal/v1/runs`, { method: 'POST', headers: S, body: JSON.stringify({ projectId: proj.id, laneRef: 'e2e-host:lane9', title: 'Đăng xuất (UI e2e)', description: '', createdBy: me.id }) })).json()).data;
 const submitPm = text => fetch(`${ORCH}/internal/v1/runs/${run.id}/steps/PM/submit`, { method: 'POST', headers: S,
@@ -55,8 +56,13 @@ const next = (await (await fetch(`${ORCH}/internal/v1/runs/${run.id}/next`, { he
 ok(next.mode === 'REVISE' && next.editedDocuments['spec.md'].includes('AC-2'), 'harness sees REVISE with the human edit');
 await submitPm(next.editedDocuments['spec.md'] + '- AC-3 nút có trên mọi trang\n');
 
-await page.getByRole('button', { name: /Chờ tôi duyệt/ }).click();
-await page.getByText('Đăng xuất (UI e2e)').click();
+// Open the run from Projects → Tính năng (no approvalId): the decision buttons must still be there.
+await page.getByRole('button', { name: 'Dự án' }).click();
+await page.getByRole('button', { name: PNAME }).click();
+await page.getByRole('tab', { name: 'Tính năng' }).click();
+await page.getByRole('button', { name: 'Đăng xuất (UI e2e)' }).click();
+await page.getByRole('button', { name: 'Duyệt', exact: true }).waitFor({ timeout: 15000 });
+ok(true, 'a run opened from Projects shows the decision buttons');
 await page.getByRole('button', { name: 'So với bản trước' }).click();
 ok(await page.locator('.diff .add', { hasText: 'AC-3' }).count() === 1, 'diff against the previous revision shows the new line');
 await page.screenshot({ path: `${OUT}/04-diff.png`, fullPage: true });
@@ -71,7 +77,7 @@ const dup = await page.evaluate(async id => (await fetch(`/api/platform/approval
 ok(dup === 409, 'a second decision on a closed gate is a 409');
 
 await page.getByRole('button', { name: 'Dự án' }).click();
-await page.getByRole('button', { name: 'UI E2E' }).click();
+await page.getByRole('button', { name: PNAME }).click();
 await page.getByRole('tab', { name: 'Thành viên' }).waitFor();
 await page.getByLabel('Email thành viên mới').fill('khong-ton-tai@x.io');
 await page.getByRole('button', { name: 'Thêm thành viên' }).click();
