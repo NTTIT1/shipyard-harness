@@ -9,6 +9,13 @@ mkdir -p "$RUN_DIR" "$LOG_DIR"
 # JWT_SECRET / SHIPYARD_SERVICE_TOKEN / ADMIN_* come from the harness secrets file when present.
 [ -f "$HARNESS_ROOT/config/secrets.env" ] && set -a && . "$HARNESS_ROOT/config/secrets.env" && set +a
 export PG_PORT="${PG_PORT:-5434}" REDIS_PORT="${REDIS_PORT:-6380}"
+# Per-machine service token when secrets.env leaves it unset/empty (never the public dev default).
+if [ -z "${SHIPYARD_SERVICE_TOKEN:-}" ]; then
+  TOKEN_FILE="$RUN_DIR/service-token"
+  [ -s "$TOKEN_FILE" ] || (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' >"$TOKEN_FILE")
+  SHIPYARD_SERVICE_TOKEN="$(cat "$TOKEN_FILE")"
+fi
+export SHIPYARD_SERVICE_TOKEN
 SERVICES=("auth-service:9081" "project-service:9082" "lane-service:9083" "orchestrator-service:9084" "api-gateway:9080")
 DBS=(auth_db project_db lane_db orchestrator_db llm_db artifact_db audit_db context_db)
 

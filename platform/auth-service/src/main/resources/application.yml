@@ -1,5 +1,7 @@
 server:
   port: 9081
+  # Only the api-gateway faces the network; it is the one place JWTs are checked.
+  address: ${BIND_ADDR:127.0.0.1}
 
 spring:
   application:

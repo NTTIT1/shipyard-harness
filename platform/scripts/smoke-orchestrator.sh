@@ -3,7 +3,10 @@
 # owner (fallback for PM) sees it in the inbox → approves → harness gets BA WORK.
 set -euo pipefail
 GW="${GW:-http://127.0.0.1:9080}"; ORCH="${ORCH:-http://127.0.0.1:9084}"
-TOKEN="${SHIPYARD_SERVICE_TOKEN:-dev-service-token}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Same token bin/platform.sh gave the services (env, else the generated per-machine file).
+TOKEN="${SHIPYARD_SERVICE_TOKEN:-$(cat "$HERE/../../run/platform/service-token" 2>/dev/null)}"
+[ -n "$TOKEN" ] || { echo "no service token: start the stack with bin/platform.sh first" >&2; exit 1; }
 J='Content-Type: application/json'
 jqr() { python3 -c "import sys,json; d=json.load(sys.stdin); print(eval(sys.argv[1]))" "$1"; }
 

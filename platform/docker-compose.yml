@@ -9,7 +9,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes:
-      - shipyard_pgdata:/var/lib/postgresql/data
+      # New volume name: an old postgres:16-alpine (musl) data dir must not be opened by this
+      # Debian (glibc) image — text indexes would silently break. Old data stays in shipyard_pgdata.
+      - shipyard_pgvector16_data:/var/lib/postgresql/data
       - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -51,6 +53,6 @@ services:
       retries: 5
 
 volumes:
-  shipyard_pgdata:
+  shipyard_pgvector16_data:
   shipyard_redisdata:
   shipyard_rabbitmqdata:

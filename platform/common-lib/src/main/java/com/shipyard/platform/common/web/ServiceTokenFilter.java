@@ -13,7 +13,7 @@ import java.security.MessageDigest;
 /**
  * Guards /internal/** (harness ↔ service calls) with a shared secret header. Those paths are
  * never routed by the api-gateway, so user JWTs never reach them. A blank configured token
- * rejects everything (fail closed).
+ * refuses to start.
  */
 public class ServiceTokenFilter extends OncePerRequestFilter {
 
@@ -22,7 +22,10 @@ public class ServiceTokenFilter extends OncePerRequestFilter {
     private final byte[] expected;
 
     public ServiceTokenFilter(String token) {
-        this.expected = token == null ? new byte[0] : token.getBytes(StandardCharsets.UTF_8);
+        if (token == null || token.isBlank()) {
+            throw new IllegalStateException("SHIPYARD_SERVICE_TOKEN is empty — set it (bin/platform.sh generates one) or unset it for the dev default");
+        }
+        this.expected = token.getBytes(StandardCharsets.UTF_8);
     }
 
     @Override
@@ -35,7 +38,7 @@ public class ServiceTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String given = request.getHeader(HEADER);
-        if (expected.length == 0 || given == null
+        if (given == null
                 || !MessageDigest.isEqual(expected, given.getBytes(StandardCharsets.UTF_8))) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");

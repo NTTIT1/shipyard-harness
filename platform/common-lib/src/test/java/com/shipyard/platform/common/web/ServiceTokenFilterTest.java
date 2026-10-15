@@ -6,6 +6,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ServiceTokenFilterTest {
 
@@ -32,7 +33,11 @@ class ServiceTokenFilterTest {
     }
 
     @Test
-    void blankConfiguredTokenFailsClosed() throws Exception {
-        assertThat(run(new ServiceTokenFilter(""), "/internal/v1/x", "").getStatus()).isEqualTo(401);
+    void blankConfiguredTokenRefusesToStart() {
+        // An empty SHIPYARD_SERVICE_TOKEN (e.g. copied from secrets.env.example) must fail loudly at boot,
+        // not turn every /internal call into a silent 401.
+        assertThatThrownBy(() -> new ServiceTokenFilter("")).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SHIPYARD_SERVICE_TOKEN");
+        assertThatThrownBy(() -> new ServiceTokenFilter("  ")).isInstanceOf(IllegalStateException.class);
     }
 }
