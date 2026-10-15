@@ -30,4 +30,10 @@ done
 for s in pm ba arch design test; do assert_contains "$c" "run-step.sh\" \"\$N\" $s" "role mode runs the $s step"; done
 assert_contains "$c" "status=blocked" "unreachable platform parks the lane blocked"
 assert_contains "$c" "Never write UI code before DESIGN" "UI code waits for design approval"
+assert_contains "$c" "orch.sh\" \"\$N\" release --summary-file" "release before Stage 14 STOP, text from a file"
+assert_contains "$c" "never Stage 15" "role mode reopens instead of Stage 15"
+assert_contains "$c" "-fix<K>" "DEV after reopen cuts a fix branch"
+assert_contains "$c" "pr_url" "RELEASE resume continues from the lane position"
+assert_contains "$c" "<<'EOF'" "untrusted text goes through quoted heredocs"
+assert_contains "$c" "overrides the turn-liveness rule" "WAIT explicitly overrides turn-liveness"
 finish

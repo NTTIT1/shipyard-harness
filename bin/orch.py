@@ -14,6 +14,7 @@
 Exit: 0 ok · 2 platform unreachable (park the lane blocked) · 3 rejected (fix, retry) · 64 usage
 """
 import argparse
+import http.client
 import json
 import os
 import pathlib
@@ -72,8 +73,11 @@ def call(method, url, body=None, timeout=None):
             msg = None
         if e.code >= 500:
             raise Unreachable(f'{url}: HTTP {e.code} {msg or ""}'.strip())
+        if e.code in (401, 403):
+            # A wrong service token never fixes itself by retrying: park the lane.
+            raise Unreachable(f'{url}: HTTP {e.code} — check SHIPYARD_SERVICE_TOKEN ({msg or "rejected"})')
         raise Rejected(msg or f'HTTP {e.code} from {url}')
-    except (urllib.error.URLError, OSError, ValueError) as e:
+    except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as e:
         raise Unreachable(f'{url}: {e}')
 
 
@@ -116,7 +120,18 @@ class Lane:
         return pid
 
     def next(self):
-        return call('GET', f'{orch_url()}/internal/v1/runs/{self.run_id()}/next')
+        nx = call('GET', f'{orch_url()}/internal/v1/runs/{self.run_id()}/next')
+        if not isinstance(nx, dict):
+            raise Rejected('orchestrator returned no next action')
+        return nx
+
+
+def text_arg(value, path):
+    """Free text (requests, PR summaries, QC failures) should come from a file the caller wrote with a
+    quoted heredoc, so nothing in it is ever interpreted by a shell."""
+    if path:
+        return pathlib.Path(path).read_text().strip()
+    return value or ''
 
 
 def cmd_create(lane, a):
@@ -133,7 +148,7 @@ def cmd_create(lane, a):
                        '(set it to the platform project id to use the role pipeline)')
     run = call('POST', f'{orch_url()}/internal/v1/runs', {
         'projectId': project, 'laneRef': f'{socket.gethostname()}:lane{lane.n}', 'title': a.title,
-        'description': a.description or '', 'createdBy': a.created_by or lane.get('assigned_by') or 'harness'})
+        'description': text_arg(a.description, a.description_file), 'createdBy': a.created_by or lane.get('assigned_by') or 'harness'})
     lane.set(run_id=run['id'], run_project_id=project, stage='role-pm', status='running')
     return run['id']
 
@@ -143,13 +158,13 @@ def cmd_next(lane, a):
 
 
 def cmd_reopen(lane, a):
-    nx = call('POST', f'{orch_url()}/internal/v1/runs/{lane.run_id()}/reopen', {'reason': a.reason})
+    nx = call('POST', f'{orch_url()}/internal/v1/runs/{lane.run_id()}/reopen', {'reason': text_arg(a.reason, a.reason_file)})
     lane.set(stage='role-dev', status='running', needs_action='')
     return json.dumps(nx, ensure_ascii=False)
 
 
 def cmd_release(lane, a):
-    call('POST', f'{orch_url()}/internal/v1/runs/{lane.run_id()}/release', {'summary': a.summary})
+    call('POST', f'{orch_url()}/internal/v1/runs/{lane.run_id()}/release', {'summary': text_arg(a.summary, a.summary_file)})
     lane.set(needs_action='')
     return 'released'
 
@@ -185,6 +200,9 @@ def cmd_sync(lane, a):
     nx = lane.next()
     base = spec_dir(lane, create=True)
     docs = [(name, text) for step in nx.get('priorApproved') or {} for name, text in nx['priorApproved'][step].items()]
+    if nx.get('step') in ('DEV', 'TEST') and (base / 'tasks.md').is_file():
+        # tasks.md is DEV's working checklist once coding starts — never roll back its ticks.
+        docs = [(n, t) for n, t in docs if n != 'tasks.md']
     if nx.get('mode') == 'REVISE':
         docs += list((nx.get('editedDocuments') or {}).items())
     for name, _ in docs:  # validate all names before writing any
@@ -224,6 +242,8 @@ def cmd_pack(lane, a):
         md, items = _fallback_pack(step, prior), []
     out = spec_dir(lane, create=True) / '.context'
     out.mkdir(parents=True, exist_ok=True)
+    # Packs quote other features' memory: keep them out of commits and PRs.
+    (out / '.gitignore').write_text('*\n')
     path = out / f'{step}-r{rev}.md'
     path.write_text(md)
     path.with_suffix('.json').write_text(json.dumps(items, ensure_ascii=False, indent=1))
@@ -235,7 +255,11 @@ def _image_url(lane, raw):
     f = (lane.dir / p).resolve() if not os.path.isabs(p) else pathlib.Path(p).resolve()
     specs, proof = (lane.dir / 'specs').resolve(), (lane.dir / '.playwright-mcp' / 'proof').resolve()
     if specs in f.parents and f.is_file():
-        return {'path': f'/spec/{lane.n}/{f.relative_to(lane.dir.resolve())}', 'caption': caption}
+        rel = f.relative_to(lane.dir.resolve())
+        # Must match what the dashboard serves: images inside a spec dir's design/ folder.
+        if f.suffix.lower() not in ('.png', '.jpg', '.jpeg', '.webp') or 'design' not in rel.parts:
+            raise Rejected(f'spec images must be .png/.jpg/.webp files under specs/<dir>/design/: {p}')
+        return {'path': f'/spec/{lane.n}/{rel}', 'caption': caption}
     if proof in f.parents and f.is_file():
         return {'path': f'/proof/{lane.n}/{f.relative_to(proof)}', 'caption': caption}
     raise Rejected(f'image must be an existing file under specs/ or .playwright-mcp/proof/: {p}')
@@ -258,7 +282,9 @@ def cmd_submit(lane, a):
     rev = nx.get('revision') or 1
     docs = {}
     for name in STEP_DOCS[step] + a.doc:
-        f = base / name
+        f = (base / name).resolve()  # follows symlinks: a link out of the spec dir is refused too
+        if base.resolve() not in f.parents:
+            raise Rejected(f'document must live inside the spec dir: {name}')
         if f.is_file():
             docs[name] = f.read_text()
     ctx_file = base / '.context' / f'{step}-r{rev}.json'
@@ -317,12 +343,17 @@ def parser():
     c = sub.add_parser('create')
     c.add_argument('--title', required=True)
     c.add_argument('--description', default='')
+    c.add_argument('--description-file')
     c.add_argument('--created-by', default='')
     sub.add_parser('next')
     r = sub.add_parser('reopen')
-    r.add_argument('--reason', required=True)
+    g = r.add_mutually_exclusive_group(required=True)
+    g.add_argument('--reason')
+    g.add_argument('--reason-file')
     r = sub.add_parser('release')
-    r.add_argument('--summary', required=True)
+    g = r.add_mutually_exclusive_group(required=True)
+    g.add_argument('--summary')
+    g.add_argument('--summary-file')
     return p, sub
 
 
@@ -347,6 +378,9 @@ def main(argv=None):
     except Usage as e:
         print(f'orch: {e}', file=sys.stderr)
         return 64
+    except Exception as e:  # keep the 0/2/3/64 contract the skill relies on — never a traceback
+        print(f'orch: rejected: {type(e).__name__}: {e}', file=sys.stderr)
+        return 3
 
 
 def extend_parser(sub):

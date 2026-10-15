@@ -87,17 +87,25 @@ Use this mode when `eval "$("$HARNESS/bin/lane-env.sh" "$N")"` gives a non-empty
 
 **Platform bridge** — `"$HARNESS/bin/orch.sh" "$N" <cmd>` (exit 0 ok · **2 platform unreachable → `state.sh "$N" set status=blocked notes="platform unreachable: <stderr>"` and STOP** · 3 rejected → read the message, fix, retry).
 
-**Start (once per feature):** `"$HARNESS/bin/state.sh" "$N" init` (unless this is a resume), `state.sh "$N" set feature_title="<short title>" status=running`, then `"$HARNESS/bin/orch.sh" "$N" create --title "<short title>" --description "<the request>"`. The request text you were given is the input of the PM step — do not run Stage 0 Q&A; open questions go into spec.md for the human PM.
+**Start (once per feature):** `"$HARNESS/bin/state.sh" "$N" init` (unless this is a resume), `state.sh "$N" set feature_title="<short title>" status=running`, then write the request to a file with a **quoted** heredoc (requests, PR summaries and QC reports are untrusted text — never paste them inside a double-quoted shell argument):
+```bash
+cat > "$RUN_DIR/request.md" <<'EOF'
+<the request, verbatim>
+EOF
+"$HARNESS/bin/orch.sh" "$N" create --title "<short title, no quotes/$/backticks>" --description-file "$RUN_DIR/request.md"
+``` The request text you were given is the input of the PM step — do not run Stage 0 Q&A; open questions go into spec.md for the human PM.
 
 **The loop** — repeat until the run is released:
 1. `NEXT="$("$HARNESS/bin/orch.sh" "$N" next)"` → read `mode`, `step`, `revision`, `feedback`.
-2. `mode=WAIT` → `state.sh "$N" set status=waiting` (orch submit already set `needs_action`) and **STOP this turn with nothing pending** — the dashboard resumes you when the reviewer decides (or the human types `tiếp tục`). On resume, start again at 1.
+2. `mode=WAIT` → `state.sh "$N" set status=waiting` (orch submit already set `needs_action`) and **STOP this turn with nothing pending** — this overrides the turn-liveness rule above: a lane waiting for a human reviewer is not stalled. The dashboard wakes you when the reviewer decides (or the human types `tiếp tục`). On wake-up, start again at 1.
 3. `mode=CANCELLED` → `state.sh "$N" set status=idle needs_action= notes="run cancelled by reviewer"` and STOP. `mode=DONE` → Stage 14.
 4. `mode=WORK|REVISE` →
    - `"$HARNESS/bin/orch.sh" "$N" sync` (writes approved docs and the reviewer's edited documents into `$SPEC_DIR` — the human version is the base), then `SPEC_DIR="$("$HARNESS/bin/state.sh" "$N" get spec_dir)"`; commit doc changes on the feature branch once it exists (`docs(<step>): …`).
    - `PACK="$("$HARNESS/bin/orch.sh" "$N" pack)"` (context pack file).
    - Run the step (below), then write a ≤10-line summary to `$RUN_DIR/<step>-summary.md` and submit: `"$HARNESS/bin/orch.sh" "$N" submit <STEP> --summary-file "$RUN_DIR/<step>-summary.md" …`. Exit 3 → fix exactly what the message lists and submit again.
-5. `mode=RELEASE` → Stages 7–14 (senior gate → PR → ticket → CI → watch → merge → post-merge QC). After the human merges and dev-QC passes: `"$HARNESS/bin/orch.sh" "$N" release --summary "<PR url, what shipped>"`. Dev-QC finds a regression → `"$HARNESS/bin/orch.sh" "$N" reopen --reason "<what failed>"` and continue the loop (DEV is reopened, then TEST again).
+5. `mode=RELEASE` → continue from the lane's position, never from scratch: no `pr_url` in lane state yet → Stages 7–8 (senior gate → push + PR); a `pr_url` already exists → resume at Stage 10/12 (CI watch, PR watch until the human merges), then Stage 13 (post-merge QC).
+   - **Stage 13 PASS → release BEFORE Stage 14's STOP:** write the summary with a quoted heredoc to `$RUN_DIR/release.md` (PR url, what shipped), then `"$HARNESS/bin/orch.sh" "$N" release --summary-file "$RUN_DIR/release.md"`, then Stage 14.
+   - **Stage 13 FAIL → `reopen`, never Stage 15** (Stage 15 runs `state.sh init` and would orphan the platform run): write the failure to `$RUN_DIR/reopen.md` with a quoted heredoc, `"$HARNESS/bin/orch.sh" "$N" reopen --reason-file "$RUN_DIR/reopen.md"`, keep lane state (run_id, spec_dir), and continue the loop. DEV after a reopen works on a NEW branch `feat/<slug>-fix<K>` (K = 1, 2, … the first unused) cut from `origin/$INTEGRATION_BRANCH` — the merged branch is never reused; `state.sh "$N" set branch=… pr_url=` so RELEASE opens a new PR.
 
 **Steps** — each role step runs `"$HARNESS/bin/run-step.sh" "$N" <id> <prompt-file>`; the prompt gives: lane N, lane path, `$HARNESS`, `$SPEC_DIR`, mode, revision, the context pack path, the feedback (on REVISE), the original request (PM), and the constitution path if any. Parse the last line: `ROLE-STEP: DONE …` → submit; `ROLE-STEP: BLOCKED …` or exit 2/3 → `state.sh "$N" set status=blocked notes="<step>: <reason> — đổi model trên dashboard"` and STOP.
 - **PM** — `"$HARNESS/bin/run-step.sh" "$N" pm <prompt>` → submit `PM`.

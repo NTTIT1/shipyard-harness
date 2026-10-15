@@ -26,4 +26,11 @@ assert_eq "64" "$?" "bad size is a usage error"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$TMPH/fakebin/chrome"
 CHROME_BIN="$TMPH/fakebin/chrome" bash "$REPO/bin/mockup-shot.sh" "$TMPH/m/01-list.html" "$TMPH/m/y.png" >/dev/null 2>&1
 assert_eq "2" "$?" "no image produced exits 2"
+printf '#!/usr/bin/env bash\nsleep 30\n' > "$TMPH/fakebin/chrome"
+start=$(date +%s)
+MOCKUP_TIMEOUT=2 CHROME_BIN="$TMPH/fakebin/chrome" bash "$REPO/bin/mockup-shot.sh" "$TMPH/m/01-list.html" "$TMPH/m/z.png" >/dev/null 2>&1; rc=$?
+assert_eq "2" "$rc" "a hung browser is killed and reported"
+[ $(( $(date +%s) - start )) -lt 10 ] && t=fast || t=slow
+assert_eq "fast" "$t" "the timeout is enforced"
+if [ "$(id -u)" != "0" ]; then assert_eq "" "$(grep -x -- --no-sandbox "$HARNESS_ROOT/chrome.args" || true)" "no --no-sandbox when not root"; fi
 finish

@@ -166,7 +166,7 @@ class CoreTest(OrchTestCase):
 
 
 
-class DocumentsTest(OrchTestCase):
+class DocsBase(OrchTestCase):
     def setUp(self):
         super().setUp()
         self.st('set', 'run_id=run_1', 'run_project_id=proj_t')
@@ -175,6 +175,23 @@ class DocumentsTest(OrchTestCase):
         rel = self.st('get', 'spec_dir')
         return self.lane / rel
 
+    def prepare_submit(self, step, docs, revision=1):
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(step=step, revision=revision))
+        self.orch('sync')
+        sd = self.spec_dir()
+        for name, text in docs.items():
+            (sd / name).parent.mkdir(parents=True, exist_ok=True)
+            (sd / name).write_text(text)
+        (sd / '.context').mkdir(exist_ok=True)
+        (sd / '.context' / f'{step}-r{revision}.json').write_text(json.dumps([{'itemId': 'mem_1', 'kind': 'FEEDBACK',
+                                                                              'title': 't', 'score': 0.4, 'via': 'vector'}]))
+        (self.h / 'summary.txt').write_text('Đã viết thiết kế')
+        self.platform.routes[('POST', f'/internal/v1/runs/run_1/steps/{step}/submit')] = (200, {
+            'revisionId': 'rev_1', 'revisionNo': revision, 'approvalId': 'apr_1', 'autoApproved': False})
+        return sd
+
+
+class DocumentsTest(DocsBase):
     def test_sync_creates_spec_dir_and_writes_approved_and_edited_docs(self):
         self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(
             mode='REVISE', step='BA', revision=2, feedback='thêm luồng lỗi',
@@ -224,21 +241,6 @@ class DocumentsTest(OrchTestCase):
     def test_pack_refuses_when_nothing_to_work_on(self):
         self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(mode='WAIT'))
         self.assertEqual(self.orch('pack').returncode, 3)
-
-    def prepare_submit(self, step, docs, revision=1):
-        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(step=step, revision=revision))
-        self.orch('sync')
-        sd = self.spec_dir()
-        for name, text in docs.items():
-            (sd / name).parent.mkdir(parents=True, exist_ok=True)
-            (sd / name).write_text(text)
-        (sd / '.context').mkdir(exist_ok=True)
-        (sd / '.context' / f'{step}-r{revision}.json').write_text(json.dumps([{'itemId': 'mem_1', 'kind': 'FEEDBACK',
-                                                                              'title': 't', 'score': 0.4, 'via': 'vector'}]))
-        (self.h / 'summary.txt').write_text('Đã viết thiết kế')
-        self.platform.routes[('POST', f'/internal/v1/runs/run_1/steps/{step}/submit')] = (200, {
-            'revisionId': 'rev_1', 'revisionNo': revision, 'approvalId': 'apr_1', 'autoApproved': False})
-        return sd
 
     def test_submit_collects_docs_images_context_and_parks_the_lane(self):
         sd = self.prepare_submit('DESIGN', {'design.md': '# Design', 'design/01-list-desktop.png': 'png'})
@@ -297,6 +299,71 @@ class DocumentsTest(OrchTestCase):
         self.assertIn('nội dung đầy đủ', self.orch('get', 'mem_1').stdout)
         self.assertIn('projectId=proj_t', self.ctx.requests[-1]['path'])
         self.assertIn('TOUCHES', self.orch('related', 'TABLE:orders').stdout)
+
+
+class HardeningTest(DocsBase):
+    def test_submit_never_reads_files_outside_the_spec_dir(self):
+        sd = self.prepare_submit('PM', {'spec.md': '# S'})
+        (self.h / 'secret.txt').write_text('TOP SECRET')
+        r = self.orch('submit', 'PM', '--summary-file', str(self.h / 'summary.txt'), '--doc', '../../../secret.txt')
+        self.assertEqual(r.returncode, 3)
+        (sd / 'spec.md').unlink()
+        (sd / 'spec.md').symlink_to(self.h / 'secret.txt')
+        r = self.orch('submit', 'PM', '--summary-file', str(self.h / 'summary.txt'))
+        self.assertEqual(r.returncode, 3)
+        self.assertFalse(any('TOP SECRET' in json.dumps(q['body']) for q in self.platform.requests if q['body']))
+
+    def test_submit_rejects_symlinked_and_non_design_images(self):
+        sd = self.prepare_submit('DESIGN', {'design.md': '# D', 'notes.png': 'png'})
+        (sd / 'design').mkdir(exist_ok=True)
+        (sd / 'design' / 'evil.png').symlink_to('/etc/hostname')
+        for img in [str((sd / 'notes.png').relative_to(self.lane)), str((sd / 'design' / 'evil.png').relative_to(self.lane))]:
+            self.assertEqual(self.orch('submit', 'DESIGN', '--summary-file', str(self.h / 'summary.txt'), '--image', img).returncode, 3, img)
+
+    def test_texts_can_come_from_files(self):
+        self.platform.routes[('POST', '/internal/v1/runs')] = (200, {'id': 'run_2'})
+        self.platform.routes[('POST', '/internal/v1/runs/run_1/reopen')] = (200, self.next_data(mode='REVISE', step='DEV'))
+        self.platform.routes[('POST', '/internal/v1/runs/run_1/release')] = (200, {'id': 'run_1'})
+        nasty = 'xoá $(rm -rf ~) `id` "quote"'
+        f = self.h / 'text.txt'
+        f.write_text(nasty)
+        self.assertEqual(self.orch('reopen', '--reason-file', str(f)).returncode, 0)
+        self.assertEqual(self.platform.requests[-1]['body'], {'reason': nasty})
+        self.assertEqual(self.orch('release', '--summary-file', str(f)).returncode, 0)
+        self.assertEqual(self.platform.requests[-1]['body'], {'summary': nasty})
+        self.st('set', 'run_id=')
+        self.assertEqual(self.orch('create', '--title', 'T', '--description-file', str(f)).returncode, 0)
+        self.assertEqual(self.platform.requests[-1]['body']['description'], nasty)
+
+    def test_unexpected_failures_keep_the_exit_contract(self):
+        r = self.orch('submit', 'PM', '--summary-file', str(self.h / 'missing.txt'))
+        self.assertEqual(r.returncode, 3)
+        self.assertNotIn('Traceback', r.stderr)
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, None)
+        r = self.orch('sync')
+        self.assertEqual(r.returncode, 3)
+        self.assertNotIn('Traceback', r.stderr)
+
+    def test_bad_service_token_parks_the_lane(self):
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (401, 'Invalid service token')
+        r = self.orch('next')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('token', r.stderr)
+
+    def test_sync_keeps_dev_progress_in_tasks_md(self):
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(
+            mode='REVISE', step='DEV', revision=2, priorApproved={'ARCH': {'tasks.md': '- [ ] T1', 'plan.md': 'p'}}))
+        self.orch('sync')
+        sd = self.spec_dir()
+        (sd / 'tasks.md').write_text('- [x] T1')
+        self.orch('sync')
+        self.assertEqual((sd / 'tasks.md').read_text(), '- [x] T1')
+
+    def test_context_packs_are_never_committed(self):
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(step='PM'))
+        self.env['CONTEXT_URL'] = 'http://127.0.0.1:9'
+        path = pathlib.Path(self.orch('pack').stdout.strip())
+        self.assertEqual((path.parent / '.gitignore').read_text().strip(), '*')
 
 if __name__ == '__main__':
     unittest.main()

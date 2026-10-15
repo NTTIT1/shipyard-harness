@@ -17,7 +17,9 @@ mkdir -p "$(dirname "$OUT")"
 ABS_HTML="$(cd "$(dirname "$HTML")" && pwd)/$(basename "$HTML")"
 ABS_OUT="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
 rm -f "$ABS_OUT"
-"$BROWSER" --headless=new --disable-gpu --no-sandbox --hide-scrollbars --force-device-scale-factor=1 \
-  --window-size="${SIZE/x/,}" --screenshot="$ABS_OUT" "file://$ABS_HTML" >/dev/null 2>&1 || true
+# Mockups are LLM-written HTML: keep Chrome's sandbox unless we must run as root, and never hang the step.
+SANDBOX=(); [ "$(id -u)" = "0" ] && SANDBOX=(--no-sandbox)
+timeout -k 5 "${MOCKUP_TIMEOUT:-60}" "$BROWSER" --headless=new --disable-gpu "${SANDBOX[@]}" --hide-scrollbars \
+  --force-device-scale-factor=1 --window-size="${SIZE/x/,}" --screenshot="$ABS_OUT" "file://$ABS_HTML" >/dev/null 2>&1 || true
 [ -s "$ABS_OUT" ] || { echo "mockup-shot: the browser produced no image" >&2; exit 2; }
 echo "$ABS_OUT"
