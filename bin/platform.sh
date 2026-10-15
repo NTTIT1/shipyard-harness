@@ -9,6 +9,7 @@ mkdir -p "$RUN_DIR" "$LOG_DIR"
 # JWT_SECRET / SHIPYARD_SERVICE_TOKEN / ADMIN_* come from the harness secrets file when present.
 [ -f "$HARNESS_ROOT/config/secrets.env" ] && set -a && . "$HARNESS_ROOT/config/secrets.env" && set +a
 export PG_PORT="${PG_PORT:-5434}" REDIS_PORT="${REDIS_PORT:-6380}"
+export OLLAMA_URL="${OLLAMA_URL:-http://127.0.0.1:11434}" EMBEDDING_MODEL="${EMBEDDING_MODEL:-bge-m3}"
 # Per-machine service token when secrets.env leaves it unset/empty (never the public dev default).
 if [ -z "${SHIPYARD_SERVICE_TOKEN:-}" ]; then
   TOKEN_FILE="$RUN_DIR/service-token"
@@ -16,7 +17,7 @@ if [ -z "${SHIPYARD_SERVICE_TOKEN:-}" ]; then
   SHIPYARD_SERVICE_TOKEN="$(cat "$TOKEN_FILE")"
 fi
 export SHIPYARD_SERVICE_TOKEN
-SERVICES=("auth-service:9081" "project-service:9082" "lane-service:9083" "orchestrator-service:9084" "api-gateway:9080")
+SERVICES=("auth-service:9081" "project-service:9082" "lane-service:9083" "orchestrator-service:9084" "context-service:9085" "api-gateway:9080")
 DBS=(auth_db project_db lane_db orchestrator_db llm_db artifact_db audit_db context_db)
 
 jar_of() { echo "$PLATFORM_DIR/$1/target/$1-1.0.0-SNAPSHOT.jar"; }
@@ -35,6 +36,21 @@ infra_up() {
     docker exec shipyard-postgres psql -U postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$db'" | grep -q 1 \
       || docker exec shipyard-postgres psql -U postgres -c "CREATE DATABASE $db" >/dev/null
   done
+  ensure_ollama
+}
+
+# Embeddings need Ollama + the model; prefer a native install, else the compose container.
+ensure_ollama() {
+  if ! curl -fsS --max-time 3 "$OLLAMA_URL/api/tags" >/dev/null 2>&1; then
+    echo "Ollama not reachable at $OLLAMA_URL — starting the compose container"
+    docker compose -f "$PLATFORM_DIR/docker-compose.yml" --profile ollama up -d ollama
+    for _ in $(seq 1 30); do curl -fsS --max-time 2 "$OLLAMA_URL/api/tags" >/dev/null 2>&1 && break; sleep 1; done
+  fi
+  if ! curl -fsS "$OLLAMA_URL/api/tags" | grep -q "\"$EMBEDDING_MODEL"; then
+    echo "pulling embedding model $EMBEDDING_MODEL (first run only, ~1.2 GB)…"
+    curl -fsS "$OLLAMA_URL/api/pull" -d "{\"model\":\"$EMBEDDING_MODEL\",\"stream\":false}" >/dev/null
+  fi
+  echo "ollama ok: $EMBEDDING_MODEL at $OLLAMA_URL"
 }
 
 start_one() {

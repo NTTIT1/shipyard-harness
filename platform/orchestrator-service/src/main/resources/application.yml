@@ -18,6 +18,6 @@ spring:
 shipyard:
   service-token: ${SHIPYARD_SERVICE_TOKEN:dev-service-token}
   project-service-url: ${PROJECT_SERVICE_URL:http://127.0.0.1:9082}
-  context-service-url: ${CONTEXT_SERVICE_URL:}
+  context-service-url: ${CONTEXT_SERVICE_URL:http://127.0.0.1:9085}
   outbox:
     interval-ms: 5000
