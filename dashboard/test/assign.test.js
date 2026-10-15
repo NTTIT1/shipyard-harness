@@ -38,6 +38,17 @@ beforeAll(async () => {
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 describe('assignLane', () => {
+  it('stores per-feature gate choices for the platform run', async () => {
+    const { calls, d } = deps();
+    await A.assignLane(2, { requirement: 'x', gates: { PM: 'AUTO', BA: '', TEST: 'required' } }, d);
+    const g = calls.state.find(c => c[0] === 'set-json' && c[1] === 'gate_overrides');
+    expect(JSON.parse(g[2])).toEqual({ PM: 'AUTO', TEST: 'REQUIRED' });
+  });
+
+  it('rejects unknown gate steps or modes', async () => {
+    await expect(A.assignLane(2, { requirement: 'x', gates: { PM: 'MAYBE' } }, deps().d)).rejects.toThrow(/PM/);
+    await expect(A.assignLane(2, { requirement: 'x', gates: { NOPE: 'AUTO' } }, deps().d)).rejects.toThrow(/NOPE/);
+  });
   it('records who assigned the lane (createdBy of the platform run)', async () => {
     const { calls, d } = deps({ assignedBy: 'usr_42' });
     await A.assignLane(2, { requirement: 'x' }, d);

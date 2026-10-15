@@ -11,10 +11,11 @@ public final class Dtos {
     private Dtos() {}
 
     public record CreateRunRequest(@NotBlank String projectId, @NotBlank String laneRef, @NotBlank String title,
-                                   String description, @NotBlank String createdBy) {}
+                                   String description, @NotBlank String createdBy, Map<String, String> gateOverrides) {}
 
     public record RunSummary(String id, String projectId, String laneRef, String title, String status,
-                             String currentStep, Boolean hasUi, String createdBy, Instant createdAt, Instant updatedAt) {}
+                             String currentStep, Boolean hasUi, String createdBy, Map<String, String> gateOverrides,
+                             Instant createdAt, Instant updatedAt) {}
 
     public record ImageRef(String path, String caption) {}
 

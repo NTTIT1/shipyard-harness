@@ -145,4 +145,44 @@ class InternalRunApiIT extends OrchestratorIT {
     void unknownRunIs404() {
         assertThat(internal(HttpMethod.GET, "/internal/v1/runs/run_nope/next", null).getStatusCode().value()).isEqualTo(404);
     }
+
+    String createRun(Map<String, String> gates) {
+        Map<String, Object> body = new HashMap<>(Map.of("projectId", PROJECT, "laneRef", "host:lane1", "title", "T",
+                "description", "", "createdBy", "usr_owner"));
+        body.put("gateOverrides", gates);
+        ResponseEntity<Map> r = internal(HttpMethod.POST, "/internal/v1/runs", body);
+        assertThat(r.getStatusCode().value()).as(String.valueOf(r.getBody())).isEqualTo(200);
+        return (String) ((Map) data(r)).get("id");
+    }
+
+    @Test
+    void perRunOverrideAutoApprovesAStepTheProjectRequires() {
+        String id = createRun(Map.of("PM", "AUTO"));
+        assertThat(((Map) data(submit(id, Step.PM, null))).get("autoApproved")).isEqualTo(true);
+        assertThat(((Map) data(submit(id, Step.BA, null))).get("autoApproved")).isEqualTo(false);
+    }
+
+    @Test
+    void perRunOverrideRequiresAStepTheProjectAutoApproves() {
+        allAuto();
+        String id = createRun(Map.of("ba", "required"));
+        assertThat(((Map) data(submit(id, Step.PM, null))).get("autoApproved")).isEqualTo(true);
+        assertThat(((Map) data(submit(id, Step.BA, null))).get("autoApproved")).isEqualTo(false);
+        assertThat(next(id).get("mode")).isEqualTo("WAIT");
+    }
+
+    @Test
+    void runSummaryShowsTheOverridesAndBadOnesAre400() {
+        String id = createRun(Map.of("DESIGN", "AUTO"));
+        Map<String, Object> run = data(internal(HttpMethod.POST, "/internal/v1/runs", Map.of(
+                "projectId", PROJECT, "laneRef", "h:lane2", "title", "x", "description", "", "createdBy", "u",
+                "gateOverrides", Map.of("PM", "MAYBE"))));
+        assertThat(run).isNull();
+        assertThat(internal(HttpMethod.POST, "/internal/v1/runs", Map.of(
+                "projectId", PROJECT, "laneRef", "h:lane2", "title", "x", "description", "", "createdBy", "u",
+                "gateOverrides", Map.of("NOPE", "AUTO"))).getStatusCode().value()).isEqualTo(400);
+        directory.grant(PROJECT, "usr_owner", "OWNER");
+        Map<String, Object> view = data(user("usr_owner", HttpMethod.GET, "/api/v1/runs/" + id, null));
+        assertThat((Map<String, String>) ((Map) view.get("run")).get("gateOverrides")).containsEntry("DESIGN", "AUTO");
+    }
 }

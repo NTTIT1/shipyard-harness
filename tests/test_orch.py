@@ -117,6 +117,17 @@ class CoreTest(OrchTestCase):
         self.assertEqual(self.st('get', 'run_id'), 'run_1')
         self.assertEqual(self.st('get', 'run_project_id'), 'proj_t')
 
+    def test_create_sends_the_gate_choices_made_at_assignment(self):
+        self.platform.routes[('POST', '/internal/v1/runs')] = (200, {'id': 'run_1'})
+        self.st('set-json', 'gate_overrides', '{"PM":"AUTO","TEST":"REQUIRED"}')
+        self.assertEqual(self.orch('create', '--title', 'x').returncode, 0)
+        self.assertEqual(self.platform.requests[-1]['body']['gateOverrides'], {'PM': 'AUTO', 'TEST': 'REQUIRED'})
+
+    def test_create_without_gate_choices_sends_none(self):
+        self.platform.routes[('POST', '/internal/v1/runs')] = (200, {'id': 'run_1'})
+        self.orch('create', '--title', 'x')
+        self.assertIsNone(self.platform.requests[-1]['body'].get('gateOverrides'))
+
     def test_create_reuses_an_open_run(self):
         self.st('set', 'run_id=run_old', 'run_project_id=proj_t')
         self.platform.routes[('GET', '/internal/v1/runs/run_old/next')] = (200, self.next_data(mode='WAIT'))

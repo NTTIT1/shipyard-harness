@@ -3,6 +3,7 @@ import { Play } from 'lucide-react';
 import Modal from './Modal.jsx';
 import StepModels from './StepModels.jsx';
 import { fetchProviders, fetchSpecs, assignLane } from '../lib/api.js';
+import { STEPS, STEP_LABEL } from '../lib/review.js';
 
 const isFree = l => !l.session_running && ['idle', 'down', '', undefined].includes(l.status);
 
@@ -15,6 +16,7 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
   const [spec, setSpec] = useState('');
   const [info, setInfo] = useState(null);
   const [models, setModels] = useState(null);
+  const [gates, setGates] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,7 +35,7 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
       const { impl_agents, ...stepModels } = models;
       await assignLane(lane, {
         ...(mode === 'new' ? { requirement: text } : { spec_dir: spec }),
-        models: stepModels, impl_agents,
+        models: stepModels, impl_agents, gates,
       });
       onDone(lane);
       onClose();
@@ -66,7 +68,19 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
               </select>}
           <div className="m-l" style={{ marginTop: 14 }}>AI từng bước</div>
           {info && models && <StepModels info={info} value={models} onChange={setModels} />}
-          <p className="m-hint">Lane sẽ hỏi lại nếu yêu cầu chưa rõ và dừng chờ bạn duyệt spec — trả lời trong khung chat của lane.</p>
+          <div className="m-l" style={{ marginTop: 14 }}>Duyệt cho tính năng này</div>
+          <div className="gate-grid">
+            {STEPS.map(s => (
+              <label key={s}>{STEP_LABEL[s]}
+                <select className="msel" value={gates[s] || ''} onChange={e => setGates(g => ({ ...g, [s]: e.target.value }))}>
+                  <option value="">Theo dự án</option>
+                  <option value="REQUIRED">Bắt buộc duyệt</option>
+                  <option value="AUTO">Tự động</option>
+                </select>
+              </label>
+            ))}
+          </div>
+          <p className="m-hint">Áp dụng khi dự án chạy quy trình role (PM → BA → Kiến trúc → Thiết kế → Lập trình → Kiểm thử). Bước “Tự động” không dừng chờ người duyệt nhưng vẫn được lưu lịch sử và bộ nhớ.</p>
         </>
       )}
       {error && <p className="m-err">{error}</p>}

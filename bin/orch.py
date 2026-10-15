@@ -134,6 +134,16 @@ def text_arg(value, path):
     return value or ''
 
 
+def _gate_overrides(lane):
+    """Per-feature gate choices the dashboard stored at assignment ({STEP: REQUIRED|AUTO}); None = project policy."""
+    raw = lane.get('gate_overrides')
+    try:
+        g = json.loads(raw) if raw else None
+    except ValueError:
+        raise Rejected('lane state gate_overrides is not valid JSON')
+    return g or None
+
+
 def cmd_create(lane, a):
     rid = lane.get('run_id')
     if rid:
@@ -148,7 +158,8 @@ def cmd_create(lane, a):
                        '(set it to the platform project id to use the role pipeline)')
     run = call('POST', f'{orch_url()}/internal/v1/runs', {
         'projectId': project, 'laneRef': f'{socket.gethostname()}:lane{lane.n}', 'title': a.title,
-        'description': text_arg(a.description, a.description_file), 'createdBy': a.created_by or lane.get('assigned_by') or 'harness'})
+        'description': text_arg(a.description, a.description_file),
+        'gateOverrides': _gate_overrides(lane), 'createdBy': a.created_by or lane.get('assigned_by') or 'harness'})
     lane.set(run_id=run['id'], run_project_id=project, stage='role-pm', status='running')
     return run['id']
 
