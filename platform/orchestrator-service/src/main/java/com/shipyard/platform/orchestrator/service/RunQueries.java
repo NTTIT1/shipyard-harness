@@ -33,6 +33,11 @@ public class RunQueries {
         return runs.findById(runId).orElseThrow(() -> new ResourceNotFoundException("Run not found"));
     }
 
+    /** Loads the run with a row lock; call inside the transaction that changes it. */
+    public Run lockRun(String runId) {
+        return runs.lockById(runId).orElseThrow(() -> new ResourceNotFoundException("Run not found"));
+    }
+
     public EnumMap<Step, RunStep> loadSteps(String runId) {
         EnumMap<Step, RunStep> map = new EnumMap<>(Step.class);
         for (RunStep s : steps.findByRunId(runId)) map.put(s.step, s);

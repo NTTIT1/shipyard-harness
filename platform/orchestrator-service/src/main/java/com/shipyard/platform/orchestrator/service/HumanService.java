@@ -8,6 +8,7 @@ import com.shipyard.platform.orchestrator.directory.ProjectDirectory;
 import com.shipyard.platform.orchestrator.domain.*;
 import com.shipyard.platform.orchestrator.entity.*;
 import com.shipyard.platform.orchestrator.repository.*;
+import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,10 +27,11 @@ public class HumanService {
     private final GatePolicyRepository policies;
     private final RunCommands commands;
     private final RunQueries queries;
+    private final EntityManager em;
 
     public HumanService(ProjectDirectory directory, RunRepository runs, StepRevisionRepository revisions,
                         ApprovalRequestRepository approvals, GatePolicyRepository policies,
-                        RunCommands commands, RunQueries queries) {
+                        RunCommands commands, RunQueries queries, EntityManager em) {
         this.directory = directory;
         this.runs = runs;
         this.revisions = revisions;
@@ -37,6 +39,7 @@ public class HumanService {
         this.policies = policies;
         this.commands = commands;
         this.queries = queries;
+        this.em = em;
     }
 
     @Transactional(readOnly = true)
@@ -97,7 +100,8 @@ public class HumanService {
             throw new BadRequestException("Unknown action: " + req.action());
         }
         Step sendBackTo = req.sendBackTo() == null || req.sendBackTo().isBlank() ? null : Step.parse(req.sendBackTo());
-        Run run = queries.loadRun(a.runId);
+        Run run = queries.lockRun(a.runId);
+        em.refresh(a); // re-read under the run lock: a concurrent decision may have closed it
         Map<Step, RunStep> steps = queries.loadSteps(a.runId);
         StepRevision rev = revisions.findById(a.revisionId).orElseThrow();
         commands.applyDecision(run, steps, a, rev,

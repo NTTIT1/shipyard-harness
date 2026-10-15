@@ -53,7 +53,7 @@ public class RunCommands {
     }
 
     public SubmitResult submit(String runId, Step step, SubmitRequest req) {
-        Run run = queries.loadRun(runId);
+        Run run = queries.lockRun(runId);
         EnumMap<Step, RunStep> st = queries.loadSteps(runId);
         List<ImageRef> images = req.images() == null ? List.of() : req.images();
         StepRequirements.validateSubmission(step, req.summary(), req.documents(), images.size(), req.meta(), req.hasUi());
@@ -151,7 +151,7 @@ public class RunCommands {
     }
 
     public NextAction reopen(String runId, String reason) {
-        Run run = queries.loadRun(runId);
+        Run run = queries.lockRun(runId);
         Workflow.reopenDev(run, queries.loadSteps(runId), reason);
         runs.flush();
         steps.flush();
@@ -159,7 +159,7 @@ public class RunCommands {
     }
 
     public RunSummary release(String runId, String summary) {
-        Run run = queries.loadRun(runId);
+        Run run = queries.lockRun(runId);
         Workflow.release(run);
         Map<String, Object> p = new LinkedHashMap<>();
         p.put("projectId", run.projectId);
