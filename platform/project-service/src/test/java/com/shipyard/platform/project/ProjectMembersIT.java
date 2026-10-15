@@ -9,6 +9,13 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import java.util.List;
 import java.util.Map;
@@ -22,7 +29,22 @@ class ProjectMembersIT {
 
     static final PostgreSQLContainer PG = new PostgreSQLContainer("postgres:16-alpine");
     static final GenericContainer<?> REDIS = new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
-    static { PG.start(); REDIS.start(); }
+    /** Fake orchestrator: records every cache-evict notification body. */
+    static final List<String> EVICTS = new CopyOnWriteArrayList<>();
+    static final HttpServer ORCH;
+    static {
+        PG.start(); REDIS.start();
+        try {
+            ORCH = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        } catch (IOException e) { throw new UncheckedIOException(e); }
+        ORCH.createContext("/internal/v1/directory/evict", ex -> {
+            EVICTS.add(new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)
+                    + "|" + ex.getRequestHeaders().getFirst("X-Service-Token"));
+            ex.sendResponseHeaders(200, -1);
+            ex.close();
+        });
+        ORCH.start();
+    }
 
     @DynamicPropertySource
     static void props(DynamicPropertyRegistry r) {
@@ -31,6 +53,7 @@ class ProjectMembersIT {
         r.add("spring.datasource.password", PG::getPassword);
         r.add("spring.data.redis.host", REDIS::getHost);
         r.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
+        r.add("shipyard.orchestrator-url", () -> "http://127.0.0.1:" + ORCH.getAddress().getPort());
     }
 
     @Autowired TestRestTemplate rest;
@@ -97,5 +120,27 @@ class ProjectMembersIT {
                 .getStatusCode().value()).isEqualTo(404);
         Map roles = call(HttpMethod.GET, "/internal/v1/projects/" + pid + "/members/usr_stranger/roles", null, true, null).getBody();
         assertThat((List<?>) roles.get("data")).isEmpty();
+    }
+
+    @Test
+    void roleChangesNotifyTheOrchestratorToDropItsCache() {
+        String pid = newProject("usr_owner");
+        assertThat(EVICTS).anySatisfy(e -> assertThat(e).contains(pid).contains("usr_owner").endsWith("|test-token"));
+        EVICTS.clear();
+        call(HttpMethod.POST, "/api/v1/projects/" + pid + "/members", "usr_owner", false,
+                Map.of("userId", "usr_cat", "roles", List.of("BA")));
+        assertThat(EVICTS).singleElement().satisfies(e -> assertThat(e).contains(pid).contains("\"userId\":\"usr_cat\""));
+        EVICTS.clear();
+        call(HttpMethod.DELETE, "/api/v1/projects/" + pid + "/members/usr_cat", "usr_owner", false, null);
+        assertThat(EVICTS).singleElement().satisfies(e -> assertThat(e).contains("usr_cat"));
+    }
+
+    @Test
+    void rejectedRoleChangeSendsNoNotification() {
+        String pid = newProject("usr_owner");
+        EVICTS.clear();
+        call(HttpMethod.POST, "/api/v1/projects/" + pid + "/members", "usr_owner", false,
+                Map.of("userId", "usr_owner", "roles", List.of("PM")));
+        assertThat(EVICTS).isEmpty();
     }
 }

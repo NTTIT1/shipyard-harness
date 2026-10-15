@@ -13,5 +13,11 @@ public interface ProjectDirectory {
 
     List<Membership> membershipsOf(String userId);
 
+    /**
+     * Drops cached membership for a project/user after project-service changed it.
+     * A null userId means every user of the project.
+     */
+    default void evict(String projectId, String userId) {}
+
     record Membership(String projectId, List<String> roles) {}
 }

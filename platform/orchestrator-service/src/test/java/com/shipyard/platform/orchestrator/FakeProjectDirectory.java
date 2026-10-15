@@ -7,7 +7,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FakeProjectDirectory implements com.shipyard.platform.orchestrator.directory.ProjectDirectory {
     private final Map<String, Map<String, List<String>>> grants = new ConcurrentHashMap<>(); // project → user → roles
 
-    public void reset() { grants.clear(); }
+    /** "projectId|userId" of every evict call, for assertions. */
+    public final List<String> evictions = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    public void reset() { grants.clear(); evictions.clear(); }
+
+    @Override
+    public void evict(String projectId, String userId) { evictions.add(projectId + "|" + userId); }
 
     public void grant(String projectId, String userId, String... roles) {
         grants.computeIfAbsent(projectId, k -> new ConcurrentHashMap<>()).put(userId, List.of(roles));

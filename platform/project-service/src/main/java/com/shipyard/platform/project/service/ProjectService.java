@@ -9,9 +9,11 @@ import com.shipyard.platform.common.exception.ResourceNotFoundException;
 import com.shipyard.platform.project.dto.CreateProjectRequest;
 import com.shipyard.platform.project.dto.MembershipDto;
 import com.shipyard.platform.project.entity.Project;
+import com.shipyard.platform.project.event.MembershipChanged;
 import com.shipyard.platform.project.entity.ProjectMember;
 import com.shipyard.platform.project.repository.ProjectMemberRepository;
 import com.shipyard.platform.project.repository.ProjectRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,13 +28,16 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final ProjectMemberRepository projectMemberRepository;
     private final StringRedisTemplate redisTemplate;
+    private final ApplicationEventPublisher events;
 
     public ProjectService(ProjectRepository projectRepository,
                           ProjectMemberRepository projectMemberRepository,
-                          StringRedisTemplate redisTemplate) {
+                          StringRedisTemplate redisTemplate,
+                          ApplicationEventPublisher events) {
         this.projectRepository = projectRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.redisTemplate = redisTemplate;
+        this.events = events;
     }
 
     @Transactional
@@ -58,6 +63,7 @@ public class ProjectService {
 
         // Invalidate cache
         clearPermissionCache(currentUserId, projectId);
+        events.publishEvent(new MembershipChanged(projectId, currentUserId));
 
         ProjectDto dto = toDto(project);
         dto.setCurrentUserRole(ProjectRole.OWNER.name());
@@ -99,6 +105,7 @@ public class ProjectService {
         projectMemberRepository.flush();
         for (ProjectRole r : roles) projectMemberRepository.save(new ProjectMember(projectId, targetUserId, r));
         clearPermissionCache(targetUserId, projectId);
+        events.publishEvent(new MembershipChanged(projectId, targetUserId));
     }
 
     @Transactional
@@ -109,6 +116,7 @@ public class ProjectService {
         }
         projectMemberRepository.deleteByIdProjectIdAndIdUserId(projectId, targetUserId);
         clearPermissionCache(targetUserId, projectId);
+        events.publishEvent(new MembershipChanged(projectId, targetUserId));
     }
 
     public boolean checkUserPermission(String userId, String projectId, String action) {

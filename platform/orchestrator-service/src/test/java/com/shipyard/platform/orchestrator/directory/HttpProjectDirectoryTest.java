@@ -53,4 +53,17 @@ class HttpProjectDirectoryTest {
         assertThatThrownBy(() -> dir.roleHolders("proj_1"))
                 .isInstanceOf(UpstreamUnavailableException.class).hasMessageContaining("project-service");
     }
+
+    @Test
+    void evictForcesRefetchForThatProjectAndUser() throws Exception {
+        AtomicInteger hits = new AtomicInteger();
+        String url = serve("{\"success\":true,\"data\":[\"PM\"]}", hits, new AtomicReference<>());
+        HttpProjectDirectory dir = new HttpProjectDirectory(RestClient.builder(), url, "tok");
+        dir.rolesOf("proj_1", "usr_1");
+        dir.rolesOf("proj_2", "usr_1");
+        dir.evict("proj_1", "usr_1");
+        dir.rolesOf("proj_1", "usr_1");
+        dir.rolesOf("proj_2", "usr_1");
+        assertThat(hits.get()).isEqualTo(3);
+    }
 }

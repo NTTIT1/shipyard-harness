@@ -20,4 +20,15 @@ class TtlCacheTest {
         now.set(60_000);
         assertThat(cache.get("k", k -> loads.incrementAndGet())).isEqualTo(2);
     }
+
+    @Test
+    void invalidateIfForcesReloadOfMatchingKeysOnly() {
+        AtomicInteger loads = new AtomicInteger();
+        TtlCache<String, Integer> cache = new TtlCache<>(Duration.ofSeconds(60), () -> 0L);
+        cache.get("p1|u1", k -> loads.incrementAndGet());
+        cache.get("p2|u1", k -> loads.incrementAndGet());
+        cache.invalidateIf(k -> k.startsWith("p1|"));
+        assertThat(cache.get("p1|u1", k -> 100 + loads.incrementAndGet())).isEqualTo(103);
+        assertThat(cache.get("p2|u1", k -> loads.incrementAndGet())).isEqualTo(2);
+    }
 }

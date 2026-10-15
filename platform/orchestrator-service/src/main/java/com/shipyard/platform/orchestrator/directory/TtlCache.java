@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 
 /** Minimal time-boxed memo; stale entries are reloaded on read. */
 public final class TtlCache<K, V> {
@@ -26,5 +27,9 @@ public final class TtlCache<K, V> {
         V value = loader.apply(key);
         entries.put(key, new Entry<>(value, now + ttlMillis));
         return value;
+    }
+
+    public void invalidateIf(Predicate<K> keyMatches) {
+        entries.keySet().removeIf(keyMatches);
     }
 }

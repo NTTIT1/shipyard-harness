@@ -53,6 +53,14 @@ public class HttpProjectDirectory implements ProjectDirectory {
                 new ParameterizedTypeReference<ApiResponse<List<Membership>>>() {}, userId));
     }
 
+    @Override
+    public void evict(String projectId, String userId) {
+        roles.invalidateIf(k -> userId == null ? k.startsWith(projectId + "|") : k.equals(projectId + "|" + userId));
+        holders.invalidateIf(k -> k.equals(projectId));
+        if (userId == null) memberships.invalidateIf(k -> true);
+        else memberships.invalidateIf(k -> k.equals(userId));
+    }
+
     private <T> T fetch(String uri, ParameterizedTypeReference<ApiResponse<T>> type, Object... vars) {
         ApiResponse<T> body;
         try {
