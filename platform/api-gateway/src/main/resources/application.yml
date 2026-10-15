@@ -12,6 +12,11 @@ spring:
           order: -10
           predicates:
             - Path=/api/v1/runs/**,/api/v1/approvals/**,/api/v1/projects/*/gate-policy,/api/v1/projects/*/runs
+        - id: context
+          uri: ${CONTEXT_SERVICE_URL:http://localhost:9085}
+          order: -10
+          predicates:
+            - Path=/api/v1/projects/*/memory,/api/v1/projects/*/memory/**
         - id: auth-service
           uri: ${AUTH_SERVICE_URL:http://localhost:9081}
           predicates:
