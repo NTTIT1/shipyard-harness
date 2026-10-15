@@ -55,6 +55,12 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.ok("Member added/updated successfully", "OK"));
     }
 
+    @GetMapping("/{projectId}/members")
+    public ResponseEntity<ApiResponse<List<com.shipyard.platform.project.dto.MemberDto>>> members(
+            @RequestHeader(SecurityConstants.HEADER_USER_ID) String userId, @PathVariable String projectId) {
+        return ResponseEntity.ok(ApiResponse.ok(projectService.listMembers(userId, projectId)));
+    }
+
     @DeleteMapping("/{projectId}/members/{targetUserId}")
     public ResponseEntity<ApiResponse<String>> removeMember(
             @RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,

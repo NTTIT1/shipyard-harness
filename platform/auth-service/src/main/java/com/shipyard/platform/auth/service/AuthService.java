@@ -145,6 +145,16 @@ public class AuthService {
         });
     }
 
+    public java.util.List<UserDto> findUsers(java.util.Collection<String> ids) {
+        if (ids.size() > 200) throw new BusinessException("At most 200 ids");
+        return userRepository.findByIdIn(ids).stream().map(this::toDto).toList();
+    }
+
+    public UserDto lookupByEmail(String email) {
+        return userRepository.findByEmailIgnoreCase(email.trim())
+                .map(this::toDto).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
     public UserDto getUserProfile(String userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
