@@ -3,6 +3,7 @@ import '@fontsource-variable/jetbrains-mono';
 import './styles/tokens.css';
 import './styles/ui.css';
 import './styles/shell.css';
+import './styles/review.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';

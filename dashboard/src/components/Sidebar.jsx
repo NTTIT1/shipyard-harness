@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Server, Settings2, Sun, Moon, X, Ship, LogOut } from 'lucide-react';
+import { Plus, Server, Settings2, Sun, Moon, X, Ship, LogOut, Inbox, FolderKanban, LayoutList } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import IconButton from './ui/IconButton.jsx';
 import Badge from './ui/Badge.jsx';
@@ -19,7 +19,7 @@ function dotTone(l) {
   return 'neutral';
 }
 
-export default function Sidebar({ lanes, selected, onSelect, onAssign, onAddLane, onProviders, theme, onToggleTheme, user, onLogout, open, onClose, returnFocusRef }) {
+export default function Sidebar({ lanes, selected, onSelect, onAssign, onAddLane, onProviders, theme, onToggleTheme, user, onLogout, view, onView, inboxCount, open, onClose, returnFocusRef }) {
   const asideRef = useRef(null);
   const closeRef = useRef(null);
   const wasOpen = useRef(false);
@@ -55,6 +55,13 @@ export default function Sidebar({ lanes, selected, onSelect, onAssign, onAddLane
           <IconButton ref={closeRef} className="sb-close" icon={X} label="Đóng" onClick={onClose} />
         </div>
         <Button variant="primary" icon={Plus} className="sb-assign" onClick={() => onAssign(null)}>Giao việc</Button>
+        <nav className="sb-nav" aria-label="Màn hình">
+          <Button variant={view === 'lanes' ? 'secondary' : 'ghost'} icon={LayoutList} onClick={() => { onView('lanes'); onClose(); }}>Lanes</Button>
+          <Button variant={view === 'inbox' || view === 'review' ? 'secondary' : 'ghost'} icon={Inbox} onClick={() => { onView('inbox'); onClose(); }}>
+            Chờ tôi duyệt{inboxCount ? <span className="sb-count" aria-label={`${inboxCount} bước`}>{inboxCount}</span> : null}
+          </Button>
+          <Button variant={view === 'projects' ? 'secondary' : 'ghost'} icon={FolderKanban} onClick={() => { onView('projects'); onClose(); }}>Dự án</Button>
+        </nav>
         <div className="sb-head">
           <span>Lanes</span>
           <span className="sb-counts">{lanes.length} · {running} chạy{need ? ` · ${need} cần bạn` : ''}</span>
@@ -65,7 +72,7 @@ export default function Sidebar({ lanes, selected, onSelect, onAssign, onAddLane
             const [age] = fmtAge(l.heartbeat_age_sec);
             return (
               <button key={l.lane} className={`lane-item${l.lane === selected ? ' on' : ''}`}
-                onClick={() => { onSelect(l.lane); onClose(); }} aria-current={l.lane === selected ? 'true' : undefined}>
+                onClick={() => { onSelect(l.lane); onView('lanes'); onClose(); }} aria-current={l.lane === selected ? 'true' : undefined}>
                 <span className="li-row">
                   <StatusDot tone={dotTone(l)} pulse={l.status === 'running'} />
                   <span className="li-name">Lane {l.lane}</span>
