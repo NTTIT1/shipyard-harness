@@ -1,7 +1,7 @@
 // Minimal service worker so the dashboard is installable as a PWA.
 // Network-first for the app shell (a rebuilt dist is picked up on the next load);
-// /api and /proof are always live and never cached.
-const CACHE = 'shipyard-shell-v1';
+// /api, /proof, /spec and /auth are always live and never cached.
+const CACHE = 'shipyard-shell-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -17,7 +17,7 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/api') || url.pathname.startsWith('/proof')) return;
+  if (/^\/(api|proof|spec|auth)(\/|$)/.test(url.pathname)) return;
 
   event.respondWith(
     fetch(request)

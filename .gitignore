@@ -20,3 +20,5 @@
 .DS_Store
 # dashboard
 /dashboard/node_modules/
+# platform maven build output
+/platform/**/target/

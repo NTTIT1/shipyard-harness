@@ -15,6 +15,9 @@ spring:
     show-sql: false
 
 shipyard:
+  admin:
+    email: ${ADMIN_EMAIL:admin@shipyard.local}
+    password: ${ADMIN_PASSWORD:admin123}
   jwt:
     secret: ${JWT_SECRET:shipyard-super-secret-key-that-is-at-least-256-bits-long-for-hmac-sha256}
     access-token-expiration-seconds: 900

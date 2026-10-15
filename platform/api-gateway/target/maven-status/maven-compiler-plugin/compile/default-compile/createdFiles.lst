@@ -1,2 +1,0 @@
-com\shipyard\platform\gateway\ApiGatewayApplication.class
-com\shipyard\platform\gateway\filter\JwtAuthenticationFilter.class
