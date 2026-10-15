@@ -1,11 +1,13 @@
 server:
   port: 9083
+  # Only the api-gateway faces the network; it is the one place JWTs are checked.
+  address: ${BIND_ADDR:127.0.0.1}
 
 spring:
   application:
     name: lane-service
   datasource:
-    url: jdbc:postgresql://${PG_HOST:127.0.0.1}:${PG_PORT:5433}/lane_db
+    url: jdbc:postgresql://${PG_HOST:127.0.0.1}:${PG_PORT:5434}/lane_db
     username: ${PG_USER:postgres}
     password: ${PG_PASS:postgres}
     driver-class-name: org.postgresql.Driver

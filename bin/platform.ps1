@@ -28,11 +28,12 @@ $Services = @(
     @{ Name = "auth-service"; Port = 9081; Jar = "$PlatformDir\auth-service\target\auth-service-1.0.0-SNAPSHOT.jar" },
     @{ Name = "project-service"; Port = 9082; Jar = "$PlatformDir\project-service\target\project-service-1.0.0-SNAPSHOT.jar" },
     @{ Name = "lane-service"; Port = 9083; Jar = "$PlatformDir\lane-service\target\lane-service-1.0.0-SNAPSHOT.jar" },
+    @{ Name = "orchestrator-service"; Port = 9084; Jar = "$PlatformDir\orchestrator-service\target\orchestrator-service-1.0.0-SNAPSHOT.jar" },
     @{ Name = "api-gateway"; Port = 9080; Jar = "$PlatformDir\api-gateway\target\api-gateway-1.0.0-SNAPSHOT.jar" }
 )
 
 function Start-Infra {
-    Write-Host "Starting core platform infrastructure (Postgres 5433, Redis 6379, RabbitMQ 5672)..." -ForegroundColor Cyan
+    Write-Host "Starting core platform infrastructure (Postgres 5434, Redis 6380, RabbitMQ 5673)..." -ForegroundColor Cyan
     docker compose -f "$PlatformDir\docker-compose.yml" up -d
 }
 
