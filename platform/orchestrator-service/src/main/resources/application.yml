@@ -1,0 +1,21 @@
+server:
+  port: 9084
+
+spring:
+  application:
+    name: orchestrator-service
+  datasource:
+    url: jdbc:postgresql://${PG_HOST:127.0.0.1}:${PG_PORT:5434}/orchestrator_db
+    username: ${PG_USER:postgres}
+    password: ${PG_PASS:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+
+shipyard:
+  service-token: ${SHIPYARD_SERVICE_TOKEN:dev-service-token}
+  project-service-url: ${PROJECT_SERVICE_URL:http://127.0.0.1:9082}
+  context-service-url: ${CONTEXT_SERVICE_URL:}
+  outbox:
+    interval-ms: 5000

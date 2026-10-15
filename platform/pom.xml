@@ -22,7 +22,7 @@
         <module>auth-service</module>
         <module>project-service</module>
         <module>lane-service</module>
-        <!-- <module>orchestrator-service</module> -->
+        <module>orchestrator-service</module>
         <module>api-gateway</module>
     </modules>
 
