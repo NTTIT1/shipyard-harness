@@ -1,4 +1,4 @@
-package com.shipyard.platform.orchestrator.directory;
+package com.shipyard.platform.common.directory;
 
 import org.junit.jupiter.api.Test;
 

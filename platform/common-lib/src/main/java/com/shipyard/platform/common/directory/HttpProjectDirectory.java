@@ -1,12 +1,10 @@
-package com.shipyard.platform.orchestrator.directory;
+package com.shipyard.platform.common.directory;
 
 import com.shipyard.platform.common.dto.ApiResponse;
 import com.shipyard.platform.common.exception.UpstreamUnavailableException;
 import com.shipyard.platform.common.web.ServiceTokenFilter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -14,25 +12,24 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
-/** Reads membership from project-service /internal/v1 (60 s cache, spec §3.5). */
-@Component
+/** Reads membership from project-service /internal/v1 (TTL cache; evict() drops entries on change). */
 public class HttpProjectDirectory implements ProjectDirectory {
 
-    private static final Duration TTL = Duration.ofSeconds(60);
-
     private final RestClient http;
-    private final TtlCache<String, List<String>> roles = new TtlCache<>(TTL, System::currentTimeMillis);
-    private final TtlCache<String, Map<String, Long>> holders = new TtlCache<>(TTL, System::currentTimeMillis);
-    private final TtlCache<String, List<Membership>> memberships = new TtlCache<>(TTL, System::currentTimeMillis);
+    private final TtlCache<String, List<String>> roles;
+    private final TtlCache<String, Map<String, Long>> holders;
+    private final TtlCache<String, List<Membership>> memberships;
 
-    public HttpProjectDirectory(RestClient.Builder builder,
-                                @Value("${shipyard.project-service-url}") String baseUrl,
-                                @Value("${shipyard.service-token}") String token) {
+    /** ttl = Duration.ZERO disables caching (every call goes to project-service). */
+    public HttpProjectDirectory(RestClient.Builder builder, String baseUrl, String token, Duration ttl) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(3000);
         factory.setReadTimeout(5000);
         this.http = builder.baseUrl(baseUrl).requestFactory(factory)
                 .defaultHeader(ServiceTokenFilter.HEADER, token).build();
+        this.roles = new TtlCache<>(ttl, System::currentTimeMillis);
+        this.holders = new TtlCache<>(ttl, System::currentTimeMillis);
+        this.memberships = new TtlCache<>(ttl, System::currentTimeMillis);
     }
 
     @Override
