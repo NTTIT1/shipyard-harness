@@ -6,6 +6,7 @@ import lanesRoutes from './routes/lanes.js';
 import proofRoutes from './routes/proof.js';
 import credsRoutes from './routes/creds.js';
 import authRoutes from './routes/auth.js';
+import { platformRouter } from './routes/platform.js';
 import { requireAuth } from './services/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -23,6 +24,7 @@ export function createApp(authOpts) {
   // Login (via Shipyard Platform) gates every data route; /auth/* and the SPA shell stay public.
   app.use(authRoutes);
   app.use(requireAuth(authOpts));
+  app.use(platformRouter());
   // agentui first: its POST /api/lane/:n/assign would otherwise hit lanes' /:action.
   app.use(agentuiRoutes);
   app.use(lanesRoutes);

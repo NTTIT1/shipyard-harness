@@ -38,6 +38,7 @@ export async function assignLane(n, body, d) {
   d.state(['init']);
   d.state(['set', 'status=assigned', 'stage=assigned', `impl_agents=${implAgents}`, `feature_title=${title}`]);
   d.state(['set-json', 'models', JSON.stringify(models)]);
+  if (d.assignedBy) d.state(['set', `assigned_by=${d.assignedBy}`]);
   if (!lane.api_up) d.laneUp(n);
   d.startSession(n, { model: models.main.slice('claude:'.length), prompt: buildPrompt({ requirement, spec_dir }) });
   return { ok: true };

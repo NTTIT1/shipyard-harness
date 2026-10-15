@@ -38,6 +38,11 @@ beforeAll(async () => {
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 describe('assignLane', () => {
+  it('records who assigned the lane (createdBy of the platform run)', async () => {
+    const { calls, d } = deps({ assignedBy: 'usr_42' });
+    await A.assignLane(2, { requirement: 'x' }, d);
+    expect(calls.state.some(c => c.join(' ') === 'set assigned_by=usr_42')).toBe(true);
+  });
   it('writes state, boots the stack and starts /ship-feature on the main model', async () => {
     const { d, calls } = deps();
     await A.assignLane(1, { requirement: 'Thêm màn hình nghỉ phép', models: MODELS, impl_agents: 3 }, d);
