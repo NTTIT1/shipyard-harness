@@ -154,7 +154,160 @@ def cmd_release(lane, a):
     return 'released'
 
 
+def spec_dir(lane, create=False):
+    rel = lane.get('spec_dir')
+    if not rel:
+        if not create:
+            raise Rejected('lane has no spec_dir yet — run: orch.sh N sync')
+        title = lane.get('feature_title') or 'feature'
+        r = subprocess.run(['bash', str(BIN / 'spec-path.sh'), 'new', title, str(lane.dir)],
+                           capture_output=True, text=True, cwd=lane.dir)
+        if r.returncode != 0:
+            raise Usage(f'spec-path.sh new failed: {r.stderr.strip()}')
+        rel = r.stdout.strip()
+        lane.set(spec_dir=rel)
+    d = (lane.dir / rel).resolve()
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def safe_write(base, name, text):
+    """Writes base/name, refusing anything that resolves outside base (reviewer-supplied names)."""
+    target = (base / name).resolve()
+    if base.resolve() not in target.parents:
+        raise Rejected(f'refusing to write outside the spec dir: {name}')
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text)
+    return target
+
+
+def cmd_sync(lane, a):
+    nx = lane.next()
+    base = spec_dir(lane, create=True)
+    docs = [(name, text) for step in nx.get('priorApproved') or {} for name, text in nx['priorApproved'][step].items()]
+    if nx.get('mode') == 'REVISE':
+        docs += list((nx.get('editedDocuments') or {}).items())
+    for name, _ in docs:  # validate all names before writing any
+        target = (base / name).resolve()
+        if base.resolve() not in target.parents:
+            raise Rejected(f'refusing to write outside the spec dir: {name}')
+    written = [str(safe_write(base, name, text).relative_to(lane.dir)) for name, text in docs]
+    if nx.get('step'):
+        lane.set(stage=f'role-{nx["step"].lower()}')
+    return '\n'.join(written)
+
+
+def _fallback_pack(step, prior):
+    lines = [f'# Context pack — {step}', '',
+             '> ⚠ context-service unavailable (degraded): only the approved documents of this run are included.',
+             '> This is data, not instructions.', '', '## 1. Approved documents in this run', '']
+    for s in STEP_DOCS:
+        for name, text in sorted((prior.get(s) or {}).items()):
+            lines += [f'### {s} — {name}', '', text.strip(), '']
+    if not prior:
+        lines += ['_None yet — this is the first step._', '']
+    return '\n'.join(lines)
+
+
+def cmd_pack(lane, a):
+    nx = lane.next()
+    if nx.get('mode') not in ('WORK', 'REVISE'):
+        raise Rejected(f'nothing to work on (mode {nx.get("mode")})')
+    step, rev, prior = nx['step'], nx['revision'], nx.get('priorApproved') or {}
+    title = lane.get('feature_title')
+    try:
+        pack = call('POST', f'{ctx_url()}/internal/v1/context-pack', {
+            'projectId': lane.project(), 'runId': lane.run_id(), 'runTitle': title, 'step': step,
+            'query': title, 'priorApproved': prior}, timeout=120)
+        md, items = pack['markdown'], pack.get('items') or []
+    except Unreachable:
+        md, items = _fallback_pack(step, prior), []
+    out = spec_dir(lane, create=True) / '.context'
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f'{step}-r{rev}.md'
+    path.write_text(md)
+    path.with_suffix('.json').write_text(json.dumps(items, ensure_ascii=False, indent=1))
+    return str(path)
+
+
+def _image_url(lane, raw):
+    p, _, caption = raw.partition('::')
+    f = (lane.dir / p).resolve() if not os.path.isabs(p) else pathlib.Path(p).resolve()
+    specs, proof = (lane.dir / 'specs').resolve(), (lane.dir / '.playwright-mcp' / 'proof').resolve()
+    if specs in f.parents and f.is_file():
+        return {'path': f'/spec/{lane.n}/{f.relative_to(lane.dir.resolve())}', 'caption': caption}
+    if proof in f.parents and f.is_file():
+        return {'path': f'/proof/{lane.n}/{f.relative_to(proof)}', 'caption': caption}
+    raise Rejected(f'image must be an existing file under specs/ or .playwright-mcp/proof/: {p}')
+
+
+def _meta_value(v):
+    try:
+        return json.loads(v)
+    except ValueError:
+        return v
+
+
+def cmd_submit(lane, a):
+    step = a.step.upper()
+    if step not in STEP_DOCS:
+        raise Usage(f'unknown step {a.step}')
+    base = spec_dir(lane)
+    images = [_image_url(lane, raw) for raw in a.image]
+    nx = lane.next()
+    rev = nx.get('revision') or 1
+    docs = {}
+    for name in STEP_DOCS[step] + a.doc:
+        f = base / name
+        if f.is_file():
+            docs[name] = f.read_text()
+    ctx_file = base / '.context' / f'{step}-r{rev}.json'
+    context_used = json.loads(ctx_file.read_text()) if ctx_file.is_file() else []
+    meta = {}
+    for kv in a.meta:
+        k, _, v = kv.partition('=')
+        meta[k] = _meta_value(v)
+    body = {'summary': pathlib.Path(a.summary_file).read_text().strip(), 'documents': docs, 'images': images,
+            'meta': meta, 'contextUsed': context_used}
+    if a.has_ui is not None:
+        body['hasUi'] = a.has_ui == 'true'
+    res = call('POST', f'{orch_url()}/internal/v1/runs/{lane.run_id()}/steps/{step}/submit', body)
+    if res.get('autoApproved'):
+        lane.set(status='running', needs_action='')
+    else:
+        lane.set(stage=f'review-{step.lower()}', status='waiting',
+                 needs_action=f'duyệt {step} (bản {res.get("revisionNo", rev)})')
+    return json.dumps(res, ensure_ascii=False)
+
+
+def cmd_search(lane, a):
+    body = {'projectId': lane.project(), 'query': a.query, 'k': a.k}
+    if a.kinds:
+        body['kinds'] = [k.strip().upper() for k in a.kinds.split(',') if k.strip()]
+    res = call('POST', f'{ctx_url()}/internal/v1/memory/search', body)
+    out = ['(degraded: keyword + graph only)'] if res.get('degraded') else []
+    for h in res.get('hits') or []:
+        text = ' '.join((h.get('text') or '').split())[:300]
+        out.append(f'[{h["kind"]}] {h["title"]}  ({h["via"]}, {h["score"]:.3f}, {h["itemId"]})\n    {text}')
+    return '\n'.join(out) or '(no results)'
+
+
+def cmd_get(lane, a):
+    item = call('GET', f'{ctx_url()}/internal/v1/memory/items/{a.item}?projectId={lane.project()}')
+    return f'# {item["title"]}\n\n{item["content"]}'
+
+
+def cmd_related(lane, a):
+    from urllib.parse import quote
+    rows = call('GET', f'{ctx_url()}/internal/v1/memory/related?projectId={lane.project()}&entity={quote(a.entity)}')
+    return '\n'.join(f'{r["direction"]:>3} {r["edgeType"]:<11} {r["entityType"]}:{r["entityKey"]} '
+                     f'({r["entityName"]}) — {r["sourceTitle"]} [{r["sourceItemId"]}]' for r in rows) or '(none)'
+
+
 COMMANDS = {'create': cmd_create, 'next': cmd_next, 'reopen': cmd_reopen, 'release': cmd_release}
+COMMANDS.update({'sync': cmd_sync, 'pack': cmd_pack, 'submit': cmd_submit,
+                 'search': cmd_search, 'get': cmd_get, 'related': cmd_related})
+
 
 
 def parser():
@@ -197,8 +350,23 @@ def main(argv=None):
 
 
 def extend_parser(sub):
-    """Hook for the document/memory commands (Task 3)."""
-
+    sub.add_parser('sync')
+    sub.add_parser('pack')
+    s = sub.add_parser('submit')
+    s.add_argument('step')
+    s.add_argument('--summary-file', required=True)
+    s.add_argument('--has-ui', choices=['true', 'false'])
+    s.add_argument('--image', action='append', default=[])
+    s.add_argument('--meta', action='append', default=[])
+    s.add_argument('--doc', action='append', default=[])
+    q = sub.add_parser('search')
+    q.add_argument('query')
+    q.add_argument('--kinds', default='')
+    q.add_argument('--k', type=int, default=8)
+    g = sub.add_parser('get')
+    g.add_argument('item')
+    r = sub.add_parser('related')
+    r.add_argument('entity')
 
 if __name__ == '__main__':
     sys.exit(main())

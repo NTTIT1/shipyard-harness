@@ -165,5 +165,138 @@ class CoreTest(OrchTestCase):
         self.assertEqual(self.orch('frobnicate').returncode, 64)
 
 
+
+class DocumentsTest(OrchTestCase):
+    def setUp(self):
+        super().setUp()
+        self.st('set', 'run_id=run_1', 'run_project_id=proj_t')
+
+    def spec_dir(self):
+        rel = self.st('get', 'spec_dir')
+        return self.lane / rel
+
+    def test_sync_creates_spec_dir_and_writes_approved_and_edited_docs(self):
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(
+            mode='REVISE', step='BA', revision=2, feedback='thêm luồng lỗi',
+            editedDocuments={'ba.md': '# BA người sửa'},
+            priorApproved={'PM': {'spec.md': '# Spec đã duyệt'}}))
+        r = self.orch('sync')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        sd = self.spec_dir()
+        self.assertTrue(str(sd.relative_to(self.lane)).startswith('specs/2026-10-15-'))
+        self.assertEqual((sd / 'spec.md').read_text(), '# Spec đã duyệt')
+        self.assertEqual((sd / 'ba.md').read_text(), '# BA người sửa')
+
+    def test_sync_refuses_paths_outside_spec_dir(self):
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(
+            mode='REVISE', step='PM', revision=2, editedDocuments={'../../evil.md': 'x'}))
+        r = self.orch('sync')
+        self.assertEqual(r.returncode, 3)
+        self.assertFalse((self.lane / 'evil.md').exists())
+        self.assertFalse((self.h / 'lanes' / 'evil.md').exists())
+
+    def test_pack_writes_markdown_and_items(self):
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(
+            step='BA', priorApproved={'PM': {'spec.md': '# Spec'}}))
+        self.ctx.routes[('POST', '/internal/v1/context-pack')] = (200, {
+            'markdown': '# Context pack — BA\nbài học', 'items': [{'itemId': 'mem_1', 'kind': 'FEEDBACK', 'title': 't',
+                                                                   'score': 0.5, 'via': 'hybrid'}], 'degraded': False})
+        r = self.orch('pack')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        md = pathlib.Path(r.stdout.strip())
+        self.assertEqual(md.name, 'BA-r1.md')
+        self.assertIn('bài học', md.read_text())
+        self.assertEqual(json.loads(md.with_suffix('.json').read_text())[0]['itemId'], 'mem_1')
+        body = self.ctx.requests[-1]['body']
+        self.assertEqual((body['projectId'], body['runId'], body['step'], body['runTitle']), ('proj_t', 'run_1', 'BA', 'Đăng xuất'))
+        self.assertEqual(body['priorApproved'], {'PM': {'spec.md': '# Spec'}})
+
+    def test_pack_falls_back_when_context_service_is_down(self):
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(
+            step='ARCH', priorApproved={'PM': {'spec.md': '# Spec PM'}, 'BA': {'ba.md': '# BA'}}))
+        self.env['CONTEXT_URL'] = 'http://127.0.0.1:9'
+        r = self.orch('pack')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        text = pathlib.Path(r.stdout.strip()).read_text()
+        self.assertIn('# Spec PM', text)
+        self.assertIn('degraded', text)
+
+    def test_pack_refuses_when_nothing_to_work_on(self):
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(mode='WAIT'))
+        self.assertEqual(self.orch('pack').returncode, 3)
+
+    def prepare_submit(self, step, docs, revision=1):
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(step=step, revision=revision))
+        self.orch('sync')
+        sd = self.spec_dir()
+        for name, text in docs.items():
+            (sd / name).parent.mkdir(parents=True, exist_ok=True)
+            (sd / name).write_text(text)
+        (sd / '.context').mkdir(exist_ok=True)
+        (sd / '.context' / f'{step}-r{revision}.json').write_text(json.dumps([{'itemId': 'mem_1', 'kind': 'FEEDBACK',
+                                                                              'title': 't', 'score': 0.4, 'via': 'vector'}]))
+        (self.h / 'summary.txt').write_text('Đã viết thiết kế')
+        self.platform.routes[('POST', f'/internal/v1/runs/run_1/steps/{step}/submit')] = (200, {
+            'revisionId': 'rev_1', 'revisionNo': revision, 'approvalId': 'apr_1', 'autoApproved': False})
+        return sd
+
+    def test_submit_collects_docs_images_context_and_parks_the_lane(self):
+        sd = self.prepare_submit('DESIGN', {'design.md': '# Design', 'design/01-list-desktop.png': 'png'})
+        proof = self.lane / '.playwright-mcp' / 'proof' / 'logout' / 'qc-local'
+        proof.mkdir(parents=True)
+        (proof / '01.png').write_text('png')
+        rel_png = str((sd / 'design' / '01-list-desktop.png').relative_to(self.lane))
+        r = self.orch('submit', 'DESIGN', '--summary-file', str(self.h / 'summary.txt'),
+                      '--image', f'{rel_png}::Danh sách', '--image', '.playwright-mcp/proof/logout/qc-local/01.png',
+                      '--meta', 'screens=2', '--meta', 'tool=html')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        body = self.platform.requests[-1]['body']
+        self.assertEqual(body['summary'], 'Đã viết thiết kế')
+        self.assertEqual(body['documents'], {'design.md': '# Design'})
+        self.assertEqual(body['images'][0], {'path': f'/spec/1/{rel_png}', 'caption': 'Danh sách'})
+        self.assertEqual(body['images'][1], {'path': '/proof/1/logout/qc-local/01.png', 'caption': ''})
+        self.assertEqual(body['meta'], {'screens': 2, 'tool': 'html'})
+        self.assertEqual(body['contextUsed'][0]['itemId'], 'mem_1')
+        self.assertEqual(self.st('get', 'status'), 'waiting')
+        self.assertIn('DESIGN', self.st('get', 'needs_action'))
+
+    def test_submit_arch_sends_has_ui_and_entities(self):
+        self.prepare_submit('ARCH', {'plan.md': 'p', 'tasks.md': 't', 'entities.json': '{"entities":[]}'})
+        r = self.orch('submit', 'ARCH', '--summary-file', str(self.h / 'summary.txt'), '--has-ui', 'false')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        body = self.platform.requests[-1]['body']
+        self.assertIs(body['hasUi'], False)
+        self.assertEqual(set(body['documents']), {'plan.md', 'tasks.md', 'entities.json'})
+
+    def test_submit_rejects_images_outside_servable_dirs(self):
+        self.prepare_submit('DESIGN', {'design.md': '# D'})
+        for bad in ['/etc/passwd', '../x.png', 'src/app.png']:
+            r = self.orch('submit', 'DESIGN', '--summary-file', str(self.h / 'summary.txt'), '--image', bad)
+            self.assertEqual(r.returncode, 3, bad)
+        self.assertFalse(any(q['path'].endswith('/submit') for q in self.platform.requests))
+
+    def test_auto_approved_submit_keeps_running(self):
+        self.prepare_submit('PM', {'spec.md': '# S'})
+        self.platform.routes[('POST', '/internal/v1/runs/run_1/steps/PM/submit')] = (200, {
+            'revisionId': 'rev_1', 'revisionNo': 1, 'approvalId': 'apr_1', 'autoApproved': True})
+        self.orch('submit', 'PM', '--summary-file', str(self.h / 'summary.txt'))
+        self.assertEqual(self.st('get', 'status'), 'running')
+
+    def test_search_get_related(self):
+        self.ctx.routes[('POST', '/internal/v1/memory/search')] = (200, {'degraded': False, 'hits': [
+            {'itemId': 'mem_1', 'kind': 'FEEDBACK', 'title': 'Góp ý', 'text': 'luôn phân trang', 'score': 0.03,
+             'via': 'hybrid', 'runId': 'r', 'step': 'BA', 'chunkId': 1}]})
+        self.ctx.routes[('GET', '/internal/v1/memory/items/mem_1')] = (200, {'id': 'mem_1', 'title': 'Góp ý', 'content': 'nội dung đầy đủ'})
+        self.ctx.routes[('GET', '/internal/v1/memory/related')] = (200, [
+            {'edgeType': 'TOUCHES', 'direction': 'in', 'entityType': 'FEATURE', 'entityKey': 'run_a',
+             'entityName': 'Thanh toán', 'sourceItemId': 'mem_2', 'sourceTitle': 'plan'}])
+        out = self.orch('search', 'phân trang', '--kinds', 'FEEDBACK,HUMAN_EDIT', '--k', '3').stdout
+        self.assertIn('[FEEDBACK] Góp ý', out)
+        self.assertIn('mem_1', out)
+        self.assertEqual(self.ctx.requests[-1]['body']['kinds'], ['FEEDBACK', 'HUMAN_EDIT'])
+        self.assertIn('nội dung đầy đủ', self.orch('get', 'mem_1').stdout)
+        self.assertIn('projectId=proj_t', self.ctx.requests[-1]['path'])
+        self.assertIn('TOUCHES', self.orch('related', 'TABLE:orders').stdout)
+
 if __name__ == '__main__':
     unittest.main()
