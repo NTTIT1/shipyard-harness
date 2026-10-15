@@ -13,6 +13,10 @@ for t in "$DIR"/test_*.sh; do
 done
 
 echo
+echo "== python tests =="
+python3 -m unittest discover -s "$DIR" -p 'test_*.py' || rc=1
+
+echo
 echo "== node tests (dashboard slug correlation) =="
 if [ -x "$DIR/../dashboard/node_modules/.bin/vitest" ]; then
   ( cd "$DIR/../dashboard" && npm test --silent ) || rc=1
