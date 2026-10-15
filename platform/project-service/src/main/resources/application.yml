@@ -5,7 +5,7 @@ spring:
   application:
     name: project-service
   datasource:
-    url: jdbc:postgresql://${PG_HOST:127.0.0.1}:${PG_PORT:5433}/project_db
+    url: jdbc:postgresql://${PG_HOST:127.0.0.1}:${PG_PORT:5434}/project_db
     username: ${PG_USER:postgres}
     password: ${PG_PASS:postgres}
     driver-class-name: org.postgresql.Driver
@@ -16,4 +16,4 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:6379}
+      port: ${REDIS_PORT:6380}
