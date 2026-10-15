@@ -81,6 +81,34 @@ Resume from the stage shown in lane state. If state says `stage=X status=running
   A step's model comes from lane state `models`, else `config/models.json`, else Opus — you never choose it.
 - **Cross-lane etiquette (locks + siblings).** Lanes share one machine and one dev site. Waiting on a cross-lane serializer (the build/e2e locks inside the helpers, or any `lane-lock.sh` lock) is NORMAL — helpers heartbeat while they wait, so you won't look stalled. NEVER free a lock by killing another lane's session or processes, deleting `harness/locks/*`, or shrinking `LOCK_MAX_HOLD`; a dead holder's lock auto-expires on its own. If a lock wait times out: re-try with a longer timeout, or set `status=blocked` with a note and report. Touch ONLY your own lane's clone, state, and locks you hold. On the shared dev site, use ONLY your lane's QA account (`<lane>/.harness-qa.env`) and never touch data another lane's account created.
 
+## Role pipeline mode (Shipyard Platform)
+
+Use this mode when `eval "$("$HARNESS/bin/lane-env.sh" "$N")"` gives a non-empty `PLATFORM_PROJECT_ID`; otherwise run the classic Stages below unchanged. In role mode every step is done by its role agent and **approved by a human of that role on the dashboard** before the next one starts. You (the main session) are the conductor: you never write the role documents yourself.
+
+**Platform bridge** — `"$HARNESS/bin/orch.sh" "$N" <cmd>` (exit 0 ok · **2 platform unreachable → `state.sh "$N" set status=blocked notes="platform unreachable: <stderr>"` and STOP** · 3 rejected → read the message, fix, retry).
+
+**Start (once per feature):** `"$HARNESS/bin/state.sh" "$N" init` (unless this is a resume), `state.sh "$N" set feature_title="<short title>" status=running`, then `"$HARNESS/bin/orch.sh" "$N" create --title "<short title>" --description "<the request>"`. The request text you were given is the input of the PM step — do not run Stage 0 Q&A; open questions go into spec.md for the human PM.
+
+**The loop** — repeat until the run is released:
+1. `NEXT="$("$HARNESS/bin/orch.sh" "$N" next)"` → read `mode`, `step`, `revision`, `feedback`.
+2. `mode=WAIT` → `state.sh "$N" set status=waiting` (orch submit already set `needs_action`) and **STOP this turn with nothing pending** — the dashboard resumes you when the reviewer decides (or the human types `tiếp tục`). On resume, start again at 1.
+3. `mode=CANCELLED` → `state.sh "$N" set status=idle needs_action= notes="run cancelled by reviewer"` and STOP. `mode=DONE` → Stage 14.
+4. `mode=WORK|REVISE` →
+   - `"$HARNESS/bin/orch.sh" "$N" sync` (writes approved docs and the reviewer's edited documents into `$SPEC_DIR` — the human version is the base), then `SPEC_DIR="$("$HARNESS/bin/state.sh" "$N" get spec_dir)"`; commit doc changes on the feature branch once it exists (`docs(<step>): …`).
+   - `PACK="$("$HARNESS/bin/orch.sh" "$N" pack)"` (context pack file).
+   - Run the step (below), then write a ≤10-line summary to `$RUN_DIR/<step>-summary.md` and submit: `"$HARNESS/bin/orch.sh" "$N" submit <STEP> --summary-file "$RUN_DIR/<step>-summary.md" …`. Exit 3 → fix exactly what the message lists and submit again.
+5. `mode=RELEASE` → Stages 7–14 (senior gate → PR → ticket → CI → watch → merge → post-merge QC). After the human merges and dev-QC passes: `"$HARNESS/bin/orch.sh" "$N" release --summary "<PR url, what shipped>"`. Dev-QC finds a regression → `"$HARNESS/bin/orch.sh" "$N" reopen --reason "<what failed>"` and continue the loop (DEV is reopened, then TEST again).
+
+**Steps** — each role step runs `"$HARNESS/bin/run-step.sh" "$N" <id> <prompt-file>`; the prompt gives: lane N, lane path, `$HARNESS`, `$SPEC_DIR`, mode, revision, the context pack path, the feedback (on REVISE), the original request (PM), and the constitution path if any. Parse the last line: `ROLE-STEP: DONE …` → submit; `ROLE-STEP: BLOCKED …` or exit 2/3 → `state.sh "$N" set status=blocked notes="<step>: <reason> — đổi model trên dashboard"` and STOP.
+- **PM** — `"$HARNESS/bin/run-step.sh" "$N" pm <prompt>` → submit `PM`.
+- **BA** — `"$HARNESS/bin/run-step.sh" "$N" ba <prompt>` → submit `BA`.
+- **ARCH** — `"$HARNESS/bin/run-step.sh" "$N" arch <prompt>`; read `has_ui: true|false` from its report → submit `ARCH --has-ui <true|false>`.
+- **DESIGN** (only when has_ui) — `"$HARNESS/bin/run-step.sh" "$N" design <prompt>`; submit `DESIGN` with one `--image <path>::<caption>` per `IMAGE:` line of its report.
+- **DEV** — create/checkout the feature branch exactly as Stage 1 says, then Stages 1–4 (implement to `tasks.md` → CI gates + preflight → e2e → code review), all fixes looping inside DEV. **Never write UI code before DESIGN is approved** — the orchestrator only hands you DEV after every earlier gate passed; if `/next` is not DEV, do not code. Push nothing yet. Submit `DEV --meta branch=feat/<slug> --meta head=<sha> --meta ci=<pass|fail> --meta e2e=<pass|fail|skipped>` with `--doc` none; the summary lists commits and gate results.
+- **TEST** — `"$HARNESS/bin/run-step.sh" "$N" test <prompt>` (qc-plan.md + automated checks), then Stage 6 (`qc-local` against `$SPEC_DIR/qc-plan.md`) → submit `TEST` with `--image` for each proof screenshot under `.playwright-mcp/proof/<slug>/qc-local/`. A failing QC is reported, not hidden — the human tester decides (REQUEST_CHANGES/SEND_BACK to DEV).
+
+**Reviewer feedback is law:** on REVISE the role agent must address every point; on SEND_BACK the earlier step re-runs and every later step is redone. Never skip a gate, never submit a document you did not regenerate for this revision.
+
 ## Stages
 
 ### 0 — Intake & frontloaded Q&A  *(the only interactive part)*

@@ -20,4 +20,14 @@ assert_contains "$(cat "$AG/designer-agent.md")" "Never edit application code" "
 for t in ba design qc-plan; do assert_file "$REPO/templates/roles/$t.md" "role template $t.md exists"; done
 python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$REPO/templates/roles/entities.json" && r=ok || r=bad
 assert_eq "ok" "$r" "entities.json template is valid JSON"
+SF="$REPO/claude/skills/ship-feature/SKILL.md"
+c="$(cat "$SF")"
+assert_contains "$c" "## Role pipeline mode" "ship-feature has the role pipeline mode"
+assert_contains "$c" "PLATFORM_PROJECT_ID" "role mode is selected by PLATFORM_PROJECT_ID"
+for cmd in "orch.sh\" \"\$N\" create" "orch.sh\" \"\$N\" next" "orch.sh\" \"\$N\" sync" "orch.sh\" \"\$N\" pack" "orch.sh\" \"\$N\" submit" "orch.sh\" \"\$N\" release" "orch.sh\" \"\$N\" reopen"; do
+  assert_contains "$c" "$cmd" "role mode uses $cmd"
+done
+for s in pm ba arch design test; do assert_contains "$c" "run-step.sh\" \"\$N\" $s" "role mode runs the $s step"; done
+assert_contains "$c" "status=blocked" "unreachable platform parks the lane blocked"
+assert_contains "$c" "Never write UI code before DESIGN" "UI code waits for design approval"
 finish
