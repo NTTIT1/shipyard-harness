@@ -26,6 +26,11 @@ export const CLAUDE_MODELS = [
 
 export const STEPS = [
   { id: 'main', label: 'Phiên chính', claudeOnly: true },
+  { id: 'pm', label: 'PM (AI)' },
+  { id: 'ba', label: 'BA (AI)' },
+  { id: 'arch', label: 'Kiến trúc sư (AI)' },
+  { id: 'design', label: 'Designer (AI)', warn: 'cần Chrome để chụp mockup' },
+  { id: 'test', label: 'Tester (AI)' },
   { id: 'plan-critic', label: 'Phản biện plan' },
   { id: 'impl-worker', label: 'Code song song', warn: 'cần sửa file + chạy test' },
   { id: 'code-review', label: 'Code review' },

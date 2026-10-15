@@ -123,4 +123,15 @@ assert_contains "$(cat "$TMPH/err")" "harness: run-step: could not record step e
 # 7. usage
 rs 2 nope "$P" >/dev/null 2>&1; assert_eq "64" "$?" "unknown step -> 64"
 
+# role steps map to their agents and require a ROLE-STEP verdict line
+for pair in pm:pm-agent ba:ba-agent arch:architect-agent design:designer-agent test:tester-agent; do
+  step="${pair%%:*}"; agent="${pair#*:}"
+  FAKE_RESULT=$'wrote it\nROLE-STEP: DONE spec.md' rs 2 "$step" "$P" > "$TMPH/out"; rc=$?
+  assert_eq "0" "$rc" "$step exits 0 on a ROLE-STEP verdict"
+  assert_contains "$(cat "$HARNESS_ROOT/claude.args")" $'--agent\n'"$agent" "$step maps to $agent"
+done
+FAKE_RESULT='I forgot the verdict' rs 2 pm "$P" >/dev/null 2>&1; rc=$?
+assert_eq "3" "$rc" "a role step without ROLE-STEP verdict exits 3"
+assert_contains "$(st 2 get steps)" "did not end with a ROLE-STEP" "the missing verdict is recorded on the step"
+
 finish

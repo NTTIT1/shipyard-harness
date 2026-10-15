@@ -5,7 +5,7 @@ import path from 'path';
 
 let tmp, A, P;
 const MODELS = {
-  main: 'claude:claude-opus-5-5', 'plan-critic': 'claude:claude-opus-5-5', 'impl-worker': 'claude:claude-opus-5-5',
+  main: 'claude:claude-opus-5-5', pm: 'claude:claude-opus-5-5', ba: 'claude:claude-opus-5-5', arch: 'claude:claude-opus-5-5', design: 'claude:claude-opus-5-5', test: 'claude:claude-opus-5-5', 'plan-critic': 'claude:claude-opus-5-5', 'impl-worker': 'claude:claude-opus-5-5',
   'code-review': 'claude:claude-opus-5-5', 'qc-local': 'claude:claude-opus-5-5', 'senior-gate': 'claude:claude-opus-5-5',
   ticketer: 'claude:claude-opus-5-5', 'dev-qc': 'claude:claude-opus-5-5',
 };
