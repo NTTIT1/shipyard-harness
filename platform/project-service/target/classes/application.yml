@@ -1,0 +1,19 @@
+server:
+  port: 9082
+
+spring:
+  application:
+    name: project-service
+  datasource:
+    url: jdbc:postgresql://${PG_HOST:127.0.0.1}:${PG_PORT:5433}/project_db
+    username: ${PG_USER:postgres}
+    password: ${PG_PASS:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
