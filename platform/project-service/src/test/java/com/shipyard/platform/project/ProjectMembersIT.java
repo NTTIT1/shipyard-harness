@@ -86,7 +86,7 @@ class ProjectMembersIT {
         Map holders = call(HttpMethod.GET, "/internal/v1/projects/" + pid + "/role-holders", null, true, null).getBody();
         assertThat((Map<String, Integer>) holders.get("data")).containsEntry("PM", 1).containsEntry("BA", 1).containsEntry("OWNER", 1);
 
-        Map ms = call(HttpMethod.GET, "/internal/v1/users/usr_ann/memberships", null, true, null).getBody();
+        Map ms = call(HttpMethod.GET, "/internal/v1/users/" + "usr_ann" + "/memberships", null, true, null).getBody();
         assertThat((List<Map>) ms.get("data")).anySatisfy(m -> {
             assertThat(m.get("projectId")).isEqualTo(pid);
             assertThat((List<String>) m.get("roles")).containsExactlyInAnyOrder("PM", "BA");
