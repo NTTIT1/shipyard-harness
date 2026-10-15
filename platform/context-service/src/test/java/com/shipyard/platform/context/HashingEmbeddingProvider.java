@@ -8,6 +8,8 @@ import java.util.Locale;
 /** Deterministic bag-of-words embedding: texts sharing words are similar; disjoint texts score 0. */
 public class HashingEmbeddingProvider implements EmbeddingProvider {
     public volatile boolean down;
+    /** Simulates a misconfigured model (e.g. 768 dims): a non-availability error. */
+    public volatile boolean broken;
 
     @Override
     public String model() { return "test:hashing"; }
@@ -15,6 +17,7 @@ public class HashingEmbeddingProvider implements EmbeddingProvider {
     @Override
     public float[] embed(String text) {
         if (down) throw new EmbeddingUnavailableException("test: provider down");
+        if (broken) throw new IllegalStateException("Model x returns 768 dimensions; the schema expects 1024");
         float[] v = new float[DIMENSIONS];
         for (String t : text.toLowerCase(Locale.ROOT).split("[^\\p{L}\\p{N}]+")) {
             if (t.length() > 1) v[Math.floorMod(t.hashCode(), DIMENSIONS)] += 1f;

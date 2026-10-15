@@ -122,4 +122,45 @@ class SearchIT extends ContextIT {
         assertThat(internal(HttpMethod.POST, "/internal/v1/memory/search", Map.of("query", "x")).getStatusCode().value()).isEqualTo(400);
         assertThat(hits(search("proj_a", "!!! :* &", null))).isEmpty();
     }
+
+    @Test
+    void misconfiguredModelDegradesInsteadOf500() {
+        approve("proj_a", "run_a", "T", "PM", Map.of("spec.md", "thanh toán qua ví điện tử"));
+        provider.broken = true;
+        var r = internal(HttpMethod.POST, "/internal/v1/memory/search", Map.of("projectId", "proj_a", "query", "thanh toán"));
+        assertThat(r.getStatusCode().value()).isEqualTo(200);
+        assertThat(((Map) data(r)).get("degraded")).isEqualTo(true);
+    }
+
+    @Test
+    void lateOlderRevisionNeverReplacesANewerOne() {
+        Map<String, Object> base = Map.of("projectId", "proj_a", "runId", "run_a", "runTitle", "T", "step", "ARCH", "revisionId", "r");
+        Map<String, Object> v2 = new HashMap<>(base); v2.put("revisionNo", 2); v2.put("documents", Map.of("plan.md", "kế hoạch bản hai"));
+        Map<String, Object> v1 = new HashMap<>(base); v1.put("revisionNo", 1); v1.put("documents", Map.of("plan.md", "kế hoạch bản một"));
+        internal(HttpMethod.POST, "/internal/v1/memory/events", Map.of("eventId", "evt_v2", "type", "STEP_APPROVED", "payload", v2));
+        internal(HttpMethod.POST, "/internal/v1/memory/events", Map.of("eventId", "evt_v1", "type", "STEP_APPROVED", "payload", v1));
+        assertThat(db.sql("select content from memory_items where superseded_by is null and kind = 'ARTIFACT'").query(String.class).list())
+                .containsExactly("kế hoạch bản hai");
+    }
+
+    @Autowired org.springframework.transaction.support.TransactionTemplate tx;
+    @Autowired com.shipyard.platform.context.store.MemoryStore store;
+
+    @Test
+    void filteredVectorSearchStillFindsASmallProjectThroughTheHnswIndex() {
+        // 300 near-identical chunks in another project crowd the index's first ef_search candidates.
+        for (int i = 0; i < 300; i++) {
+            approve("proj_big", "run_" + i, "Big", "PM", Map.of("spec.md", "đăng xuất hệ thống bản " + i));
+        }
+        approve("proj_small", "run_s", "Small", "PM", Map.of("spec.md", "đăng xuất ứng dụng"));
+        embedAll();
+        db.sql("ANALYZE memory_chunks").update();
+        float[] q = provider.embed("Big đăng xuất hệ thống bản");
+        var hits = tx.execute(s -> {
+            db.sql("SET LOCAL enable_seqscan = off").update();
+            db.sql("SET LOCAL enable_sort = off").update();
+            return store.vectorSearch("proj_small", q, java.util.List.of(), null, null, 0.05, 30);
+        });
+        assertThat(hits).hasSize(1);
+    }
 }

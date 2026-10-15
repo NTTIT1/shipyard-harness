@@ -16,7 +16,12 @@ public class MemoryStore {
 
     public MemoryStore(JdbcClient db) { this.db = db; }
 
-    public record NewItem(String projectId, String kind, String runId, String step, String title, String content, String sourceRef) {}
+    public record NewItem(String projectId, String kind, String runId, String step, String title, String content, String sourceRef,
+                          Integer revisionNo) {
+        public NewItem(String projectId, String kind, String runId, String step, String title, String content, String sourceRef) {
+            this(projectId, kind, runId, step, title, content, sourceRef, null);
+        }
+    }
 
     public record ItemRow(String id, String projectId, String kind, String runId, String step, String title, String content,
                           String sourceRef, String supersededBy, boolean disabled, Instant createdAt) {}
@@ -44,16 +49,28 @@ public class MemoryStore {
         return db.sql("insert into processed_events (event_id) values (:id) on conflict do nothing").param("id", eventId).update() == 1;
     }
 
-    /** Inserts an item; an older active item with the same sourceRef becomes superseded by it. */
+    /**
+     * Inserts an item; an older active item with the same sourceRef becomes superseded by it —
+     * unless that one has a higher revision (a late, out-of-order delivery): then the new row
+     * is stored already superseded.
+     */
     public String insertItem(NewItem n) {
         String id = "mem_" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
+        String newerId = null;
+        if (n.sourceRef() != null && n.revisionNo() != null) {
+            newerId = db.sql("select id from memory_items where project_id = :p and source_ref = :ref and superseded_by is null"
+                            + " and revision_no is not null and revision_no > :rev order by revision_no desc limit 1")
+                    .param("p", n.projectId()).param("ref", n.sourceRef()).param("rev", n.revisionNo())
+                    .query(String.class).optional().orElse(null);
+        }
         db.sql("""
-                insert into memory_items (id, project_id, kind, run_id, step, title, content, source_ref)
-                values (:id, :p, :k, :r, :s, :t, :c, :ref)""")
+                insert into memory_items (id, project_id, kind, run_id, step, title, content, source_ref, revision_no, superseded_by)
+                values (:id, :p, :k, :r, :s, :t, :c, :ref, :rev, :sup)""")
                 .param("id", id).param("p", n.projectId()).param("k", n.kind()).param("r", n.runId())
                 .param("s", n.step()).param("t", truncate(n.title(), 300)).param("c", n.content())
-                .param("ref", n.sourceRef()).update();
-        if (n.sourceRef() != null) {
+                .param("ref", n.sourceRef()).param("rev", n.revisionNo(), java.sql.Types.INTEGER)
+                .param("sup", newerId, java.sql.Types.VARCHAR).update();
+        if (n.sourceRef() != null && newerId == null) {
             db.sql("update memory_items set superseded_by = :id where project_id = :p and source_ref = :ref and superseded_by is null and id <> :id")
                     .param("id", id).param("p", n.projectId()).param("ref", n.sourceRef()).update();
         }
@@ -105,6 +122,11 @@ public class MemoryStore {
 
     // ---- search ----
 
+    /**
+     * HNSW + WHERE filters: without iterative scan pgvector takes the first ef_search (40) neighbours
+     * across ALL projects and filters afterwards — a small project or a rare kind comes back empty.
+     */
+    @org.springframework.transaction.annotation.Transactional
     public List<ChunkHit> vectorSearch(String projectId, float[] q, Collection<String> kinds, String step, String excludeRunId,
                                        double minScore, int limit) {
         Map<String, Object> params = new HashMap<>(Map.of("p", projectId, "q", Vectors.literal(q), "l", limit, "min", minScore));
@@ -113,6 +135,8 @@ public class MemoryStore {
                 .append(" and c.embed_status = 'EMBEDDED' and 1 - (c.embedding <=> cast(:q as vector)) > :min");
         filters(sql, params, kinds, step, excludeRunId);
         sql.append(" order by c.embedding <=> cast(:q as vector) limit :l");
+        db.sql("SET LOCAL hnsw.iterative_scan = relaxed_order").update();
+        db.sql("SET LOCAL hnsw.ef_search = 200").update();
         return db.sql(sql.toString()).params(params).query(HIT).list();
     }
 

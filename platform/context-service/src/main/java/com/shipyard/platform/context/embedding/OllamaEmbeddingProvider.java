@@ -36,7 +36,12 @@ public class OllamaEmbeddingProvider implements EmbeddingProvider {
         } catch (RestClientException e) {
             throw new EmbeddingUnavailableException("Ollama unavailable: " + e.getMessage());
         }
-        List<List<Number>> embeddings = res == null ? null : (List<List<Number>>) res.get("embeddings");
+        List<List<Number>> embeddings;
+        try {
+            embeddings = res == null ? null : (List<List<Number>>) res.get("embeddings");
+        } catch (ClassCastException e) {
+            throw new IllegalStateException("Ollama returned an unexpected shape: " + e.getMessage());
+        }
         if (embeddings == null || embeddings.isEmpty()) throw new EmbeddingUnavailableException("Ollama returned no embedding");
         List<Number> v = embeddings.get(0);
         if (v.size() != DIMENSIONS) {

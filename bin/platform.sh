@@ -40,15 +40,17 @@ infra_up() {
 }
 
 # Embeddings need Ollama + the model; prefer a native install, else the compose container.
+# Never fatal: without Ollama the context-service runs degraded (keyword + graph search, spec §8).
 ensure_ollama() {
+  local warn="WARN: Ollama unavailable at $OLLAMA_URL — memory search will run degraded (keyword + graph only)"
   if ! curl -fsS --max-time 3 "$OLLAMA_URL/api/tags" >/dev/null 2>&1; then
     echo "Ollama not reachable at $OLLAMA_URL — starting the compose container"
-    docker compose -f "$PLATFORM_DIR/docker-compose.yml" --profile ollama up -d ollama
+    docker compose -f "$PLATFORM_DIR/docker-compose.yml" --profile ollama up -d ollama || { echo "$warn"; return 0; }
     for _ in $(seq 1 30); do curl -fsS --max-time 2 "$OLLAMA_URL/api/tags" >/dev/null 2>&1 && break; sleep 1; done
   fi
-  if ! curl -fsS "$OLLAMA_URL/api/tags" | grep -q "\"$EMBEDDING_MODEL"; then
+  if ! curl -fsS --max-time 3 "$OLLAMA_URL/api/tags" 2>/dev/null | grep -q "\"$EMBEDDING_MODEL"; then
     echo "pulling embedding model $EMBEDDING_MODEL (first run only, ~1.2 GB)…"
-    curl -fsS "$OLLAMA_URL/api/pull" -d "{\"model\":\"$EMBEDDING_MODEL\",\"stream\":false}" >/dev/null
+    curl -fsS "$OLLAMA_URL/api/pull" -d "{\"model\":\"$EMBEDDING_MODEL\",\"stream\":false}" >/dev/null || { echo "$warn"; return 0; }
   fi
   echo "ollama ok: $EMBEDDING_MODEL at $OLLAMA_URL"
 }
@@ -86,11 +88,12 @@ status() {
 
 case "${1:-status}" in
   infra-up) infra_up ;;
+  ollama) ensure_ollama ;;
   infra-down) docker compose -f "$PLATFORM_DIR/docker-compose.yml" down ;;
   build) mvn -f "$PLATFORM_DIR/pom.xml" clean package -DskipTests ;;
   start) infra_up; for s in "${SERVICES[@]}"; do start_one "$s"; done; wait_up; status ;;
   stop) for s in "${SERVICES[@]}"; do stop_one "$s"; done ;;
   restart) for s in "${SERVICES[@]}"; do stop_one "$s"; done; sleep 2; for s in "${SERVICES[@]}"; do start_one "$s"; done ;;
   status) status ;;
-  *) echo "usage: platform.sh infra-up|infra-down|build|start|stop|restart|status" >&2; exit 2 ;;
+  *) echo "usage: platform.sh infra-up|infra-down|ollama|build|start|stop|restart|status" >&2; exit 2 ;;
 esac

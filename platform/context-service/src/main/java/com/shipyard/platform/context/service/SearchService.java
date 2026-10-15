@@ -10,6 +10,8 @@ import com.shipyard.platform.context.store.MemoryStore;
 import com.shipyard.platform.context.store.MemoryStore.ChunkHit;
 import com.shipyard.platform.context.text.Fusion;
 import com.shipyard.platform.context.text.Tsq;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -17,6 +19,7 @@ import java.util.*;
 /** Hybrid retrieval (spec §5.4): vector + keyword → RRF (lessons ×1.5) → one hit per item → +≤4 graph neighbours. */
 @Service
 public class SearchService {
+    private static final Logger log = LoggerFactory.getLogger(SearchService.class);
     private static final int CANDIDATES = 30;
     private static final double MIN_VECTOR_SCORE = 0.05;
     private static final int GRAPH_EXTRA = 4;
@@ -42,6 +45,10 @@ public class SearchService {
             try {
                 vector = store.vectorSearch(req.projectId(), provider.embed(query), kinds, req.step(), req.excludeRunId(), MIN_VECTOR_SCORE, CANDIDATES);
             } catch (EmbeddingUnavailableException e) {
+                degraded = true;
+            } catch (RuntimeException e) {
+                // Misconfigured model (wrong dimension, odd reply): degrade, never fail the caller (spec §8).
+                log.error("query embedding failed, searching without vectors: {}", e.getMessage());
                 degraded = true;
             }
         }

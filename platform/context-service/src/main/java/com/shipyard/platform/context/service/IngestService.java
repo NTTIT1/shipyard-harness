@@ -46,16 +46,17 @@ public class IngestService {
     private void stepApproved(String projectId, Map<String, Object> p) {
         String runId = str(p, "runId"), title = Objects.requireNonNullElse(str(p, "runTitle"), runId), step = str(p, "step");
         Map<String, String> docs = new TreeMap<>((Map<String, String>) p.getOrDefault("documents", Map.of()));
+        Integer revisionNo = p.get("revisionNo") instanceof Number num ? num.intValue() : null;
         String graphSource = null;
         for (Map.Entry<String, String> d : docs.entrySet()) {
             if (d.getKey().equals("entities.json") || d.getValue() == null || d.getValue().isBlank()) continue;
             String id = add(new NewItem(projectId, "ARTIFACT", runId, step, title + " — " + step + " — " + d.getKey(),
-                    d.getValue(), runId + "/" + step + "/" + d.getKey()));
+                    d.getValue(), runId + "/" + step + "/" + d.getKey(), revisionNo));
             if (graphSource == null || d.getKey().equals("plan.md")) graphSource = id;
             if (d.getKey().equals("plan.md")) {
                 String decisions = Chunker.section(d.getValue(), DECISIONS);
                 if (decisions != null) {
-                    add(new NewItem(projectId, "DECISION", runId, step, "Quyết định kiến trúc — " + title, decisions, runId + "/" + step + "/decisions"));
+                    add(new NewItem(projectId, "DECISION", runId, step, "Quyết định kiến trúc — " + title, decisions, runId + "/" + step + "/decisions", revisionNo));
                 }
             }
         }

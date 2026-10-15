@@ -50,6 +50,7 @@ public abstract class ContextIT {
     void cleanDb() {
         db.sql("TRUNCATE processed_events, memory_items, memory_chunks, memory_entities, memory_edges RESTART IDENTITY CASCADE").update();
         provider.down = false;
+        provider.broken = false;
         directory.reset();
     }
 
