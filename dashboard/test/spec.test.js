@@ -44,3 +44,15 @@ describe('listSpecs', () => {
     expect(listSpecs(7)).toEqual([]);
   });
 });
+
+describe('specFile — design images', () => {
+  it('serves images under specs/<dir>/design/ but not elsewhere', () => {
+    const lane = path.join(process.env.LANES_ROOT, 'lane3');
+    fs.mkdirSync(path.join(lane, 'specs', '2026-10-15-x', 'design'), { recursive: true });
+    fs.writeFileSync(path.join(lane, 'specs', '2026-10-15-x', 'design', '01-list.png'), 'png');
+    fs.writeFileSync(path.join(lane, 'specs', '2026-10-15-x', 'secret.png'), 'png');
+    expect(specFile(3, 'specs/2026-10-15-x/design/01-list.png')).toMatch(/01-list\.png$/);
+    expect(specFile(3, 'specs/2026-10-15-x/secret.png')).toBeNull();
+    expect(specFile(3, 'specs/2026-10-15-x/design/../secret.png')).toBeNull();
+  });
+});
