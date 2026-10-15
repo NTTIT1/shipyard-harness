@@ -58,3 +58,5 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
   .rv-edit, .pj-grid { grid-template-columns: minmax(0, 1fr) }
 }
 .linklike { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-align: left }
+.stepper { margin: 0; padding: 0 }
+.rv-head select { max-width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font: inherit }
