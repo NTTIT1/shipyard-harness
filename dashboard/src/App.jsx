@@ -23,6 +23,14 @@ import AddLaneModal from './components/AddLaneModal.jsx';
 import ProvidersModal from './components/ProvidersModal.jsx';
 import AssignModal from './components/AssignModal.jsx';
 import ChatPanel from './components/ChatPanel.jsx';
+import { useInbox } from './hooks/useInbox.js';
+import InboxView from './components/InboxView.jsx';
+import ReviewView from './components/ReviewView.jsx';
+import ProjectsView from './components/ProjectsView.jsx';
+import UsersView from './components/UsersView.jsx';
+import CostsView from './components/CostsView.jsx';
+import DocsView from './components/DocsView.jsx';
+import LaneAiPanel from './components/LaneAiPanel.jsx';
 
 export default function App({ user, onLogout }) {
   const { data, refreshNow } = useLanes();
@@ -33,6 +41,12 @@ export default function App({ user, onLogout }) {
   const [credsModal, setCredsModal] = useState(null);
   const [addLane, setAddLane] = useState(false);
   const [providers, setProviders] = useState(false);
+  const [view, setView] = useState('lanes');
+  const [review, setReview] = useState(null);
+  const inbox = useInbox();
+  const openReview = useCallback(r => { setReview(r); setView('review'); }, []);
+  const [docsRun, setDocsRun] = useState('');
+  const openDocs = useCallback(runId => { setDocsRun(runId || ''); setView('docs'); }, []);
   const [assign, setAssign] = useState(undefined); // undefined = closed, null = open w/o preselected lane, number = preselected
 
   const lanes = data?.lanes || [];
@@ -176,12 +190,21 @@ export default function App({ user, onLogout }) {
     <div className="app">
       <Sidebar lanes={lanes} selected={selectedLane} onSelect={setSelectedLane}
         onAssign={n => setAssign(n)} onAddLane={() => setAddLane(true)} onProviders={() => setProviders(true)}
-        theme={theme} onToggleTheme={toggle} user={user} onLogout={onLogout} open={drawer} onClose={() => setDrawer(false)} returnFocusRef={menuBtn} />
+        theme={theme} onToggleTheme={toggle} user={user} onLogout={onLogout}
+        view={view} onView={setView} inboxCount={inbox.items.length} open={drawer} onClose={() => setDrawer(false)} returnFocusRef={menuBtn} />
       <main className="main">
         <div className="topbar">
           <IconButton ref={menuBtn} icon={MenuIcon} label="Mở danh sách lane" onClick={() => setDrawer(true)} />
           <b>Shipyard</b>
         </div>
+        {view === 'inbox' && <InboxView items={inbox.items} error={inbox.error} onOpen={i => openReview({ runId: i.runId, approvalId: i.approvalId })} />}
+        {view === 'review' && review && <ReviewView key={review.runId + (review.approvalId || '')} runId={review.runId} approvalId={review.approvalId}
+          inboxItems={inbox.items} onBack={() => setView('inbox')} onDecided={inbox.refresh} />}
+        {view === 'projects' && <ProjectsView user={user} onOpenRun={runId => openReview({ runId })} />}
+        {view === 'users' && <UsersView user={user} onLogout={onLogout} />}
+        {view === 'costs' && <CostsView />}
+        {view === 'docs' && <DocsView key={docsRun} initialRunId={docsRun} onOpenRun={runId => openReview({ runId })} />}
+        {view === 'lanes' && (<>
         {!selectedLaneData ? (
           <div className="empty-state">
             <h1>Chưa có lane nào</h1>
@@ -191,6 +214,8 @@ export default function App({ user, onLogout }) {
         ) : (
           <>
             <LaneHeader lane={headLane} archived={viewingPast} onAction={handleAction} onCreds={handleCreds}
+              onReview={() => openReview({ runId: selectedLaneData.run_id })}
+              onDocs={() => openDocs(selectedLaneData.run_id)}
               onAssign={n => setAssign(n)} onTab={setTab} />
             {selectedLaneData.mode === 'pr-review' ? (
               <div className="tabpanel"><ReviewTable reviews={reviews} needsAction={selectedLaneData.needs_action} config={config} /></div>
@@ -199,12 +224,14 @@ export default function App({ user, onLogout }) {
                 <Tabs value={tab} onChange={setTab} items={[
                   { id: 'overview', label: 'Tổng quan' },
                   ...(viewingPast ? [] : [{ id: 'chat', label: 'Chat', dot: needsChat }]),
+                  { id: 'ai', label: 'AI & Chi phí' },
                   { id: 'proof', label: 'Ảnh QC', badge: proofCount || null },
                   ...(headLane.spec_dir ? [{ id: 'spec', label: 'Spec' }] : []),
                 ]} />
                 <div className="tabpanel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
                   {tab === 'overview' && <LaneOverview lane={mapLane} config={config} archived={viewingPast} />}
                   {tab === 'chat' && !viewingPast && <ChatPanel key={selectedLane} lane={selectedLaneData} />}
+                  {tab === 'ai' && <LaneAiPanel key={selectedLane} lane={headLane} onUpdated={refreshNow} />}
                   {tab === 'proof' && <ProofGallery proof={proof} selectedLane={selectedLane} selectedSlug={selectedSlug}
                     onSelectFeature={selectFeature} onShot={openShot} onGallery={openGallery} onCleanup={handleCleanup} />}
                   {tab === 'spec' && <SpecLinks lane={headLane} />}
@@ -213,6 +240,7 @@ export default function App({ user, onLogout }) {
             )}
           </>
         )}
+        </>)}
       </main>
 
       {confirm && (
@@ -225,7 +253,7 @@ export default function App({ user, onLogout }) {
         <CredentialsModal lane={credsModal.lane} mode={credsModal.mode} config={config}
           onClose={() => setCredsModal(null)} onDone={refreshNow} />
       )}
-      {providers && <ProvidersModal onClose={() => setProviders(false)} />}
+      {providers && <ProvidersModal lanes={lanes} onClose={() => setProviders(false)} />}
       {assign !== undefined && (
         <AssignModal lanes={lanes} initialLane={assign} onClose={() => setAssign(undefined)}
           onDone={n => { setSelectedLane(n); refreshNow(); }} />

@@ -65,6 +65,7 @@ public class RunQueries {
 
     public static RunSummary summary(Run r) {
         return new RunSummary(r.id, r.projectId, r.laneRef, r.title, r.status.name(),
-                r.currentStep == null ? null : r.currentStep.name(), r.hasUi, r.createdBy, r.createdAt, r.updatedAt);
+                r.currentStep == null ? null : r.currentStep.name(), r.hasUi, r.createdBy,
+                r.gateOverrides == null ? Map.of() : r.gateOverrides, r.createdAt, r.updatedAt);
     }
 }

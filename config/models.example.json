@@ -8,6 +8,11 @@
     "senior-gate": "claude:claude-opus-5-5",
     "ticketer": "claude:claude-opus-5-5",
     "dev-qc": "claude:claude-opus-5-5",
-    "impl_agents": 1
+    "impl_agents": 1,
+    "pm": "claude:claude-opus-5-5",
+    "ba": "claude:claude-opus-5-5",
+    "arch": "claude:claude-opus-5-5",
+    "design": "claude:claude-opus-5-5",
+    "test": "claude:claude-opus-5-5"
   }
 }

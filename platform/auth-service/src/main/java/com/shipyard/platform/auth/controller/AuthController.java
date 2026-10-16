@@ -48,6 +48,20 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("Logged out", null));
     }
 
+    /** Public profiles of the given users (member lists). Requires a signed-in caller (gateway sets X-User-Id). */
+    @GetMapping("/users")
+    public ResponseEntity<ApiResponse<java.util.List<UserDto>>> users(
+            @RequestHeader(SecurityConstants.HEADER_USER_ID) String userId, @RequestParam java.util.List<String> ids) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.findUsers(ids)));
+    }
+
+    /** Exact (case-insensitive) e-mail lookup, used to add a member. */
+    @GetMapping("/users/lookup")
+    public ResponseEntity<ApiResponse<UserDto>> lookup(
+            @RequestHeader(SecurityConstants.HEADER_USER_ID) String userId, @RequestParam String email) {
+        return ResponseEntity.ok(ApiResponse.ok(authService.lookupByEmail(email)));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserDto>> getCurrentUser(
             @RequestHeader(value = SecurityConstants.HEADER_USER_ID, required = false) String userId) {

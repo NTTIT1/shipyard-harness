@@ -5,7 +5,7 @@ import path from 'path';
 
 let tmp, A, P;
 const MODELS = {
-  main: 'claude:claude-opus-5-5', 'plan-critic': 'claude:claude-opus-5-5', 'impl-worker': 'claude:claude-opus-5-5',
+  main: 'claude:claude-opus-5-5', pm: 'claude:claude-opus-5-5', ba: 'claude:claude-opus-5-5', arch: 'claude:claude-opus-5-5', design: 'claude:claude-opus-5-5', test: 'claude:claude-opus-5-5', 'plan-critic': 'claude:claude-opus-5-5', 'impl-worker': 'claude:claude-opus-5-5',
   'code-review': 'claude:claude-opus-5-5', 'qc-local': 'claude:claude-opus-5-5', 'senior-gate': 'claude:claude-opus-5-5',
   ticketer: 'claude:claude-opus-5-5', 'dev-qc': 'claude:claude-opus-5-5',
 };
@@ -38,6 +38,22 @@ beforeAll(async () => {
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 describe('assignLane', () => {
+  it('stores per-feature gate choices for the platform run', async () => {
+    const { calls, d } = deps();
+    await A.assignLane(2, { requirement: 'x', gates: { PM: 'AUTO', BA: '', TEST: 'required' } }, d);
+    const g = calls.state.find(c => c[0] === 'set-json' && c[1] === 'gate_overrides');
+    expect(JSON.parse(g[2])).toEqual({ PM: 'AUTO', TEST: 'REQUIRED' });
+  });
+
+  it('rejects unknown gate steps or modes', async () => {
+    await expect(A.assignLane(2, { requirement: 'x', gates: { PM: 'MAYBE' } }, deps().d)).rejects.toThrow(/PM/);
+    await expect(A.assignLane(2, { requirement: 'x', gates: { NOPE: 'AUTO' } }, deps().d)).rejects.toThrow(/NOPE/);
+  });
+  it('records who assigned the lane (createdBy of the platform run)', async () => {
+    const { calls, d } = deps({ assignedBy: 'usr_42' });
+    await A.assignLane(2, { requirement: 'x' }, d);
+    expect(calls.state.some(c => c.join(' ') === 'set assigned_by=usr_42')).toBe(true);
+  });
   it('writes state, boots the stack and starts /ship-feature on the main model', async () => {
     const { d, calls } = deps();
     await A.assignLane(1, { requirement: 'Thêm màn hình nghỉ phép', models: MODELS, impl_agents: 3 }, d);
@@ -77,5 +93,25 @@ describe('assignLane', () => {
     await expect(A.assignLane(1, { requirement: 'x', models: { ...MODELS, 'qc-local': 'openai:gpt-x' } }, d))
       .rejects.toMatchObject({ status: 503 });
     expect(calls.state).toEqual([]);
+  });
+});
+
+describe('effort', () => {
+  it('stores per-step effort for the feature and starts the main session with it', async () => {
+    const { calls, d } = deps();
+    await A.assignLane(3, { requirement: 'x', effort: { main: 'high', pm: 'low', ba: 'default' } }, d);
+    const e = calls.state.find(c => c[0] === 'set-json' && c[1] === 'effort');
+    expect(JSON.parse(e[2])).toEqual({ main: 'high', pm: 'low' });
+    expect(calls.start[0][1].effort).toBe('high');
+  });
+  it('rejects unknown effort levels before touching the lane', async () => {
+    const { calls, d } = deps();
+    await expect(A.assignLane(3, { requirement: 'x', effort: { pm: 'turbo' } }, d)).rejects.toThrow(/effort/);
+    expect(calls.state).toEqual([]);
+  });
+  it('saves and reads effort defaults next to the model defaults', () => {
+    P.writeModelDefaults({ ...MODELS, effort: { 'senior-gate': 'max', pm: '' } });
+    expect(P.readModelDefaults().effort).toEqual({ 'senior-gate': 'max' });
+    expect(() => P.writeModelDefaults({ ...MODELS, effort: { pm: 'ultra' } })).toThrow(/effort/);
   });
 });

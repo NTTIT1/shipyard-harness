@@ -143,4 +143,18 @@ class ProjectMembersIT {
                 Map.of("userId", "usr_owner", "roles", List.of("PM")));
         assertThat(EVICTS).isEmpty();
     }
+    @Test
+    void membersListingShowsEveryRoleOfEveryMember() {
+        String pid = newProject("usr_owner");
+        call(HttpMethod.POST, "/api/v1/projects/" + pid + "/members", "usr_owner", false,
+                Map.of("userId", "usr_dan", "roles", List.of("DEVELOPER", "TESTER")));
+        List<Map> members = (List<Map>) call(HttpMethod.GET, "/api/v1/projects/" + pid + "/members", "usr_owner", false, null)
+                .getBody().get("data");
+        assertThat(members).anySatisfy(m -> {
+            assertThat(m.get("userId")).isEqualTo("usr_dan");
+            assertThat((List<String>) m.get("roles")).containsExactly("DEVELOPER", "TESTER");
+        });
+        assertThat(call(HttpMethod.GET, "/api/v1/projects/" + pid + "/members", "usr_out", false, null)
+                .getStatusCode().value()).isEqualTo(404);
+    }
 }

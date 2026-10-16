@@ -108,3 +108,17 @@ describe('dashboard login gate (HTTP)', () => {
     expect(out.headers.getSetCookie().every(c => c.includes('Max-Age=0'))).toBe(true);
   });
 });
+
+describe('cross-origin and large bodies', () => {
+  it('refuses requests from other local origins (e.g. a lane app on :3001)', async () => {
+    const r = await fetch(`${dashUrl}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3001' }, body: '{}' });
+    expect(r.status).toBe(403);
+    const same = await fetch(`${dashUrl}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: dashUrl }, body: JSON.stringify({ email: 'admin@x', password: 'pw' }) });
+    expect(same.status).toBe(200);
+  });
+  it('accepts large edited documents (up to 5 MB)', async () => {
+    const big = JSON.stringify({ email: 'admin@x', password: 'pw', pad: 'x'.repeat(500_000) });
+    const r = await fetch(`${dashUrl}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: big });
+    expect(r.status).toBe(200);
+  });
+});

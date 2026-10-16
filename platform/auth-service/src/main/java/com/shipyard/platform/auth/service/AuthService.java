@@ -10,6 +10,7 @@ import com.shipyard.platform.auth.repository.UserRepository;
 import com.shipyard.platform.common.dto.UserDto;
 import com.shipyard.platform.common.enums.SystemRole;
 import com.shipyard.platform.common.exception.BusinessException;
+import com.shipyard.platform.common.exception.ForbiddenException;
 import com.shipyard.platform.common.exception.ResourceNotFoundException;
 import com.shipyard.platform.common.exception.UnauthorizedException;
 import com.shipyard.platform.common.security.JwtUtils;
@@ -47,6 +48,10 @@ public class AuthService {
         this.jwtUtils = new JwtUtils(jwtSecret);
     }
 
+    /** Off by default: accounts are created by an administrator (Users screen). */
+    @Value("${shipyard.auth.self-registration:false}")
+    private boolean selfRegistration;
+
     @Value("${shipyard.admin.email:admin@shipyard.local}")
     private String adminEmail;
 
@@ -69,6 +74,9 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        if (!selfRegistration) {
+            throw new ForbiddenException("Self-registration is disabled. Ask an administrator for an account.");
+        }
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BusinessException("Email already registered: " + request.getEmail());
         }
@@ -107,6 +115,10 @@ public class AuthService {
             throw new UnauthorizedException("Invalid email or password");
         }
 
+        if (!UserAdminService.ACTIVE.equals(user.getStatus())) {
+            throw new UnauthorizedException("Account is disabled. Contact an administrator.");
+        }
+
         // Reset failed count
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
@@ -128,6 +140,11 @@ public class AuthService {
 
         User user = userRepository.findById(token.getUserId())
                 .orElseThrow(() -> new UnauthorizedException("User not found"));
+        if (!UserAdminService.ACTIVE.equals(user.getStatus())) {
+            token.setRevoked(true);
+            refreshTokenRepository.save(token);
+            throw new UnauthorizedException("Account is disabled");
+        }
 
         // Revoke old token
         token.setRevoked(true);
@@ -143,6 +160,16 @@ public class AuthService {
             token.setRevoked(true);
             refreshTokenRepository.save(token);
         });
+    }
+
+    public java.util.List<UserDto> findUsers(java.util.Collection<String> ids) {
+        if (ids.size() > 200) throw new BusinessException("At most 200 ids");
+        return userRepository.findByIdIn(ids).stream().map(this::toDto).toList();
+    }
+
+    public UserDto lookupByEmail(String email) {
+        return userRepository.findByEmailIgnoreCase(email.trim())
+                .map(this::toDto).orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 
     public UserDto getUserProfile(String userId) {

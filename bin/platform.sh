@@ -17,6 +17,13 @@ if [ -z "${SHIPYARD_SERVICE_TOKEN:-}" ]; then
   SHIPYARD_SERVICE_TOKEN="$(cat "$TOKEN_FILE")"
 fi
 export SHIPYARD_SERVICE_TOKEN
+# Per-machine JWT secret likewise (the dashboard reads the same file): the dev default is public.
+if [ -z "${JWT_SECRET:-}" ]; then
+  JWT_FILE="$RUN_DIR/jwt-secret"
+  [ -s "$JWT_FILE" ] || (umask 077; head -c 48 /dev/urandom | od -An -tx1 | tr -d ' \n' >"$JWT_FILE")
+  JWT_SECRET="$(cat "$JWT_FILE")"
+fi
+export JWT_SECRET
 SERVICES=("auth-service:9081" "project-service:9082" "lane-service:9083" "orchestrator-service:9084" "context-service:9085" "api-gateway:9080")
 DBS=(auth_db project_db lane_db orchestrator_db llm_db artifact_db audit_db context_db)
 

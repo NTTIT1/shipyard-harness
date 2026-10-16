@@ -12,13 +12,13 @@ function ChangeModels({ lane, onDone }) {
   const [value, setValue] = useState(null);
   const [error, setError] = useState('');
   useEffect(() => {
-    fetchProviders().then(d => { setInfo(d); setValue({ ...d.defaults, ...(lane.models || {}) }); }).catch(e => setError(e.message));
+    fetchProviders().then(d => { setInfo(d); setValue({ ...d.defaults, ...(lane.models || {}), effort: { ...(d.defaults.effort || {}), ...(lane.effort || {}) } }); }).catch(e => setError(e.message));
   }, [lane.lane]);
   const save = async () => {
     setError('');
     try {
-      const { impl_agents, ...models } = value;
-      await saveLaneModels(lane.lane, models);
+      const { impl_agents, effort, ...models } = value;
+      await saveLaneModels(lane.lane, models, effort);
       await sendChat(lane.lane, 'continue — models for the failed step were changed on the dashboard; re-run that step');
       onDone();
     } catch (e) { setError(e.message); }

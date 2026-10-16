@@ -29,6 +29,12 @@ public class InternalMemoryController {
         this.packs = packs;
     }
 
+    /** project-service → here when a project is deleted. */
+    @org.springframework.web.bind.annotation.DeleteMapping("/projects/{projectId}/memory")
+    public ApiResponse<java.util.Map<String, Integer>> purge(@org.springframework.web.bind.annotation.PathVariable String projectId) {
+        return ApiResponse.ok(store.purgeProject(projectId));
+    }
+
     @PostMapping("/memory/events")
     public ApiResponse<EventResult> event(@RequestBody EventRequest req) {
         return ApiResponse.ok(new EventResult(ingest.ingest(req.eventId(), req.type(), req.payload())));

@@ -9,6 +9,7 @@ import * as P from '../services/providers.js';
 import { gatewayStatus, ensureGateway, restartGateway, restartGatewayInBackground } from '../services/gateway.js';
 import * as S from '../services/sessions.js';
 import { assignLane } from '../services/assign.js';
+import { normalizeEfforts, aggregate, readAllUsage, readSettings, writeSettings, readPlan } from '../services/usage.js';
 
 const router = Router();
 const lanePath = '/api/lane/:n(\\d)';
@@ -28,6 +29,8 @@ const num = req => parseInt(req.params.n, 10);
 router.get('/api/providers', wrap(async () => ({
   catalog: P.CATALOG, claude_models: P.CLAUDE_MODELS, steps: P.STEPS,
   providers: P.publicProviders(), defaults: P.readModelDefaults(),
+  lane_defaults: P.readAllLaneDefaults(),
+  feature_models: P.readFeatureModels(),
   gateway: { running: await gatewayStatus() },
 })));
 router.put('/api/providers', wrap(async req => {
@@ -41,12 +44,46 @@ router.post('/api/providers/:id/test', wrap(async req => {
   if (await gatewayStatus()) restartGatewayInBackground();
   return { models };
 }));
-router.put('/api/models', wrap(async req => { P.writeModelDefaults(req.body.defaults || {}); return { defaults: P.readModelDefaults() }; }));
+router.put('/api/models', wrap(async req => {
+  P.writeModelDefaults(req.body.defaults || {});
+  return { defaults: P.readModelDefaults(), lane_defaults: P.readAllLaneDefaults() };
+}));
+router.put(`${lanePath}/model-defaults`, wrap(async req => {
+  const n = num(req);
+  const d = P.writeLaneModelDefaults(n, req.body?.defaults || null);
+  const stepMap = Object.fromEntries(P.STEPS.map(s => [s.id, d[s.id]]));
+  if (P.usesGateway(stepMap)) {
+    const gw = await ensureGateway();
+    if (!gw.ok) throw Object.assign(new Error(`không bật được gateway: ${gw.output}`), { status: 503 });
+  }
+  return { defaults: d, lane_defaults: P.readAllLaneDefaults() };
+}));
+router.put('/api/features/models', wrap(async req => {
+  const { key, models, effort, impl_agents, reset, lane } = req.body || {};
+  const cfg = reset ? { reset: true } : { ...(models || {}), effort, impl_agents };
+  const saved = P.writeFeatureModels(key, cfg);
+  if (saved) {
+    const stepMap = Object.fromEntries(P.STEPS.map(s => [s.id, saved[s.id]]));
+    if (P.usesGateway(stepMap)) {
+      const gw = await ensureGateway();
+      if (!gw.ok) throw Object.assign(new Error(`không bật được gateway: ${gw.output}`), { status: 503 });
+    }
+  }
+  if (lane && Number.isInteger(Number(lane)) && !reset && models) {
+    try {
+      stateSh(Number(lane), ['set-json', 'models', JSON.stringify(models)]);
+      if (effort) stateSh(Number(lane), ['set-json', 'effort', JSON.stringify(normalizeEfforts(effort, P.STEPS.map(s => s.id)))]);
+      if (impl_agents) stateSh(Number(lane), ['set', `impl_agents=${parseInt(impl_agents, 10) || 1}`]);
+    } catch { /* lane state optional */ }
+  }
+  return { feature_models: P.readFeatureModels(), saved };
+}));
 router.post('/api/gateway/restart', wrap(async () => restartGateway()));
 
 router.post(`${lanePath}/assign`, wrap(async req => {
   const n = num(req);
   return assignLane(n, req.body || {}, {
+    assignedBy: req.user?.id,
     lane: async x => (await lanesPayload()).lanes.find(l => l.lane === x),
     isRunning: S.isRunning,
     ensureGateway,
@@ -56,17 +93,60 @@ router.post(`${lanePath}/assign`, wrap(async req => {
   });
 }));
 router.get(`${lanePath}/specs`, wrap(async req => ({ specs: listSpecs(num(req)) })));
-// Change the in-flight feature's step models (e.g. after a step failed on a provider).
+// Change the in-flight feature's step models (e.g. after a step failed on a provider, or from Lane/Feature config).
 router.put(`${lanePath}/models`, wrap(async req => {
   const n = num(req);
   const models = (req.body || {}).models || {};
   const errs = P.validateModels(models);
   if (errs.length) throw Object.assign(new Error(errs.join('; ')), { status: 400 });
+  const effort = req.body?.effort === undefined ? null : normalizeEfforts(req.body.effort, P.STEPS.map(s => s.id));
+  const impl = parseInt(req.body?.impl_agents, 10);
   if (P.usesGateway(models)) {
     const gw = await ensureGateway();
     if (!gw.ok) throw Object.assign(new Error(`không bật được gateway: ${gw.output}`), { status: 503 });
   }
   stateSh(n, ['set-json', 'models', JSON.stringify(models)]);
+  if (effort) stateSh(n, ['set-json', 'effort', JSON.stringify(effort)]);
+  if (impl > 0 && impl <= 9) stateSh(n, ['set', `impl_agents=${impl}`]);
+  if (req.body?.featureKey) {
+    P.writeFeatureModels(req.body.featureKey, { ...models, effort: effort || {}, impl_agents: impl > 0 ? impl : 1 });
+  }
+}));
+
+router.get(`${lanePath}/usage`, wrap(async req => {
+  const n = num(req);
+  const settings = readSettings();
+  const records = readAllUsage();
+  const all = aggregate(records, settings, { month: req.query.month ? String(req.query.month) : undefined });
+  const lim = (settings.laneLimits || {})[String(n)] || {};
+  const laneUsage = all.byLane.find(l => l.lane === n) || {
+    lane: n, usd: 0, vnd: 0, tokens: { in: 0, out: 0, cacheRead: 0, cacheWrite: 0 },
+    sharePct: 0, quotaPct: 0, usdPct: 0, tokenPct: 0,
+    limitUsd: lim.usd !== undefined ? lim.usd : settings.monthlyBudgetUsd,
+    limitTokens: lim.tokens !== undefined ? lim.tokens : settings.monthlyTokenLimit,
+  };
+  const laneRecords = records.filter(r => Number(r.lane) === n);
+  const laneAgg = aggregate(laneRecords, settings, { month: all.month });
+  return {
+    month: all.month,
+    months: all.months,
+    lane: laneUsage,
+    features: all.features.filter(f => f.lane === n),
+    byModel: laneAgg.byModel,
+    quotas: all.quotas,
+    plan: readPlan(),
+    lane_defaults: P.readAllLaneDefaults()[String(n)] || null,
+    global_defaults: P.readModelDefaults(),
+  };
+}));
+
+router.put(`${lanePath}/limit`, wrap(async req => {
+  const n = num(req);
+  const cur = readSettings();
+  const next = writeSettings({
+    laneLimits: { ...(cur.laneLimits || {}), [String(n)]: req.body || {} },
+  });
+  return { laneLimit: next.laneLimits[String(n)] || null };
 }));
 
 router.get(`${lanePath}/chat/stream`, (req, res) => {
@@ -99,7 +179,7 @@ router.post(`${lanePath}/session/resume`, wrap(async req => {
   const n = num(req);
   const info = S.sessionInfo(n);
   if (!info) throw Object.assign(new Error('không có phiên để tiếp tục'), { status: 404 });
-  S.startSession(n, { model: info.model, prompt: 'continue', resume: info.session_id });
+  S.startSession(n, { model: info.model, effort: info.effort || undefined, prompt: 'continue', resume: info.session_id });
 }));
 
 export default router;

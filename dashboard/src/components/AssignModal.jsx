@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Play } from 'lucide-react';
 import Modal from './Modal.jsx';
+import Badge from './ui/Badge.jsx';
 import StepModels from './StepModels.jsx';
-import { fetchProviders, fetchSpecs, assignLane } from '../lib/api.js';
+import { fetchProviders, fetchSpecs, assignLane, saveLaneModelDefaults } from '../lib/api.js';
+import { STEPS, STEP_LABEL } from '../lib/review.js';
 
 const isFree = l => !l.session_running && ['idle', 'down', '', undefined].includes(l.status);
 
@@ -15,25 +17,39 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
   const [spec, setSpec] = useState('');
   const [info, setInfo] = useState(null);
   const [models, setModels] = useState(null);
+  const [saveAsLaneDef, setSaveAsLaneDef] = useState(false);
+  const [gates, setGates] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchProviders().then(d => { setInfo(d); setModels(d.defaults); }).catch(e => setError(e.message));
+    fetchProviders().then(d => {
+      setInfo(d);
+      const laneModels = (d.lane_defaults || {})[String(lane)] || d.defaults;
+      setModels(laneModels);
+    }).catch(e => setError(e.message));
   }, []);
+
   useEffect(() => {
     if (lane == null) return;
+    if (info) {
+      const laneModels = (info.lane_defaults || {})[String(lane)] || info.defaults;
+      setModels(laneModels);
+    }
     fetchSpecs(lane).then(d => { setSpecs(d.specs); setSpec(d.specs[0] || ''); }).catch(() => setSpecs([]));
-  }, [lane]);
+  }, [lane, info]);
 
   const submit = async () => {
     setBusy(true); setError('');
     try {
       if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
-      const { impl_agents, ...stepModels } = models;
+      if (saveAsLaneDef && models) {
+        await saveLaneModelDefaults(lane, models);
+      }
+      const { impl_agents, effort, ...stepModels } = models;
       await assignLane(lane, {
         ...(mode === 'new' ? { requirement: text } : { spec_dir: spec }),
-        models: stepModels, impl_agents,
+        models: stepModels, impl_agents, gates, effort,
       });
       onDone(lane);
       onClose();
@@ -41,6 +57,7 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
   };
 
   const canSubmit = !busy && lane != null && models && (mode === 'new' ? text.trim() : spec);
+  const hasLaneCustom = !!(info && lane != null && (info.lane_defaults || {})[String(lane)]);
 
   return (
     <Modal wide title="Giao việc" onClose={onClose}
@@ -64,9 +81,32 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
             : <select className="msel" value={spec} onChange={e => setSpec(e.target.value)}>
                 {specs.map(s => <option key={s} value={s}>{s}</option>)}
               </select>}
-          <div className="m-l" style={{ marginTop: 14 }}>AI từng bước</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 14, marginBottom: 8 }}>
+            <div className="m-l" style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span>AI từng bước (cho tính năng này & Lane {lane})</span>
+              <Badge tone={hasLaneCustom ? 'accent' : 'neutral'}>
+                {hasLaneCustom ? `Theo cấu hình riêng Lane ${lane}` : 'Theo mặc định chung'}
+              </Badge>
+            </div>
+            <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+              <input type="checkbox" checked={saveAsLaneDef} onChange={e => setSaveAsLaneDef(e.target.checked)} />
+              Lưu làm mặc định riêng cho Lane {lane}
+            </label>
+          </div>
           {info && models && <StepModels info={info} value={models} onChange={setModels} />}
-          <p className="m-hint">Lane sẽ hỏi lại nếu yêu cầu chưa rõ và dừng chờ bạn duyệt spec — trả lời trong khung chat của lane.</p>
+          <div className="m-l" style={{ marginTop: 14 }}>Duyệt cho tính năng này</div>
+          <div className="gate-grid">
+            {STEPS.map(s => (
+              <label key={s}>{STEP_LABEL[s]}
+                <select className="msel" value={gates[s] || ''} onChange={e => setGates(g => ({ ...g, [s]: e.target.value }))}>
+                  <option value="">Theo dự án</option>
+                  <option value="REQUIRED">Bắt buộc duyệt</option>
+                  <option value="AUTO">Tự động</option>
+                </select>
+              </label>
+            ))}
+          </div>
+          <p className="m-hint">Áp dụng khi dự án chạy quy trình role (PM → BA → Kiến trúc → Thiết kế → Lập trình → Kiểm thử). Bước “Tự động” không dừng chờ người duyệt nhưng vẫn được lưu lịch sử và bộ nhớ.</p>
         </>
       )}
       {error && <p className="m-err">{error}</p>}
