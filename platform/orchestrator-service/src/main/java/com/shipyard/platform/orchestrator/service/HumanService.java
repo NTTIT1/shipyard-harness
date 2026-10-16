@@ -4,7 +4,7 @@ import com.shipyard.platform.common.exception.BadRequestException;
 import com.shipyard.platform.common.exception.ForbiddenException;
 import com.shipyard.platform.common.exception.ResourceNotFoundException;
 import com.shipyard.platform.orchestrator.api.Dtos.*;
-import com.shipyard.platform.orchestrator.directory.ProjectDirectory;
+import com.shipyard.platform.common.directory.ProjectDirectory;
 import com.shipyard.platform.orchestrator.domain.*;
 import com.shipyard.platform.orchestrator.entity.*;
 import com.shipyard.platform.orchestrator.repository.*;

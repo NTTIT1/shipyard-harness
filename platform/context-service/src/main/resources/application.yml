@@ -1,0 +1,20 @@
+server:
+  port: 9085
+  # Only the api-gateway faces the network; it is the one place JWTs are checked.
+  address: ${BIND_ADDR:127.0.0.1}
+
+spring:
+  application:
+    name: context-service
+  datasource:
+    url: jdbc:postgresql://${PG_HOST:127.0.0.1}:${PG_PORT:5434}/context_db
+    username: ${PG_USER:postgres}
+    password: ${PG_PASS:postgres}
+
+shipyard:
+  service-token: ${SHIPYARD_SERVICE_TOKEN:dev-service-token}
+  project-service-url: ${PROJECT_SERVICE_URL:http://127.0.0.1:9082}
+  embedding:
+    ollama-url: ${OLLAMA_URL:http://127.0.0.1:11434}
+    model: ${EMBEDDING_MODEL:bge-m3}
+    worker-interval-ms: 2000
