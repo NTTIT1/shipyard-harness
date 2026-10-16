@@ -18,6 +18,8 @@ public class Run {
     @Enumerated(EnumType.STRING) public RunStatus status;
     public Boolean hasUi;
     public String createdBy;
+    /** Step name -> REQUIRED|AUTO chosen for this feature; wins over the project gate policy. */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.Map<String, String> gateOverrides;
     @Version public long version;
     public Instant createdAt = Instant.now();
     public Instant updatedAt = Instant.now();

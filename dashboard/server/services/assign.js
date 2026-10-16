@@ -12,6 +12,22 @@ export function buildPrompt({ requirement, spec_dir }) {
   return `/ship-feature ${spec_dir || requirement}`;
 }
 
+const GATE_STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
+
+// Per-feature approval choices ({STEP: REQUIRED|AUTO}); '' = follow the project's gate policy.
+export function normalizeGates(gates) {
+  const out = {};
+  for (const [k, v] of Object.entries(gates || {})) {
+    const step = String(k).toUpperCase();
+    const mode = String(v || '').toUpperCase();
+    if (!GATE_STEPS.includes(step)) throw new HttpError(400, `bước duyệt không hợp lệ: ${k}`);
+    if (!mode) continue;
+    if (mode !== 'REQUIRED' && mode !== 'AUTO') throw new HttpError(400, `${step}: chế độ duyệt phải là REQUIRED hoặc AUTO`);
+    out[step] = mode;
+  }
+  return out;
+}
+
 export async function assignLane(n, body, d) {
   const requirement = String(body.requirement || '').trim();
   const spec_dir = String(body.spec_dir || '').trim();
@@ -23,6 +39,8 @@ export async function assignLane(n, body, d) {
   if (errs.length) throw new HttpError(400, errs.join('; '));
   const impl = parseInt(body.impl_agents, 10);
   const implAgents = impl > 0 && impl <= 9 ? impl : 1;
+
+  const gates = normalizeGates(body.gates);
 
   const lane = await d.lane(n);
   if (!lane) throw new HttpError(404, `lane ${n} không tồn tại`);
@@ -39,6 +57,7 @@ export async function assignLane(n, body, d) {
   d.state(['set', 'status=assigned', 'stage=assigned', `impl_agents=${implAgents}`, `feature_title=${title}`]);
   d.state(['set-json', 'models', JSON.stringify(models)]);
   if (d.assignedBy) d.state(['set', `assigned_by=${d.assignedBy}`]);
+  d.state(['set-json', 'gate_overrides', JSON.stringify(gates)]);
   if (!lane.api_up) d.laneUp(n);
   d.startSession(n, { model: models.main.slice('claude:'.length), prompt: buildPrompt({ requirement, spec_dir }) });
   return { ok: true };

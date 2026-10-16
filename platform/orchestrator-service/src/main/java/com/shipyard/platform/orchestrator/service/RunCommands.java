@@ -45,6 +45,7 @@ public class RunCommands {
         run.title = req.title();
         run.description = req.description() == null ? "" : req.description();
         run.createdBy = req.createdBy();
+        run.gateOverrides = normalizeGates(req.gateOverrides());
         EnumMap<Step, RunStep> st = Workflow.newSteps(run.id);
         Workflow.start(run, st);
         runs.save(run);
@@ -82,8 +83,9 @@ public class RunCommands {
         a.requiredRole = step.requiredRole();
         a = approvals.save(a);
 
-        boolean auto = policies.findById(new GatePolicy.Key(run.projectId, step))
-                .map(p -> p.mode == GateMode.AUTO).orElse(false);
+        String override = run.gateOverrides == null ? null : run.gateOverrides.get(step.name());
+        boolean auto = override != null ? GateMode.valueOf(override) == GateMode.AUTO
+                : policies.findById(new GatePolicy.Key(run.projectId, step)).map(p -> p.mode == GateMode.AUTO).orElse(false);
         if (auto) {
             applyDecision(run, st, a, rev, new Decision(DecisionAction.APPROVE, null, null, null, null), AUTO, AUTO);
         }
@@ -177,5 +179,20 @@ public class RunCommands {
         p.put("runTitle", run.title);
         p.put("step", step.name());
         return p;
+    }
+
+    /** Validates per-run gate choices: known steps, REQUIRED|AUTO (any case); null/empty → no overrides. */
+    static Map<String, String> normalizeGates(Map<String, String> in) {
+        if (in == null || in.isEmpty()) return null;
+        Map<String, String> out = new LinkedHashMap<>();
+        for (Map.Entry<String, String> e : in.entrySet()) {
+            Step step = Step.parse(e.getKey());
+            String mode = e.getValue() == null ? "" : e.getValue().trim().toUpperCase(java.util.Locale.ROOT);
+            if (!mode.equals("REQUIRED") && !mode.equals("AUTO")) {
+                throw new BadRequestException("gateOverrides." + step + " must be REQUIRED or AUTO");
+            }
+            out.put(step.name(), mode);
+        }
+        return out;
     }
 }

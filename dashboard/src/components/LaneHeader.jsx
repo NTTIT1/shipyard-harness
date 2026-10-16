@@ -29,7 +29,8 @@ export default function LaneHeader({ lane, archived, onAction, onCreds, onAssign
     { label: 'Reset lane', icon: RotateCcw, danger: true, onSelect: () => onAction(n, 'reset') },
     { label: 'Xoá lane', icon: Trash2, danger: true, onSelect: () => onAction(n, 'remove') },
   ];
-  const waitingReview = !archived && lane.run_id && lane.status === 'waiting' && String(lane.stage || '').startsWith('review-');
+  // Any waiting lane that drives a platform run is waiting on a reviewer (stage names vary by session).
+  const waitingReview = !archived && !!lane.run_id && lane.status === 'waiting';
   const branch = lane.git_branch || lane.branch || '';
   return (
     <header className="lh">
