@@ -4,6 +4,7 @@ import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Tabs from './ui/Tabs.jsx';
 import MemoryPanel from './MemoryPanel.jsx';
+import DeleteProjectButton from './DeleteProjectButton.jsx';
 import { platform } from '../lib/platform.js';
 import { STEPS, STEP_LABEL, ROLE_LABEL, isMember } from '../lib/review.js';
 
@@ -150,6 +151,7 @@ export default function ProjectsView({ onOpenRun }) {
               <div><strong>{project.name}</strong> <span className="faint mono">{project.slug}</span></div>
               <Button size="sm" variant="ghost" icon={Copy} onClick={() => navigator.clipboard?.writeText(project.id)}>
                 Mã dự án: <span className="mono">{project.id}</span></Button>
+              {roles.includes('OWNER') && <DeleteProjectButton project={project} onDeleted={() => { setSel(null); load(); }} />}
             </div>
             <p className="rv-sub">Để lane chạy quy trình role cho dự án này, đặt <span className="mono">PLATFORM_PROJECT_ID="{project.id}"</span> trong integrations.env của profile.</p>
             <Tabs value={tab} onChange={setTab} items={[{ id: 'members', label: 'Thành viên' }, { id: 'gates', label: 'Cổng duyệt' },

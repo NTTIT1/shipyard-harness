@@ -4,7 +4,7 @@ import java.util.Set;
 
 public enum ProjectRole {
     OWNER(Set.of(
-            "project:view", "project:update_config", "member:manage",
+            "project:view", "project:update_config", "project:delete", "member:manage",
             "lane:create_own", "lane:view_all", "lane:manage_any",
             "run:trigger_own", "gate:approve_spec", "gate:approve_design",
             "gate:approve_senior_pr", "gate:approve_budget", "llm:manage_keys",

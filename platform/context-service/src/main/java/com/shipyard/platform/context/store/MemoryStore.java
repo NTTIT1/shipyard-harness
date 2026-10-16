@@ -253,4 +253,14 @@ public class MemoryStore {
     private static String truncate(String s, int max) {
         return s == null || s.length() <= max ? s : s.substring(0, max);
     }
+
+    /** Deleted project: drop all of its memory (edges/chunks first). Returns rows removed per table. */
+    @org.springframework.transaction.annotation.Transactional
+    public java.util.Map<String, Integer> purgeProject(String projectId) {
+        java.util.Map<String, Integer> n = new java.util.LinkedHashMap<>();
+        for (String t : new String[]{"memory_edges", "memory_chunks", "memory_entities", "memory_items"}) {
+            n.put(t, db.sql("DELETE FROM " + t + " WHERE project_id = ?").param(projectId).update());
+        }
+        return n;
+    }
 }

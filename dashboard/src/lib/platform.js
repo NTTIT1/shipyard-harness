@@ -21,6 +21,7 @@ export const platform = {
   decide: (approvalId, body) => call('POST', `approvals/${approvalId}/decision`, body),
   projects: () => data(call('GET', 'projects')),
   createProject: body => data(call('POST', 'projects', body)),
+  deleteProject: (pid, slug) => call('DELETE', `projects/${pid}?confirm=${encodeURIComponent(slug)}`),
   members: pid => data(call('GET', `projects/${pid}/members`)),
   setMemberRoles: (pid, userId, roles) => data(call('POST', `projects/${pid}/members`, { userId, roles })),
   removeMember: (pid, userId) => data(call('DELETE', `projects/${pid}/members/${userId}`)),

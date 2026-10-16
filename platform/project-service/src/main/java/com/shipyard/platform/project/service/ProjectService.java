@@ -2,6 +2,7 @@ package com.shipyard.platform.project.service;
 
 import com.shipyard.platform.common.dto.ProjectDto;
 import com.shipyard.platform.common.enums.ProjectRole;
+import com.shipyard.platform.common.exception.BadRequestException;
 import com.shipyard.platform.common.exception.BusinessException;
 import com.shipyard.platform.common.exception.ConflictException;
 import com.shipyard.platform.common.exception.ForbiddenException;
@@ -10,6 +11,7 @@ import com.shipyard.platform.project.dto.CreateProjectRequest;
 import com.shipyard.platform.project.dto.MembershipDto;
 import com.shipyard.platform.project.entity.Project;
 import com.shipyard.platform.project.event.MembershipChanged;
+import com.shipyard.platform.project.event.ProjectPurgeClient;
 import com.shipyard.platform.project.entity.ProjectMember;
 import com.shipyard.platform.project.repository.ProjectMemberRepository;
 import com.shipyard.platform.project.repository.ProjectRepository;
@@ -29,15 +31,39 @@ public class ProjectService {
     private final ProjectMemberRepository projectMemberRepository;
     private final StringRedisTemplate redisTemplate;
     private final ApplicationEventPublisher events;
+    private final ProjectPurgeClient purgeClient;
 
     public ProjectService(ProjectRepository projectRepository,
                           ProjectMemberRepository projectMemberRepository,
                           StringRedisTemplate redisTemplate,
-                          ApplicationEventPublisher events) {
+                          ApplicationEventPublisher events,
+                          ProjectPurgeClient purgeClient) {
         this.projectRepository = projectRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.redisTemplate = redisTemplate;
         this.events = events;
+        this.purgeClient = purgeClient;
+    }
+
+    /**
+     * OWNER only, and only with the project's slug typed as confirmation. Downstream data
+     * (runs, approvals, memory) is purged first; if that fails nothing here is deleted.
+     */
+    @Transactional
+    public void deleteProject(String currentUserId, String projectId, String confirmSlug) {
+        Project project = projectRepository.findById(projectId)
+                .filter(p -> !rolesOf(projectId, currentUserId).isEmpty())
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+        requirePermission(currentUserId, projectId, "project:delete");
+        if (confirmSlug == null || !confirmSlug.equals(project.getSlug())) {
+            throw new BadRequestException("Type the project slug to confirm the deletion");
+        }
+        purgeClient.purge(projectId);
+        List<String> members = projectMemberRepository.findByIdProjectId(projectId).stream()
+                .map(m -> m.getId().getUserId()).distinct().toList();
+        projectMemberRepository.deleteAll(projectMemberRepository.findByIdProjectId(projectId));
+        projectRepository.delete(project);
+        for (String u : members) clearPermissionCache(u, projectId);
     }
 
     @Transactional

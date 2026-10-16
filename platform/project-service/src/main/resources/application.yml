@@ -26,3 +26,4 @@ spring:
 shipyard:
   service-token: ${SHIPYARD_SERVICE_TOKEN:dev-service-token}
   orchestrator-url: ${ORCHESTRATOR_SERVICE_URL:http://127.0.0.1:9084}
+  context-url: ${CONTEXT_SERVICE_URL:http://127.0.0.1:9085}
