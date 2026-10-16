@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Server, Settings2, Sun, Moon, X, Ship, LogOut, Inbox, FolderKanban, LayoutList, Users } from 'lucide-react';
+import { Plus, Server, Settings2, Sun, Moon, X, Ship, LogOut, Inbox, FolderKanban, LayoutList, Users, Coins, FileText } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import IconButton from './ui/IconButton.jsx';
 import Badge from './ui/Badge.jsx';
@@ -62,6 +62,8 @@ export default function Sidebar({ lanes, selected, onSelect, onAssign, onAddLane
             Chờ tôi duyệt{inboxCount ? <span className="sb-count" aria-label={`${inboxCount} bước`}>{inboxCount}</span> : null}
           </Button>
           <Button variant={view === 'projects' ? 'secondary' : 'ghost'} icon={FolderKanban} onClick={() => { onView('projects'); onClose(); }}>Dự án</Button>
+          <Button variant={view === 'docs' ? 'secondary' : 'ghost'} icon={FileText} onClick={() => { onView('docs'); onClose(); }}>Tài liệu</Button>
+          {isAdmin(user) && <Button variant={view === 'costs' ? 'secondary' : 'ghost'} icon={Coins} onClick={() => { onView('costs'); onClose(); }}>Chi phí</Button>}
           {user && <Button variant={view === 'users' ? 'secondary' : 'ghost'} icon={Users} onClick={() => { onView('users'); onClose(); }}>{isAdmin(user) ? 'Người dùng' : 'Tài khoản'}</Button>}
         </nav>
         <div className="sb-head">

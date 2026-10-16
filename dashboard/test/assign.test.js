@@ -95,3 +95,23 @@ describe('assignLane', () => {
     expect(calls.state).toEqual([]);
   });
 });
+
+describe('effort', () => {
+  it('stores per-step effort for the feature and starts the main session with it', async () => {
+    const { calls, d } = deps();
+    await A.assignLane(3, { requirement: 'x', effort: { main: 'high', pm: 'low', ba: 'default' } }, d);
+    const e = calls.state.find(c => c[0] === 'set-json' && c[1] === 'effort');
+    expect(JSON.parse(e[2])).toEqual({ main: 'high', pm: 'low' });
+    expect(calls.start[0][1].effort).toBe('high');
+  });
+  it('rejects unknown effort levels before touching the lane', async () => {
+    const { calls, d } = deps();
+    await expect(A.assignLane(3, { requirement: 'x', effort: { pm: 'turbo' } }, d)).rejects.toThrow(/effort/);
+    expect(calls.state).toEqual([]);
+  });
+  it('saves and reads effort defaults next to the model defaults', () => {
+    P.writeModelDefaults({ ...MODELS, effort: { 'senior-gate': 'max', pm: '' } });
+    expect(P.readModelDefaults().effort).toEqual({ 'senior-gate': 'max' });
+    expect(() => P.writeModelDefaults({ ...MODELS, effort: { pm: 'ultra' } })).toThrow(/effort/);
+  });
+});

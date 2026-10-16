@@ -28,6 +28,9 @@ import InboxView from './components/InboxView.jsx';
 import ReviewView from './components/ReviewView.jsx';
 import ProjectsView from './components/ProjectsView.jsx';
 import UsersView from './components/UsersView.jsx';
+import CostsView from './components/CostsView.jsx';
+import DocsView from './components/DocsView.jsx';
+import LaneAiPanel from './components/LaneAiPanel.jsx';
 
 export default function App({ user, onLogout }) {
   const { data, refreshNow } = useLanes();
@@ -42,6 +45,8 @@ export default function App({ user, onLogout }) {
   const [review, setReview] = useState(null);
   const inbox = useInbox();
   const openReview = useCallback(r => { setReview(r); setView('review'); }, []);
+  const [docsRun, setDocsRun] = useState('');
+  const openDocs = useCallback(runId => { setDocsRun(runId || ''); setView('docs'); }, []);
   const [assign, setAssign] = useState(undefined); // undefined = closed, null = open w/o preselected lane, number = preselected
 
   const lanes = data?.lanes || [];
@@ -197,6 +202,8 @@ export default function App({ user, onLogout }) {
           inboxItems={inbox.items} onBack={() => setView('inbox')} onDecided={inbox.refresh} />}
         {view === 'projects' && <ProjectsView user={user} onOpenRun={runId => openReview({ runId })} />}
         {view === 'users' && <UsersView user={user} onLogout={onLogout} />}
+        {view === 'costs' && <CostsView />}
+        {view === 'docs' && <DocsView key={docsRun} initialRunId={docsRun} onOpenRun={runId => openReview({ runId })} />}
         {view === 'lanes' && (<>
         {!selectedLaneData ? (
           <div className="empty-state">
@@ -208,6 +215,7 @@ export default function App({ user, onLogout }) {
           <>
             <LaneHeader lane={headLane} archived={viewingPast} onAction={handleAction} onCreds={handleCreds}
               onReview={() => openReview({ runId: selectedLaneData.run_id })}
+              onDocs={() => openDocs(selectedLaneData.run_id)}
               onAssign={n => setAssign(n)} onTab={setTab} />
             {selectedLaneData.mode === 'pr-review' ? (
               <div className="tabpanel"><ReviewTable reviews={reviews} needsAction={selectedLaneData.needs_action} config={config} /></div>
@@ -216,12 +224,14 @@ export default function App({ user, onLogout }) {
                 <Tabs value={tab} onChange={setTab} items={[
                   { id: 'overview', label: 'Tổng quan' },
                   ...(viewingPast ? [] : [{ id: 'chat', label: 'Chat', dot: needsChat }]),
+                  { id: 'ai', label: 'AI & Chi phí' },
                   { id: 'proof', label: 'Ảnh QC', badge: proofCount || null },
                   ...(headLane.spec_dir ? [{ id: 'spec', label: 'Spec' }] : []),
                 ]} />
                 <div className="tabpanel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
                   {tab === 'overview' && <LaneOverview lane={mapLane} config={config} archived={viewingPast} />}
                   {tab === 'chat' && !viewingPast && <ChatPanel key={selectedLane} lane={selectedLaneData} />}
+                  {tab === 'ai' && <LaneAiPanel key={selectedLane} lane={headLane} onUpdated={refreshNow} />}
                   {tab === 'proof' && <ProofGallery proof={proof} selectedLane={selectedLane} selectedSlug={selectedSlug}
                     onSelectFeature={selectFeature} onShot={openShot} onGallery={openGallery} onCleanup={handleCleanup} />}
                   {tab === 'spec' && <SpecLinks lane={headLane} />}
@@ -243,7 +253,7 @@ export default function App({ user, onLogout }) {
         <CredentialsModal lane={credsModal.lane} mode={credsModal.mode} config={config}
           onClose={() => setCredsModal(null)} onDone={refreshNow} />
       )}
-      {providers && <ProvidersModal onClose={() => setProviders(false)} />}
+      {providers && <ProvidersModal lanes={lanes} onClose={() => setProviders(false)} />}
       {assign !== undefined && (
         <AssignModal lanes={lanes} initialLane={assign} onClose={() => setAssign(undefined)}
           onDone={n => { setSelectedLane(n); refreshNow(); }} />
