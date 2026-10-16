@@ -8,6 +8,8 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_common.sh"
 export HARNESS_ROOT LANES_ROOT FE_BASE_PORT API_BASE_PORT PROFILE
+# DASHBOARD_HOST=0.0.0.0 (e.g. in config/local.env) shares the dashboard on the LAN.
+[ -n "${DASHBOARD_HOST:-}" ] && export DASHBOARD_HOST
 PIDFILE="$HARNESS_ROOT/run/dashboard.pid"
 LOG="$HARNESS_ROOT/logs/dashboard.log"
 DASHBOARD_DIR="$HARNESS_ROOT/dashboard"
@@ -38,7 +40,10 @@ case "${1:-fg}" in
     _ensure_deps; _free_port "$PORT"
     nohup node "$DASHBOARD_DIR/server/index.js" "$PORT" >"$LOG" 2>&1 &
     echo $! >"$PIDFILE"; disown 2>/dev/null || true
+    sleep 1
+    if ! _running; then rm -f "$PIDFILE"; echo "harness: dashboard failed to start:" >&2; tail -5 "$LOG" >&2; exit 1; fi
     echo "harness: dashboard started (pid $(cat "$PIDFILE")) -> http://127.0.0.1:$PORT  (log: $LOG)"
+    grep -o 'LAN http[^ ]*' "$LOG" 2>/dev/null | sed 's/^/harness: dashboard /' || true
     ;;
   stop)
     if _running; then kill "$(cat "$PIDFILE")" 2>/dev/null || true; fi
