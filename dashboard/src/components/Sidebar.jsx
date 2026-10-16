@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Plus, Server, Settings2, Sun, Moon, X, Ship } from 'lucide-react';
+import { Plus, Server, Settings2, Sun, Moon, X, Ship, LogOut } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import IconButton from './ui/IconButton.jsx';
 import Badge from './ui/Badge.jsx';
@@ -19,7 +19,7 @@ function dotTone(l) {
   return 'neutral';
 }
 
-export default function Sidebar({ lanes, selected, onSelect, onAssign, onAddLane, onProviders, theme, onToggleTheme, open, onClose, returnFocusRef }) {
+export default function Sidebar({ lanes, selected, onSelect, onAssign, onAddLane, onProviders, theme, onToggleTheme, user, onLogout, open, onClose, returnFocusRef }) {
   const asideRef = useRef(null);
   const closeRef = useRef(null);
   const wasOpen = useRef(false);
@@ -82,6 +82,12 @@ export default function Sidebar({ lanes, selected, onSelect, onAssign, onAddLane
           <Button variant="ghost" icon={Settings2} onClick={onProviders}>Nhà cung cấp</Button>
           <IconButton icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? 'Giao diện sáng' : 'Giao diện tối'} onClick={onToggleTheme} />
         </div>
+        {user && (
+          <div className="sb-user">
+            <span className="sb-user-email" title={user.email}>{user.email}</span>
+            {onLogout && <IconButton icon={LogOut} label="Đăng xuất" onClick={onLogout} />}
+          </div>
+        )}
       </aside>
     </>
   );

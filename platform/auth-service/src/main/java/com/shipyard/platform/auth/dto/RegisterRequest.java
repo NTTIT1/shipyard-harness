@@ -1,6 +1,5 @@
 package com.shipyard.platform.auth.dto;
 
-import com.shipyard.platform.common.enums.SystemRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -17,8 +16,6 @@ public class RegisterRequest {
     @NotBlank(message = "Full name is required")
     private String fullName;
 
-    private SystemRole systemRole = SystemRole.USER;
-
     public RegisterRequest() {}
 
     public String getEmail() { return email; }
@@ -29,7 +26,4 @@ public class RegisterRequest {
 
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
-
-    public SystemRole getSystemRole() { return systemRole; }
-    public void setSystemRole(SystemRole systemRole) { this.systemRole = systemRole; }
 }

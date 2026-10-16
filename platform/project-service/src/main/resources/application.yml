@@ -1,14 +1,19 @@
 server:
   port: 9082
+  # Only the api-gateway faces the network; it is the one place JWTs are checked.
+  address: ${BIND_ADDR:127.0.0.1}
 
 spring:
   application:
     name: project-service
   datasource:
-    url: jdbc:postgresql://${PG_HOST:127.0.0.1}:${PG_PORT:5433}/project_db
+    url: jdbc:postgresql://${PG_HOST:127.0.0.1}:${PG_PORT:5434}/project_db
     username: ${PG_USER:postgres}
     password: ${PG_PASS:postgres}
     driver-class-name: org.postgresql.Driver
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 1
   jpa:
     hibernate:
       ddl-auto: update
@@ -16,4 +21,8 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:6379}
+      port: ${REDIS_PORT:6380}
+
+shipyard:
+  service-token: ${SHIPYARD_SERVICE_TOKEN:dev-service-token}
+  orchestrator-url: ${ORCHESTRATOR_SERVICE_URL:http://127.0.0.1:9084}

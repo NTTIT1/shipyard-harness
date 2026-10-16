@@ -29,6 +29,7 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/api/v1/auth/login",
             "/api/v1/auth/register",
             "/api/v1/auth/refresh",
+            "/api/v1/auth/logout",
             "/actuator"
     );
 
@@ -38,6 +39,14 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        // Identity headers are only ever set by this filter — drop any the client sent.
+        exchange = exchange.mutate().request(exchange.getRequest().mutate()
+                .headers(h -> {
+                    h.remove(SecurityConstants.HEADER_USER_ID);
+                    h.remove(SecurityConstants.HEADER_USER_EMAIL);
+                    h.remove(SecurityConstants.HEADER_USER_ROLE);
+                })
+                .build()).build();
         String path = exchange.getRequest().getURI().getPath();
 
         // Check if path is public

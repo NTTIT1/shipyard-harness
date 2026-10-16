@@ -24,7 +24,7 @@ import ProvidersModal from './components/ProvidersModal.jsx';
 import AssignModal from './components/AssignModal.jsx';
 import ChatPanel from './components/ChatPanel.jsx';
 
-export default function App() {
+export default function App({ user, onLogout }) {
   const { data, refreshNow } = useLanes();
   const [selectedLane, setSelectedLane] = useState(null);
   const [shot, setShot] = useState(null);
@@ -176,7 +176,7 @@ export default function App() {
     <div className="app">
       <Sidebar lanes={lanes} selected={selectedLane} onSelect={setSelectedLane}
         onAssign={n => setAssign(n)} onAddLane={() => setAddLane(true)} onProviders={() => setProviders(true)}
-        theme={theme} onToggleTheme={toggle} open={drawer} onClose={() => setDrawer(false)} returnFocusRef={menuBtn} />
+        theme={theme} onToggleTheme={toggle} user={user} onLogout={onLogout} open={drawer} onClose={() => setDrawer(false)} returnFocusRef={menuBtn} />
       <main className="main">
         <div className="topbar">
           <IconButton ref={menuBtn} icon={MenuIcon} label="Mở danh sách lane" onClick={() => setDrawer(true)} />

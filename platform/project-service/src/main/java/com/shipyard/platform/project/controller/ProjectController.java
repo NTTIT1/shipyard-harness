@@ -51,7 +51,7 @@ public class ProjectController {
             @RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,
             @PathVariable String projectId,
             @Valid @RequestBody MemberRequest request) {
-        projectService.addOrUpdateMember(userId, projectId, request.getUserId(), request.getRole());
+        projectService.setMemberRoles(userId, projectId, request.getUserId(), request.effectiveRoles());
         return ResponseEntity.ok(ApiResponse.ok("Member added/updated successfully", "OK"));
     }
 

@@ -10,6 +10,8 @@ export default defineConfig({
     proxy: {
       '/api': backend,
       '/proof': backend,
+      '/spec': backend,
+      '/auth': backend,
     },
   },
   build: {

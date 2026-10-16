@@ -5,10 +5,12 @@ import agentuiRoutes from './routes/agentui.js';
 import lanesRoutes from './routes/lanes.js';
 import proofRoutes from './routes/proof.js';
 import credsRoutes from './routes/creds.js';
+import authRoutes from './routes/auth.js';
+import { requireAuth } from './services/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export function createApp() {
+export function createApp(authOpts) {
   const app = express();
   app.use(express.json());
   app.use((req, res, next) => {
@@ -18,6 +20,9 @@ export function createApp() {
     }
     next();
   });
+  // Login (via Shipyard Platform) gates every data route; /auth/* and the SPA shell stay public.
+  app.use(authRoutes);
+  app.use(requireAuth(authOpts));
   // agentui first: its POST /api/lane/:n/assign would otherwise hit lanes' /:action.
   app.use(agentuiRoutes);
   app.use(lanesRoutes);

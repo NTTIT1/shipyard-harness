@@ -42,6 +42,12 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok("Token refreshed", response));
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody(required = false) Map<String, String> request) {
+        authService.logout(request != null ? request.get("refreshToken") : null);
+        return ResponseEntity.ok(ApiResponse.ok("Logged out", null));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserDto>> getCurrentUser(
             @RequestHeader(value = SecurityConstants.HEADER_USER_ID, required = false) String userId) {

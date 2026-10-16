@@ -47,13 +47,19 @@ public class AuthService {
         this.jwtUtils = new JwtUtils(jwtSecret);
     }
 
+    @Value("${shipyard.admin.email:admin@shipyard.local}")
+    private String adminEmail;
+
+    @Value("${shipyard.admin.password:admin123}")
+    private String adminPassword;
+
     @PostConstruct
     public void seedInitialAdmin() {
-        if (!userRepository.existsByEmail("admin@shipyard.local")) {
+        if (!userRepository.existsByEmail(adminEmail)) {
             User admin = new User(
                     "usr_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12),
-                    "admin@shipyard.local",
-                    passwordEncoder.encode("admin123"),
+                    adminEmail,
+                    passwordEncoder.encode(adminPassword),
                     "System Administrator",
                     SystemRole.SYS_ADMIN
             );
@@ -73,14 +79,15 @@ public class AuthService {
                 request.getEmail(),
                 passwordEncoder.encode(request.getPassword()),
                 request.getFullName(),
-                request.getSystemRole() != null ? request.getSystemRole() : SystemRole.USER
+                SystemRole.USER // self-registration never grants SYS_ADMIN
         );
 
         userRepository.save(user);
         return createAuthResponse(user);
     }
 
-    @Transactional
+    // noRollbackFor: the failed-attempt counter / lock must persist even though we throw.
+    @Transactional(noRollbackFor = UnauthorizedException.class)
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));
@@ -108,7 +115,7 @@ public class AuthService {
         return createAuthResponse(user);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = UnauthorizedException.class)
     public AuthResponse refreshToken(String refreshTokenStr) {
         RefreshToken token = refreshTokenRepository.findByTokenHashAndRevokedFalse(refreshTokenStr)
                 .orElseThrow(() -> new UnauthorizedException("Invalid or expired refresh token"));
@@ -127,6 +134,15 @@ public class AuthService {
         refreshTokenRepository.save(token);
 
         return createAuthResponse(user);
+    }
+
+    @Transactional
+    public void logout(String refreshTokenStr) {
+        if (refreshTokenStr == null || refreshTokenStr.isBlank()) return;
+        refreshTokenRepository.findByTokenHashAndRevokedFalse(refreshTokenStr).ifPresent(token -> {
+            token.setRevoked(true);
+            refreshTokenRepository.save(token);
+        });
     }
 
     public UserDto getUserProfile(String userId) {

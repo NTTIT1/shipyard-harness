@@ -1,26 +1,58 @@
+// Every data call goes through authFetch: on a 401 it tries one silent refresh
+// (the refresh token lives in an HttpOnly cookie scoped to /auth) and, if that
+// fails too, broadcasts 'auth:expired' so AuthGate swaps back to the login page.
+let refreshing = null;
+function refreshSession() {
+  refreshing ||= fetch('/auth/refresh', { method: 'POST' })
+    .then(r => r.ok)
+    .catch(() => false)
+    .finally(() => { refreshing = null; });
+  return refreshing;
+}
+
+export async function authFetch(url, opts) {
+  let r = await fetch(url, opts);
+  if (r.status !== 401) return r;
+  if (await refreshSession()) r = await fetch(url, opts);
+  if (r.status === 401) window.dispatchEvent(new Event('auth:expired'));
+  return r;
+}
+
+async function authJson(url, method, body) {
+  const r = await fetch(url, {
+    method, headers: { 'Content-Type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  return { ...j, ok: r.ok && j.ok !== false, status: r.status };
+}
+export const fetchMe = () => authJson('/auth/me', 'GET');
+export const login = (email, password) => authJson('/auth/login', 'POST', { email, password });
+export const logout = () => authJson('/auth/logout', 'POST', {});
+
 async function checked(r) {
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
 export async function fetchLanes() {
-  return checked(await fetch('/api/lanes'));
+  return checked(await authFetch('/api/lanes'));
 }
 
 export async function fetchProof(n) {
-  return checked(await fetch(`/api/proof/${n}`));
+  return checked(await authFetch(`/api/proof/${n}`));
 }
 
 export async function fetchReviews(n) {
-  return checked(await fetch(`/api/reviews/${n}`));
+  return checked(await authFetch(`/api/reviews/${n}`));
 }
 
 export async function fetchCreds(n) {
-  return checked(await fetch(`/api/lane/${n}/creds-current`));
+  return checked(await authFetch(`/api/lane/${n}/creds-current`));
 }
 
 export async function deleteProof(n, body) {
-  return checked(await fetch(`/api/proof/${n}`, {
+  return checked(await authFetch(`/api/proof/${n}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body || {}),
@@ -34,13 +66,13 @@ export async function postAction(n, action, body) {
     opts.body = JSON.stringify(body);
   }
   const url = n == null ? '/api/lanes/add' : `/api/lane/${n}/${action}`;
-  return checked(await fetch(url, opts));
+  return checked(await authFetch(url, opts));
 }
 
 async function send(url, method, body) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body !== undefined) opts.body = JSON.stringify(body);
-  const r = await fetch(url, opts);
+  const r = await authFetch(url, opts);
   const j = await r.json().catch(() => ({}));
   if (!r.ok || j.ok === false) throw new Error(j.error || `HTTP ${r.status}`);
   return j;
