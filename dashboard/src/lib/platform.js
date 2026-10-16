@@ -30,5 +30,10 @@ export const platform = {
   setGatePolicy: (pid, policy) => data(call('PUT', `projects/${pid}/gate-policy`, policy)),
   projectRuns: pid => data(call('GET', `projects/${pid}/runs`)),
   memory: (pid, { q: text, kind } = {}) => data(call('GET', `projects/${pid}/memory?${q({ q: text, kind })}`)),
+  adminUsers: () => data(call('GET', 'auth/admin/users')),
+  createUser: body => data(call('POST', 'auth/admin/users', body)),
+  updateUser: (id, patch) => data(call('PATCH', `auth/admin/users/${id}`, patch)),
+  resetPassword: (id, password) => call('POST', `auth/admin/users/${id}/password`, { password }),
+  changeMyPassword: (currentPassword, newPassword) => call('POST', 'auth/me/password', { currentPassword, newPassword }),
   setMemoryDisabled: (pid, itemId, disabled) => data(call('PATCH', `projects/${pid}/memory/${itemId}`, { disabled })),
 };

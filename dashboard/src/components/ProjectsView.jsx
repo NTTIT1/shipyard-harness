@@ -38,7 +38,7 @@ function Members({ pid, canManage }) {
       await platform.setMemberRoles(pid, u.id, ['VIEWER']);
       setEmail('');
       await load();
-    } catch (e2) { setErr(e2.status === 404 ? `Không tìm thấy người dùng ${email.trim()} — họ cần đăng ký tài khoản trước.` : e2.message); }
+    } catch (e2) { setErr(e2.status === 404 ? `Không tìm thấy người dùng ${email.trim()} — quản trị viên cần tạo tài khoản cho họ ở mục Người dùng trước.` : e2.message); }
   };
   return (
     <div className="rv-page">

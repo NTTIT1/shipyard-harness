@@ -3,6 +3,7 @@ import { Ship, LogIn, Eye, EyeOff, X } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import { login } from '../lib/api.js';
 import { useTheme } from '../hooks/useTheme.js';
+import { loginErrorVi } from '../lib/users.js';
 
 export default function LoginPage({ onLogin, notice }) {
   useTheme(); // applies the stored/OS theme before the app shell mounts
@@ -18,7 +19,7 @@ export default function LoginPage({ onLogin, notice }) {
     const r = await login(email.trim(), password).catch(() => ({ ok: false, error: 'Không kết nối được dashboard' }));
     setBusy(false);
     if (r.ok) onLogin(r.user);
-    else setError(r.error || 'Đăng nhập thất bại');
+    else setError(loginErrorVi(r.error) || 'Đăng nhập thất bại');
   }
 
   return (

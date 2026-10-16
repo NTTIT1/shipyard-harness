@@ -15,7 +15,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "shipyard.auth.self-registration=true")
 class AuthUsersIT {
     static final PostgreSQLContainer PG = new PostgreSQLContainer("postgres:16-alpine");
     static { PG.start(); }
