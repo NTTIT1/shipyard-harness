@@ -78,6 +78,14 @@ bin/install-claude-assets.sh    # copy skills + agents into ~/.claude (+ superpo
 bin/dashboard.sh start          # → http://127.0.0.1:8090
 ```
 
+**Share the dashboard on the LAN:** add `DASHBOARD_HOST="${DASHBOARD_HOST:-0.0.0.0}"` to
+`config/local.env`, run `bin/platform.sh start` (it writes a per-machine JWT secret to
+`run/platform/jwt-secret`; the dashboard refuses LAN binding while the public dev secret or
+`DASHBOARD_AUTH=off` is in use), then `bin/dashboard.sh restart` — it prints the LAN URLs.
+Open the port if a firewall is on (`sudo ufw allow from <subnet> to any port 8090 proto tcp`).
+Only the dashboard is exposed; the platform services and gateway stay on 127.0.0.1 behind it.
+Accounts are created by an admin under **Người dùng** (self-registration is off).
+
 > `install-claude-assets.sh` *copies* the skills/agents (it bakes in install-time
 > paths), so **re-run it after editing any source skill/agent** and **restart open
 > Claude sessions** — skills, agents, and plugins load at session start.

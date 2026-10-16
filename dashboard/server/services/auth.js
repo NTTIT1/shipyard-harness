@@ -1,16 +1,18 @@
 import crypto from 'crypto';
-import { SECRETS_ENV, loadEnvFile } from './config.js';
+import path from 'path';
+import { SECRETS_ENV, HARNESS_ROOT, loadEnvFile } from './config.js';
+import { resolveJwtSecret, DEV_SECRET } from './lan.js';
 
 // Dashboard login is delegated to the Shipyard Platform (api-gateway → auth-service).
 // The dashboard acts as a BFF: it keeps the platform's JWT pair in HttpOnly cookies
 // (so EventSource and <img src="/proof/..."> are authenticated too) and verifies the
 // access token locally with the shared HMAC secret — no round-trip per request.
 const secrets = loadEnvFile(SECRETS_ENV);
-// Same dev default as platform SecurityConstants.DEFAULT_JWT_SECRET; set JWT_SECRET for real installs.
-const DEV_SECRET = 'shipyard-super-secret-key-that-is-at-least-256-bits-long-for-hmac-sha256';
 
 export const AUTH_ENABLED = (process.env.DASHBOARD_AUTH || secrets.DASHBOARD_AUTH || 'on') !== 'off';
-export const JWT_SECRET = process.env.JWT_SECRET || secrets.JWT_SECRET || DEV_SECRET;
+// Same secret as the platform: bin/platform.sh writes run/platform/jwt-secret when none is configured.
+export const JWT_SECRET = resolveJwtSecret({ env: process.env.JWT_SECRET, secrets: secrets.JWT_SECRET,
+  file: path.join(HARNESS_ROOT, 'run', 'platform', 'jwt-secret') });
 export const PLATFORM_URL = (process.env.PLATFORM_GATEWAY_URL || secrets.PLATFORM_GATEWAY_URL || 'http://127.0.0.1:9080').replace(/\/$/, '');
 export const usingDevSecret = JWT_SECRET === DEV_SECRET;
 

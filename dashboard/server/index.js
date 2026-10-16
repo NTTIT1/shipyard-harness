@@ -4,6 +4,7 @@ import { createApp } from './app.js';
 import { BIN } from './services/config.js';
 import { configureSessions, stopAll } from './services/sessions.js';
 import { AUTH_ENABLED, PLATFORM_URL, usingDevSecret } from './services/auth.js';
+import { bindProblem, lanUrls } from './services/lan.js';
 
 // needs_action lives in lane state so the cards/header badge it like any other ask.
 configureSessions({
@@ -11,8 +12,13 @@ configureSessions({
 });
 
 const port = parseInt(process.argv[2] || process.env.DASHBOARD_PORT || '8090', 10);
-const server = createApp().listen(port, '127.0.0.1', () => {
+// DASHBOARD_HOST=0.0.0.0 shares it on the LAN (config/local.env); default stays loopback-only.
+const host = process.env.DASHBOARD_HOST || '127.0.0.1';
+const problem = bindProblem({ host, authEnabled: AUTH_ENABLED, devSecret: usingDevSecret });
+if (problem) { console.error(`harness dashboard: ${problem}`); process.exit(1); }
+const server = createApp().listen(port, host, () => {
   console.log(`harness dashboard: http://127.0.0.1:${port}`);
+  if (host !== '127.0.0.1') for (const u of lanUrls(host, port)) console.log(`harness dashboard: LAN ${u}`);
   if (!AUTH_ENABLED) console.warn('harness dashboard: DASHBOARD_AUTH=off — login is DISABLED');
   else {
     console.log(`harness dashboard: login via Shipyard Platform at ${PLATFORM_URL}`);
