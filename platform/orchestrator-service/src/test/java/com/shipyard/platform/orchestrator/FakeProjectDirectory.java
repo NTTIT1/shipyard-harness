@@ -4,7 +4,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** In-memory stand-in for project-service membership. */
-public class FakeProjectDirectory implements com.shipyard.platform.orchestrator.directory.ProjectDirectory {
+public class FakeProjectDirectory implements com.shipyard.platform.common.directory.ProjectDirectory {
     private final Map<String, Map<String, List<String>>> grants = new ConcurrentHashMap<>(); // project → user → roles
 
     /** "projectId|userId" of every evict call, for assertions. */

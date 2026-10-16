@@ -52,7 +52,19 @@ services:
       timeout: 10s
       retries: 5
 
+  # Only for machines without a native Ollama (bin/platform.sh starts it when $OLLAMA_URL is down).
+  ollama:
+    image: ollama/ollama:0.12.6
+    container_name: shipyard-ollama
+    profiles: ["ollama"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - shipyard_ollama:/root/.ollama
+
 volumes:
   shipyard_pgvector16_data:
   shipyard_redisdata:
   shipyard_rabbitmqdata:
+  shipyard_ollama:

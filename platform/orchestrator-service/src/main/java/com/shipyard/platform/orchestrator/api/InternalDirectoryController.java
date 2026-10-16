@@ -2,7 +2,7 @@ package com.shipyard.platform.orchestrator.api;
 
 import com.shipyard.platform.common.dto.ApiResponse;
 import com.shipyard.platform.common.exception.BadRequestException;
-import com.shipyard.platform.orchestrator.directory.ProjectDirectory;
+import com.shipyard.platform.common.directory.ProjectDirectory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;

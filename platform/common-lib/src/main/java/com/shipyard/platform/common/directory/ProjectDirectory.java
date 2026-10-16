@@ -1,4 +1,4 @@
-package com.shipyard.platform.orchestrator.directory;
+package com.shipyard.platform.common.directory;
 
 import java.util.List;
 import java.util.Map;
