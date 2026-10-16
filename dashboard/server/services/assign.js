@@ -1,4 +1,5 @@
 import { STEPS, validateModels, usesGateway } from './providers.js';
+import { normalizeEfforts } from './usage.js';
 
 export class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -41,6 +42,8 @@ export async function assignLane(n, body, d) {
   const implAgents = impl > 0 && impl <= 9 ? impl : 1;
 
   const gates = normalizeGates(body.gates);
+  let effort;
+  try { effort = normalizeEfforts(body.effort, STEPS.map(s => s.id)); } catch (e) { throw new HttpError(400, e.message); }
 
   const lane = await d.lane(n);
   if (!lane) throw new HttpError(404, `lane ${n} không tồn tại`);
@@ -58,7 +61,8 @@ export async function assignLane(n, body, d) {
   d.state(['set-json', 'models', JSON.stringify(models)]);
   if (d.assignedBy) d.state(['set', `assigned_by=${d.assignedBy}`]);
   d.state(['set-json', 'gate_overrides', JSON.stringify(gates)]);
+  d.state(['set-json', 'effort', JSON.stringify(effort)]);
   if (!lane.api_up) d.laneUp(n);
-  d.startSession(n, { model: models.main.slice('claude:'.length), prompt: buildPrompt({ requirement, spec_dir }) });
+  d.startSession(n, { model: models.main.slice('claude:'.length), effort: effort.main, prompt: buildPrompt({ requirement, spec_dir }) });
   return { ok: true };
 }

@@ -32,10 +32,10 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
     setBusy(true); setError('');
     try {
       if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
-      const { impl_agents, ...stepModels } = models;
+      const { impl_agents, effort, ...stepModels } = models;
       await assignLane(lane, {
         ...(mode === 'new' ? { requirement: text } : { spec_dir: spec }),
-        models: stepModels, impl_agents, gates,
+        models: stepModels, impl_agents, gates, effort,
       });
       onDone(lane);
       onClose();

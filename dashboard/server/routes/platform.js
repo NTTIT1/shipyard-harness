@@ -23,7 +23,7 @@ export function resumeLane(n, message, sessions = S) {
   }
   const info = sessions.sessionInfo(n);
   if (!info) return false;
-  sessions.startSession(n, { model: info.model, prompt: message, resume: info.session_id });
+  sessions.startSession(n, { model: info.model, effort: info.effort || undefined, prompt: message, resume: info.session_id });
   return true;
 }
 

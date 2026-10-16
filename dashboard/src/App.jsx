@@ -28,6 +28,7 @@ import InboxView from './components/InboxView.jsx';
 import ReviewView from './components/ReviewView.jsx';
 import ProjectsView from './components/ProjectsView.jsx';
 import UsersView from './components/UsersView.jsx';
+import CostsView from './components/CostsView.jsx';
 
 export default function App({ user, onLogout }) {
   const { data, refreshNow } = useLanes();
@@ -197,6 +198,7 @@ export default function App({ user, onLogout }) {
           inboxItems={inbox.items} onBack={() => setView('inbox')} onDecided={inbox.refresh} />}
         {view === 'projects' && <ProjectsView user={user} onOpenRun={runId => openReview({ runId })} />}
         {view === 'users' && <UsersView user={user} onLogout={onLogout} />}
+        {view === 'costs' && <CostsView />}
         {view === 'lanes' && (<>
         {!selectedLaneData ? (
           <div className="empty-state">

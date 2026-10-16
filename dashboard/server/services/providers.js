@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { HARNESS_ROOT } from './config.js';
+import { normalizeEfforts } from './usage.js';
 
 // Non-Claude providers reachable through the LiteLLM gateway. `litellm` is the
 // LiteLLM model prefix; models are listed explicitly (from "Kiểm tra") rather
@@ -139,14 +140,16 @@ export function readModelDefaults() {
   const out = {};
   for (const s of STEPS) out[s.id] = d[s.id] || DEFAULT_MODEL;
   out.impl_agents = Number.isInteger(d.impl_agents) && d.impl_agents > 0 ? d.impl_agents : 1;
+  try { out.effort = normalizeEfforts(doc.effort, STEPS.map(s => s.id)); } catch { out.effort = {}; }
   return out;
 }
 
 export function writeModelDefaults(defaults) {
   const errs = validateModels(Object.fromEntries(STEPS.map(s => [s.id, defaults[s.id] || DEFAULT_MODEL])));
   if (errs.length) throw new Error(errs.join('; '));
+  const effort = normalizeEfforts(defaults.effort, STEPS.map(s => s.id));
   const impl = parseInt(defaults.impl_agents, 10);
-  const doc = { defaults: { ...Object.fromEntries(STEPS.map(s => [s.id, defaults[s.id] || DEFAULT_MODEL])), impl_agents: impl > 0 ? impl : 1 } };
+  const doc = { defaults: { ...Object.fromEntries(STEPS.map(s => [s.id, defaults[s.id] || DEFAULT_MODEL])), impl_agents: impl > 0 ? impl : 1 }, effort };
   fs.mkdirSync(path.dirname(modelsPath()), { recursive: true });
   fs.writeFileSync(modelsPath(), JSON.stringify(doc, null, 2) + '\n');
 }

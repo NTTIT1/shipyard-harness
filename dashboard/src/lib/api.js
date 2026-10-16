@@ -80,11 +80,14 @@ async function send(url, method, body) {
 export const fetchProviders = () => send('/api/providers', 'GET');
 export const saveProviders = providers => send('/api/providers', 'PUT', { providers });
 export const testProvider = id => send(`/api/providers/${id}/test`, 'POST', {});
+export const fetchCosts = month => send(`/api/costs${month ? `?month=${encodeURIComponent(month)}` : ''}`, 'GET');
+export const saveCostSettings = settings => send('/api/costs/settings', 'PUT', settings);
+export const saveFeatureHours = (key, hours) => send('/api/costs/feature-hours', 'PUT', { key, hours });
 export const saveModelDefaults = defaults => send('/api/models', 'PUT', { defaults });
 export const restartGateway = () => send('/api/gateway/restart', 'POST', {});
 export const assignLane = (n, body) => send(`/api/lane/${n}/assign`, 'POST', body);
 export const fetchSpecs = n => send(`/api/lane/${n}/specs`, 'GET');
-export const saveLaneModels = (n, models) => send(`/api/lane/${n}/models`, 'PUT', { models });
+export const saveLaneModels = (n, models, effort) => send(`/api/lane/${n}/models`, 'PUT', { models, effort });
 export const sendChat = (n, text) => send(`/api/lane/${n}/chat/message`, 'POST', { text });
 export const answerChat = (n, id, payload) => send(`/api/lane/${n}/chat/answer`, 'POST', { id, ...payload });
 export const stopSession = n => send(`/api/lane/${n}/session/stop`, 'POST', {});

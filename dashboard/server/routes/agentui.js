@@ -9,6 +9,7 @@ import * as P from '../services/providers.js';
 import { gatewayStatus, ensureGateway, restartGateway, restartGatewayInBackground } from '../services/gateway.js';
 import * as S from '../services/sessions.js';
 import { assignLane } from '../services/assign.js';
+import { normalizeEfforts } from '../services/usage.js';
 
 const router = Router();
 const lanePath = '/api/lane/:n(\\d)';
@@ -63,11 +64,13 @@ router.put(`${lanePath}/models`, wrap(async req => {
   const models = (req.body || {}).models || {};
   const errs = P.validateModels(models);
   if (errs.length) throw Object.assign(new Error(errs.join('; ')), { status: 400 });
+  const effort = req.body?.effort === undefined ? null : normalizeEfforts(req.body.effort, P.STEPS.map(s => s.id));
   if (P.usesGateway(models)) {
     const gw = await ensureGateway();
     if (!gw.ok) throw Object.assign(new Error(`không bật được gateway: ${gw.output}`), { status: 503 });
   }
   stateSh(n, ['set-json', 'models', JSON.stringify(models)]);
+  if (effort) stateSh(n, ['set-json', 'effort', JSON.stringify(effort)]);
 }));
 
 router.get(`${lanePath}/chat/stream`, (req, res) => {
@@ -100,7 +103,7 @@ router.post(`${lanePath}/session/resume`, wrap(async req => {
   const n = num(req);
   const info = S.sessionInfo(n);
   if (!info) throw Object.assign(new Error('không có phiên để tiếp tục'), { status: 404 });
-  S.startSession(n, { model: info.model, prompt: 'continue', resume: info.session_id });
+  S.startSession(n, { model: info.model, effort: info.effort || undefined, prompt: 'continue', resume: info.session_id });
 }));
 
 export default router;

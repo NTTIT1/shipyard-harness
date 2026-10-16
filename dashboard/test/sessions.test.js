@@ -142,3 +142,27 @@ describe('sessions', () => {
     }
   });
 });
+
+describe('usage tracking', () => {
+  it('records per-turn token deltas with the lane context and passes effort', async () => {
+    const mu = (i, usd) => ({ 'claude-opus-5-5': { inputTokens: i, outputTokens: 1, cacheReadInputTokens: 0, cacheCreationInputTokens: 0, costUSD: usd } });
+    S.configureSessions({
+      query: fakeQuery([
+        { type: 'result', subtype: 'success', result: 'a', session_id: 'sess-1', modelUsage: mu(100, 1) },
+        { type: 'rate_limit_event', rate_limit_info: { status: 'allowed', rateLimitType: 'five_hour', utilization: 42, resetsAt: 1792130000 } },
+        { type: 'result', subtype: 'success', result: 'b', session_id: 'sess-1', modelUsage: mu(160, 1.5) },
+      ]),
+      setNeedsAction: () => {},
+      laneContext: () => ({ runId: 'run_9', featureTitle: 'Chat', stage: 'implementing', effort: 'high' }),
+    });
+    S.startSession(7, { model: 'claude-opus-5-5', effort: 'high', prompt: 'go' });
+    await tick(); await tick();
+    expect(lastOpts.effort).toBe('high');
+    expect(S.sessionInfo(7).effort).toBe('high');
+    const lines = fs.readFileSync(path.join(tmp, 'run', 'lane7', 'usage.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+    expect(lines.map(l => l.in)).toEqual([100, 60]);
+    expect(lines[1]).toMatchObject({ lane: 7, step: 'main', phase: 'DEV', runId: 'run_9', effort: 'high', usd: 0.5 });
+    const plan = JSON.parse(fs.readFileSync(path.join(tmp, 'run', 'usage-plan.json'), 'utf8'));
+    expect(plan.five_hour.utilization).toBe(42);
+  });
+});

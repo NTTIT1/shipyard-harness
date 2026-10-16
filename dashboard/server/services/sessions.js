@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { query as sdkQuery } from '@anthropic-ai/claude-agent-sdk';
 import { HARNESS_ROOT, LANES_ROOT } from './config.js';
 import { readProviders } from './providers.js';
+import { recordSessionResult, recordRateLimit, readLaneContext } from './usage.js';
 
 // One Agent SDK session per lane, driving /ship-feature. Streaming input keeps the
 // session open across turns, so background tasks (run-step.sh, sleeps) re-invoke
@@ -14,6 +15,7 @@ let deps = {
   query: sdkQuery,
   setNeedsAction: () => {},
   claudeBin: process.env.CLAUDE_BIN || path.join(process.env.HOME || '', '.local/bin/claude'),
+  laneContext: readLaneContext,
 };
 export function configureSessions(d) { deps = { ...deps, ...d }; }
 
@@ -112,7 +114,7 @@ async function canUseTool(n, name, input, { signal }) {
     : { behavior: 'deny', message: 'Người dùng từ chối trên dashboard' };
 }
 
-export function startSession(n, { model, prompt, resume }) {
+export function startSession(n, { model, effort, prompt, resume }) {
   if (live.has(n)) throw new Error('busy');
   const input = new InputQueue();
   if (prompt) input.push(prompt);
@@ -123,6 +125,7 @@ export function startSession(n, { model, prompt, resume }) {
     pathToClaudeCodeExecutable: deps.claudeBin,
     canUseTool: (name, inp, opts) => canUseTool(n, name, inp, opts),
   };
+  if (effort) options.effort = effort;
   if (resume) options.resume = resume;
   const q = deps.query({ prompt: input, options });
   live.set(n, { q, input, pending: null });
@@ -132,8 +135,9 @@ export function startSession(n, { model, prompt, resume }) {
       for await (const m of q) {
         if (m.type === 'system' && m.subtype === 'init' && m.session_id) {
           fs.mkdirSync(runDir(n), { recursive: true });
-          fs.writeFileSync(sessionFile(n), JSON.stringify({ session_id: m.session_id, model, started_at: new Date().toISOString() }) + '\n');
+          fs.writeFileSync(sessionFile(n), JSON.stringify({ session_id: m.session_id, model, effort: effort || '', started_at: new Date().toISOString() }) + '\n');
         }
+        try { trackUsage(n, m); } catch { /* accounting must never break the lane */ }
         for (const ev of simplify(m)) emit(n, ev);
       }
     } catch (e) {
@@ -144,6 +148,11 @@ export function startSession(n, { model, prompt, resume }) {
       emit(n, { kind: 'ended' });
     }
   })().catch(() => {});
+}
+
+function trackUsage(n, m) {
+  if (m.type === 'rate_limit_event') recordRateLimit(m.rate_limit_info);
+  if (m.type === 'result' && m.modelUsage && m.session_id) recordSessionResult(n, m.session_id, m.modelUsage, deps.laneContext(n) || {});
 }
 
 export function sendMessage(n, text) {

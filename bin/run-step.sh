@@ -5,7 +5,8 @@
 # through the LiteLLM gateway (bin/gateway.sh). One process per step is what lets
 # a single pipeline mix providers — a Claude Code process talks to ONE endpoint.
 #   run-step.sh <N> <step> <prompt-file>
-# Model: state models.<step> -> config/models.json defaults.<step> -> Opus.
+# Model: state models.<step> -> config/models.json defaults.<step> -> Opus. Effort likewise (effort.<step>).
+# Token usage of every run is appended to run/lane<N>/usage.jsonl (dashboard → Chi phí).
 # Exit: 0 done · 2 provider/gateway/claude error · 3 no verdict line · 64 usage
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_common.sh"
@@ -36,17 +37,20 @@ case "$STEP" in
 esac
 
 STATE_FILE="$(lane_state_file "$N")"
-MODEL="$(python3 - "$STATE_FILE" "$HARNESS_ROOT/config/models.json" "$STEP" <<'PY'
+# Effort: state effort.<step> -> config/models.json effort.<step> -> none (Claude models only).
+RESOLVED="$(python3 - "$STATE_FILE" "$HARNESS_ROOT/config/models.json" "$STEP" <<'PY'
 import json, sys
 state, cfg, step = sys.argv[1:4]
 def load(p):
     try: return json.load(open(p))
     except Exception: return {}
-print((load(state).get("models") or {}).get(step)
-      or (load(cfg).get("defaults") or {}).get(step)
-      or "claude:claude-opus-5-5")
+s, c = load(state), load(cfg)
+model = (s.get("models") or {}).get(step) or (c.get("defaults") or {}).get(step) or "claude:claude-opus-5-5"
+effort = (s.get("effort") or {}).get(step) or (c.get("effort") or {}).get(step) or ""
+print(model + "\t" + (effort if effort in ("low", "medium", "high", "xhigh", "max") else ""))
 PY
 )"
+MODEL="${RESOLVED%%$'\t'*}"; EFFORT="${RESOLVED#*$'\t'}"
 PROVIDER="${MODEL%%:*}"; MID="${MODEL#*:}"
 ID="$STEP-$(date +%s)-$$"
 record() {
@@ -68,6 +72,7 @@ if [ "$PROVIDER" = "claude" ]; then
   unset ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN ANTHROPIC_SMALL_FAST_MODEL \
         ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL
   ARGS+=(--model "$MID")
+  [ -n "$EFFORT" ] && ARGS+=(--effort "$EFFORT")
 else
   GW="http://127.0.0.1:${GATEWAY_PORT:-4000}"
   if ! curl -fsS -m 3 "$GW/health/liveliness" >/dev/null 2>&1; then
@@ -88,6 +93,8 @@ ERRF="$(mktemp)"; trap 'rm -f "$ERRF"' EXIT
 set +e
 RAW="$("${CLAUDE_BIN:-claude}" "${ARGS[@]}" "$(cat "$PROMPT_FILE")" 2>"$ERRF" </dev/null)"; RC=$?
 set -e
+# Token accounting (dashboard → Chi phí); also for failed runs, which still spent tokens.
+printf '%s' "$RAW" | python3 "$CODE_ROOT/bin/usage_record.py" "$HARNESS_ROOT" "$N" "$STEP" "$MODEL" "$EFFORT" "$STATE_FILE" || true
 if [ "$RC" -ne 0 ]; then
   # With --output-format json a failing claude usually reports on STDOUT, not stderr.
   ERRTXT="$(python3 - "$RAW" <<'PY'

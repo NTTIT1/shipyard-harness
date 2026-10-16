@@ -11,7 +11,10 @@ cat > "$CLAUDE_BIN" <<'EOF'
 { printf '%s\n' "$@"; echo "BASE=${ANTHROPIC_BASE_URL:-}"; echo "TOKEN=${ANTHROPIC_AUTH_TOKEN:-}"; echo "PWD=$PWD"; echo "OPUS=${ANTHROPIC_DEFAULT_OPUS_MODEL:-}"; echo "SONNET=${ANTHROPIC_DEFAULT_SONNET_MODEL:-}"; echo "HAIKU=${ANTHROPIC_DEFAULT_HAIKU_MODEL:-}"; echo "STDIN=$(readlink /proc/self/fd/0)"; } > "$HARNESS_ROOT/claude.args"
 [ -n "${FAKE_ERRJSON:-}" ] && { echo '{"type":"result","subtype":"error_during_execution","is_error":true,"result":"API Error: 529 overloaded_error"}'; exit 1; }
 [ -n "${FAKE_EXIT:-}" ] && { echo "API Error: 401 invalid key" >&2; exit "$FAKE_EXIT"; }
-python3 -c 'import json,os;print(json.dumps({"type":"result","subtype":"success","is_error":os.environ.get("FAKE_ERR")=="1","result":os.environ["FAKE_RESULT"]}))'
+python3 -c 'import json,os
+d={"type":"result","subtype":"success","is_error":os.environ.get("FAKE_ERR")=="1","result":os.environ["FAKE_RESULT"]}
+if os.environ.get("FAKE_USAGE"): d["modelUsage"]={"claude-opus-5-5":{"inputTokens":120,"outputTokens":30,"cacheReadInputTokens":900,"cacheCreationInputTokens":40,"costUSD":0.75}}
+print(json.dumps(d))'
 EOF
 cat > "$TMPH/fakebin/curl" <<'EOF'
 #!/usr/bin/env bash
@@ -133,5 +136,35 @@ done
 FAKE_RESULT='I forgot the verdict' rs 2 pm "$P" >/dev/null 2>&1; rc=$?
 assert_eq "3" "$rc" "a role step without ROLE-STEP verdict exits 3"
 assert_contains "$(st 2 get steps)" "did not end with a ROLE-STEP" "the missing verdict is recorded on the step"
+
+# 8. effort: feature state -> config/models.json effort -> none; only for Claude models; bad levels ignored
+st 2 set-json models '{}' >/dev/null
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" >/dev/null
+case "$(cat "$HARNESS_ROOT/claude.args")" in *--effort*) assert_eq "no effort" "effort" "no effort flag by default";; *) assert_eq 1 1 x;; esac
+echo '{"defaults":{},"effort":{"senior-gate":"medium","pm":"turbo"}}' > "$HARNESS_ROOT/config/models.json"
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" >/dev/null
+assert_contains "$(cat "$HARNESS_ROOT/claude.args")" $'--effort\nmedium' "config effort default used"
+st 2 set-json effort '{"senior-gate":"high"}' >/dev/null
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" >/dev/null
+assert_contains "$(cat "$HARNESS_ROOT/claude.args")" $'--effort\nhigh' "feature effort beats config"
+FAKE_RESULT=$'x\nROLE-STEP: DONE' rs 2 pm "$P" >/dev/null
+case "$(cat "$HARNESS_ROOT/claude.args")" in *--effort*) assert_eq "ignored" "passed" "invalid effort level ignored";; *) assert_eq 1 1 x;; esac
+st 2 set-json models '{"code-review":"openai:gpt-x"}' >/dev/null
+st 2 set-json effort '{"code-review":"high"}' >/dev/null
+FAKE_RESULT='ok' rs 2 code-review "$P" >/dev/null
+case "$(cat "$HARNESS_ROOT/claude.args")" in *--effort*) assert_eq "claude only" "gateway" "no effort for gateway models";; *) assert_eq 1 1 x;; esac
+
+# 9. token usage is appended to run/lane2/usage.jsonl with the step context
+st 2 set run_id=run_42 >/dev/null; st 2 set feature_title=Chat >/dev/null
+st 2 set-json models '{}' >/dev/null; st 2 set-json effort '{"senior-gate":"high"}' >/dev/null
+FAKE_USAGE=1 FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" >/dev/null
+U="$(tail -1 "$HARNESS_ROOT/run/lane2/usage.jsonl")"
+assert_contains "$U" '"step": "senior-gate"' "usage step recorded"
+assert_contains "$U" '"effort": "high"' "usage effort recorded"
+assert_contains "$U" '"runId": "run_42"' "usage run id recorded"
+assert_contains "$U" '"cacheRead": 900' "cache tokens recorded"
+assert_contains "$U" '"usd": 0.75' "cost recorded"
+FAKE_USAGE=1 FAKE_ERR=1 FAKE_RESULT='overloaded' rs 2 senior-gate "$P" >/dev/null 2>&1
+assert_eq "2" "$(wc -l < "$HARNESS_ROOT/run/lane2/usage.jsonl" | tr -d ' ')" "usage recorded even when the step fails"
 
 finish
