@@ -17,6 +17,9 @@ spring:
     show-sql: false
 
 shipyard:
+  auth:
+    # Off: only an administrator creates accounts (dashboard → Người dùng).
+    self-registration: ${SELF_REGISTRATION:false}
   admin:
     email: ${ADMIN_EMAIL:admin@shipyard.local}
     password: ${ADMIN_PASSWORD:admin123}

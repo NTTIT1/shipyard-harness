@@ -52,6 +52,10 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .grid th { font-weight: 500; color: var(--text-faint); font-size: 12px }
 .role-checks { display: flex; gap: 8px; flex-wrap: wrap } .role-checks label { display: inline-flex; gap: 4px; align-items: center; font-size: 12.5px }
 .mem-bar { display: flex; gap: 8px; flex-wrap: wrap }
+.pj-form select, .grid select { padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font: inherit }
+.us-narrow { max-width: 420px }
+.us-actions { display: flex; gap: 4px; flex-wrap: wrap }
+.us-scroll { overflow-x: auto }
 .mem-item { padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm) } .mem-item.off { opacity: .5 }
 .mem-item p { margin: 6px 0 0; font-size: 13px; color: var(--text-muted); white-space: pre-wrap; max-height: 7.5em; overflow: hidden }
 @media (max-width: 900px) {
