@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Square, Play, Check, Power, PowerOff, Eraser, RefreshCcw, KeyRound, RotateCcw, Trash2, GitBranch, ExternalLink, ClipboardCheck } from 'lucide-react';
+import { Plus, Square, Play, Check, Power, PowerOff, Eraser, RefreshCcw, KeyRound, RotateCcw, Trash2, GitBranch, ExternalLink, ClipboardCheck, FileText } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Menu from './ui/Menu.jsx';
@@ -9,7 +9,7 @@ import { stopSession, resumeSession } from '../lib/api.js';
 
 const STATUS_TONE = { running: 'accent', waiting: 'warn', blocked: 'danger', failed: 'danger', passed: 'ok', provisioning: 'info' };
 
-export default function LaneHeader({ lane, archived, onAction, onCreds, onAssign, onTab, onReview }) {
+export default function LaneHeader({ lane, archived, onAction, onCreds, onAssign, onTab, onReview, onDocs }) {
   const [err, setErr] = useState('');
   const run = fn => async () => { setErr(''); try { await fn(); } catch (e) { setErr(e.message); } };
   const acts = primaryActions(lane, { archived });
@@ -52,6 +52,7 @@ export default function LaneHeader({ lane, archived, onAction, onCreds, onAssign
       </div>
       <div className="lh-actions">
         {waitingReview && onReview && <Button variant="primary" icon={ClipboardCheck} onClick={onReview}>Mở màn hình duyệt</Button>}
+        {!archived && lane.run_id && onDocs && <Button variant="ghost" icon={FileText} onClick={onDocs}>Tài liệu</Button>}
         {acts.map(a => BTN[a])}
         {!archived && <Menu items={menu} label={`Thao tác lane ${n}`} />}
       </div>

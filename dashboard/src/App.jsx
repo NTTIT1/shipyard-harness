@@ -29,6 +29,7 @@ import ReviewView from './components/ReviewView.jsx';
 import ProjectsView from './components/ProjectsView.jsx';
 import UsersView from './components/UsersView.jsx';
 import CostsView from './components/CostsView.jsx';
+import DocsView from './components/DocsView.jsx';
 
 export default function App({ user, onLogout }) {
   const { data, refreshNow } = useLanes();
@@ -43,6 +44,8 @@ export default function App({ user, onLogout }) {
   const [review, setReview] = useState(null);
   const inbox = useInbox();
   const openReview = useCallback(r => { setReview(r); setView('review'); }, []);
+  const [docsRun, setDocsRun] = useState('');
+  const openDocs = useCallback(runId => { setDocsRun(runId || ''); setView('docs'); }, []);
   const [assign, setAssign] = useState(undefined); // undefined = closed, null = open w/o preselected lane, number = preselected
 
   const lanes = data?.lanes || [];
@@ -199,6 +202,7 @@ export default function App({ user, onLogout }) {
         {view === 'projects' && <ProjectsView user={user} onOpenRun={runId => openReview({ runId })} />}
         {view === 'users' && <UsersView user={user} onLogout={onLogout} />}
         {view === 'costs' && <CostsView />}
+        {view === 'docs' && <DocsView key={docsRun} initialRunId={docsRun} onOpenRun={runId => openReview({ runId })} />}
         {view === 'lanes' && (<>
         {!selectedLaneData ? (
           <div className="empty-state">
@@ -210,6 +214,7 @@ export default function App({ user, onLogout }) {
           <>
             <LaneHeader lane={headLane} archived={viewingPast} onAction={handleAction} onCreds={handleCreds}
               onReview={() => openReview({ runId: selectedLaneData.run_id })}
+              onDocs={() => openDocs(selectedLaneData.run_id)}
               onAssign={n => setAssign(n)} onTab={setTab} />
             {selectedLaneData.mode === 'pr-review' ? (
               <div className="tabpanel"><ReviewTable reviews={reviews} needsAction={selectedLaneData.needs_action} config={config} /></div>
