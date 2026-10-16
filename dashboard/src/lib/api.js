@@ -84,10 +84,14 @@ export const fetchCosts = month => send(`/api/costs${month ? `?month=${encodeURI
 export const saveCostSettings = settings => send('/api/costs/settings', 'PUT', settings);
 export const saveFeatureHours = (key, hours) => send('/api/costs/feature-hours', 'PUT', { key, hours });
 export const saveModelDefaults = defaults => send('/api/models', 'PUT', { defaults });
+export const saveLaneModelDefaults = (n, defaults) => send(`/api/lane/${n}/model-defaults`, 'PUT', { defaults });
+export const saveFeatureModels = body => send('/api/features/models', 'PUT', body);
 export const restartGateway = () => send('/api/gateway/restart', 'POST', {});
 export const assignLane = (n, body) => send(`/api/lane/${n}/assign`, 'POST', body);
 export const fetchSpecs = n => send(`/api/lane/${n}/specs`, 'GET');
-export const saveLaneModels = (n, models, effort) => send(`/api/lane/${n}/models`, 'PUT', { models, effort });
+export const saveLaneModels = (n, models, effort, extra = {}) => send(`/api/lane/${n}/models`, 'PUT', { models, effort, ...extra });
+export const fetchLaneUsage = (n, month) => send(`/api/lane/${n}/usage${month ? `?month=${encodeURIComponent(month)}` : ''}`, 'GET');
+export const saveLaneLimit = (n, limit) => send(`/api/lane/${n}/limit`, 'PUT', limit);
 export const sendChat = (n, text) => send(`/api/lane/${n}/chat/message`, 'POST', { text });
 export const answerChat = (n, id, payload) => send(`/api/lane/${n}/chat/answer`, 'POST', { id, ...payload });
 export const stopSession = n => send(`/api/lane/${n}/session/stop`, 'POST', {});

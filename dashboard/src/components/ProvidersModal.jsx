@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, Plus, Check } from 'lucide-react';
+import { Trash2, Plus, Check, RotateCcw } from 'lucide-react';
 import Button from './ui/Button.jsx';
+import Badge from './ui/Badge.jsx';
 import Modal from './Modal.jsx';
 import StepModels from './StepModels.jsx';
-import { fetchProviders, saveProviders, testProvider, saveModelDefaults, restartGateway } from '../lib/api.js';
+import { fetchProviders, saveProviders, testProvider, saveModelDefaults, saveLaneModelDefaults, restartGateway } from '../lib/api.js';
 
-export default function ProvidersModal({ onClose }) {
+export default function ProvidersModal({ lanes = [], onClose }) {
   const [info, setInfo] = useState(null);
   const [edits, setEdits] = useState({});       // id -> { api_key, base_url, label }
   const [defaults, setDefaults] = useState(null);
+  const [laneDefs, setLaneDefs] = useState({}); // laneNumStr -> { ...models, impl_agents, effort } | { reset: true }
+  const [scope, setScope] = useState('global'); // 'global' | '1' | '2' ...
   const [msg, setMsg] = useState({});           // id -> status text
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -18,6 +21,7 @@ export default function ProvidersModal({ onClose }) {
     const d = await fetchProviders();
     setInfo(d);
     setDefaults(prev => prev || d.defaults);
+    setLaneDefs(d.lane_defaults || {});
   };
   useEffect(() => { load().catch(e => setError(e.message)); }, []);
 
@@ -62,6 +66,9 @@ export default function ProvidersModal({ onClose }) {
     try {
       await saveKeys();
       await saveModelDefaults(defaults);
+      for (const [ln, cfg] of Object.entries(laneDefs)) {
+        await saveLaneModelDefaults(ln, cfg);
+      }
       onClose();
     } catch (e) { setError(e.message); setBusy(false); }
   };
@@ -72,8 +79,28 @@ export default function ProvidersModal({ onClose }) {
     catch (e) { setMsg(m => ({ ...m, _gw: `lỗi: ${e.message}` })); }
   };
 
+  const laneNumbers = [...new Set([
+    ...lanes.map(l => String(l.lane)),
+    ...Object.keys(laneDefs).filter(k => !laneDefs[k]?.reset),
+    '1', '2', '3',
+  ])].sort((a, b) => Number(a) - Number(b));
+
+  const currentModelValue = scope === 'global'
+    ? defaults
+    : (laneDefs[scope] && !laneDefs[scope].reset ? laneDefs[scope] : defaults);
+
+  const handleModelChange = nextVal => {
+    if (scope === 'global') {
+      setDefaults(nextVal);
+    } else {
+      setLaneDefs(prev => ({ ...prev, [scope]: nextVal }));
+    }
+  };
+
+  const isCustomForScope = scope !== 'global' && laneDefs[scope] && !laneDefs[scope].reset;
+
   return (
-    <Modal wide title="Nhà cung cấp AI" onClose={onClose}
+    <Modal wide title="Nhà cung cấp AI & Cấu hình Model theo Lane" onClose={onClose}
       buttons={[{ label: 'Đóng', fn: onClose, disabled: busy }, { label: busy ? 'Đang lưu…' : 'Lưu', cls: 'add', fn: save, disabled: busy || !info }]}>
       {!info ? <p className="m-text">Đang tải…</p> : (
         <>
@@ -109,9 +136,50 @@ export default function ProvidersModal({ onClose }) {
             <Button size="sm" onClick={gw}>Khởi động lại</Button>
             <span className="prov-msg">{msg._gw || ''}</span>
           </div>
-          <div className="m-l" style={{ marginTop: 14 }}>AI mặc định cho từng bước</div>
-          {defaults && <StepModels info={info} value={defaults} onChange={setDefaults} />}
-          <p className="m-hint">Key chỉ lưu trên máy này (config/providers.json). Bấm Kiểm tra để lấy danh sách model của hãng.</p>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 16, marginBottom: 8 }}>
+            <div className="m-l" style={{ margin: 0 }}>
+              Cấu hình AI cho từng bước — {scope === 'global' ? 'Mặc định chung' : `Riêng Lane ${scope}`}
+            </div>
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Button
+                size="sm"
+                variant={scope === 'global' ? 'primary' : 'ghost'}
+                onClick={() => setScope('global')}>
+                Mặc định chung
+              </Button>
+              {laneNumbers.map(ln => {
+                const hasCustom = laneDefs[ln] && !laneDefs[ln].reset;
+                return (
+                  <Button
+                    key={ln}
+                    size="sm"
+                    variant={scope === ln ? 'primary' : 'ghost'}
+                    onClick={() => setScope(ln)}>
+                    Lane {ln}{hasCustom ? ' ●' : ''}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+
+          {scope !== 'global' && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10, padding: '8px 10px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+                {isCustomForScope
+                  ? `Lane ${scope} đang dùng cấu hình model riêng biệt.`
+                  : `Lane ${scope} đang kế thừa cấu hình chung. Chỉnh bất kỳ bước nào bên dưới để tạo cấu hình riêng cho Lane ${scope}.`}
+              </span>
+              {isCustomForScope && (
+                <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => setLaneDefs(prev => ({ ...prev, [scope]: { reset: true } }))}>
+                  Đặt lại theo mặc định chung
+                </Button>
+              )}
+            </div>
+          )}
+
+          {currentModelValue && <StepModels info={info} value={currentModelValue} onChange={handleModelChange} />}
+          <p className="m-hint">Key chỉ lưu trên máy này (config/providers.json). Bạn có thể đặt model mặc định chung hoặc cấu hình mỗi Lane chạy bộ model riêng biệt.</p>
         </>
       )}
       {error && <p className="m-err">{error}</p>}

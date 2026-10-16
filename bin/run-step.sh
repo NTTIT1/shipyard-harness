@@ -37,16 +37,22 @@ case "$STEP" in
 esac
 
 STATE_FILE="$(lane_state_file "$N")"
-# Effort: state effort.<step> -> config/models.json effort.<step> -> none (Claude models only).
-RESOLVED="$(python3 - "$STATE_FILE" "$HARNESS_ROOT/config/models.json" "$STEP" <<'PY'
+# Effort: state effort.<step> -> feature config -> lane config -> config/models.json effort.<step> -> none (Claude models only).
+RESOLVED="$(python3 - "$STATE_FILE" "$HARNESS_ROOT/config/models.json" "$STEP" "$N" <<'PY'
 import json, sys
-state, cfg, step = sys.argv[1:4]
+state, cfg, step, lane = sys.argv[1:5]
 def load(p):
     try: return json.load(open(p))
     except Exception: return {}
 s, c = load(state), load(cfg)
-model = (s.get("models") or {}).get(step) or (c.get("defaults") or {}).get(step) or "claude:claude-opus-5-5"
-effort = (s.get("effort") or {}).get(step) or (c.get("effort") or {}).get(step) or ""
+feats = c.get("features") or {}
+fcfg = {}
+for k in (s.get("run_id"), f"lane{lane}:{s.get('spec_dir')}" if s.get("spec_dir") else None, s.get("spec_dir"), f"lane{lane}:{s.get('feature_title')}" if s.get("feature_title") else None, s.get("feature_title")):
+    if k and isinstance(feats.get(k), dict):
+        fcfg = feats[k]; break
+lcfg = (c.get("lanes") or {}).get(str(lane)) or {}
+model = (s.get("models") or {}).get(step) or (fcfg.get("models") or fcfg).get(step) or (lcfg.get("models") or lcfg).get(step) or (c.get("defaults") or {}).get(step) or "claude:claude-opus-5-5"
+effort = (s.get("effort") or {}).get(step) or (fcfg.get("effort") or {}).get(step) or (lcfg.get("effort") or {}).get(step) or (c.get("effort") or {}).get(step) or ""
 print(model + "\t" + (effort if effort in ("low", "medium", "high", "xhigh", "max") else ""))
 PY
 )"

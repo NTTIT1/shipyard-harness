@@ -15,10 +15,16 @@ export const PHASE_ROLE = { PM: 'PM', BA: 'BA', ARCH: 'TECH_LEAD', DESIGN: 'DESI
 export const DEFAULT_SETTINGS = {
   usdToVnd: 26000,
   planFeeVnd: 0,            // monthly subscription fee; 0 = price at API list price × usdToVnd
+  monthlyBudgetUsd: 100,    // monthly API quota / budget in USD for % calculation
+  monthlyTokenLimit: 10000000, // monthly token quota for % calculation (e.g. for gateway models with 0 USD)
+  fiveHourUsdLimit: 15,     // 5-hour rolling window quota in USD
+  sevenDayUsdLimit: 60,     // 7-day rolling window quota in USD
   tzOffsetMin: 420,         // days/months are counted in this zone (Vietnam = UTC+7)
   rates: { PM: 150000, BA: 120000, TECH_LEAD: 200000, DESIGNER: 120000, DEVELOPER: 150000, TESTER: 100000 }, // VND / hour
   hours: { PM: 2, BA: 3, ARCH: 4, DESIGN: 6, DEV: 16, TEST: 4 },   // estimated human hours per feature
   featureHours: {},         // { featureKey: { PHASE: hours } }
+  laneLimits: {},           // { [lane]: { usd?: number, tokens?: number } }
+  modelLimits: {},          // { [model]: { usd?: number, tokens?: number } }
 };
 
 const root = () => process.env.HARNESS_ROOT || HARNESS_ROOT;
@@ -29,6 +35,7 @@ const planFile = () => path.join(root(), 'run', 'usage-plan.json');
 
 const num = v => (Number.isFinite(+v) ? +v : 0);
 const round = (v, d = 6) => Math.round(v * 10 ** d) / 10 ** d;
+const sumTok = t => (t ? num(t.in) + num(t.out) + num(t.cacheRead) + num(t.cacheWrite) : 0);
 
 /** Per-model growth between two cumulative modelUsage snapshots (a shrink = fresh start). */
 export function diffModelUsage(prev = {}, cur = {}) {
@@ -153,6 +160,8 @@ export function mergeSettings(s = {}) {
     rates: { ...DEFAULT_SETTINGS.rates, ...(s.rates || {}) },
     hours: { ...DEFAULT_SETTINGS.hours, ...(s.hours || {}) },
     featureHours: { ...(s.featureHours || {}) },
+    laneLimits: { ...(s.laneLimits || {}) },
+    modelLimits: { ...(s.modelLimits || {}) },
   };
 }
 
@@ -170,13 +179,25 @@ function cleanMap(src, keys) {
   return out;
 }
 
+function cleanLimitsMap(src = {}, cur = {}) {
+  const out = { ...cur };
+  for (const [k, v] of Object.entries(src || {})) {
+    if (!v || typeof v !== 'object') { delete out[k]; continue; }
+    const entry = cleanMap(v, ['usd', 'tokens']);
+    if (Object.keys(entry).length) out[k] = entry; else delete out[k];
+  }
+  return out;
+}
+
 export function writeSettings(patch) {
   const cur = readSettings();
   const next = mergeSettings({
     ...cur,
-    ...cleanMap(patch, ['usdToVnd', 'planFeeVnd']),
+    ...cleanMap(patch, ['usdToVnd', 'planFeeVnd', 'monthlyBudgetUsd', 'monthlyTokenLimit', 'fiveHourUsdLimit', 'sevenDayUsdLimit']),
     rates: { ...cur.rates, ...cleanMap(patch.rates, Object.keys(DEFAULT_SETTINGS.rates)) },
     hours: { ...cur.hours, ...cleanMap(patch.hours, Object.keys(DEFAULT_SETTINGS.hours)) },
+    laneLimits: patch.laneLimits ? cleanLimitsMap(patch.laneLimits, cur.laneLimits) : cur.laneLimits,
+    modelLimits: patch.modelLimits ? cleanLimitsMap(patch.modelLimits, cur.modelLimits) : cur.modelLimits,
   });
   fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
   fs.writeFileSync(settingsFile(), JSON.stringify(next, null, 2) + '\n');
@@ -205,7 +226,7 @@ function add(acc, r, vnd) {
 }
 
 /** Everything the Costs screen shows for one month (YYYY-MM in settings.tzOffsetMin). */
-export function aggregate(records, settings = mergeSettings(), { month } = {}) {
+export function aggregate(records, settings = mergeSettings(), { month, now = Date.now() } = {}) {
   const local = at => new Date(Date.parse(at) + settings.tzOffsetMin * 60000).toISOString();
   const dayOf = at => local(at).slice(0, 10);
   const monthOf = at => local(at).slice(0, 7);
@@ -235,6 +256,16 @@ export function aggregate(records, settings = mergeSettings(), { month } = {}) {
     add(st, r, v);
     if (r.effort && !st.efforts.includes(r.effort)) st.efforts.push(r.effort);
   }
+  const totalTok = sumTok(totals.tokens);
+  const shareOf = (usd, tok) => (totals.usd > 0 ? round((usd / totals.usd) * 100, 1) : (totalTok > 0 ? round((tok / totalTok) * 100, 1) : 0));
+  const quotaOf = (usd, tok, lim = {}) => {
+    const lUsd = lim.usd !== undefined ? lim.usd : (settings.monthlyBudgetUsd || 100);
+    const lTok = lim.tokens !== undefined ? lim.tokens : (settings.monthlyTokenLimit || 10000000);
+    const uPct = lUsd > 0 ? (usd / lUsd) * 100 : 0;
+    const tPct = lTok > 0 ? (tok / lTok) * 100 : 0;
+    return { limitUsd: lUsd, limitTokens: lTok, quotaPct: round(Math.max(uPct, tPct), 1), usdPct: round(uPct, 1), tokenPct: round(tPct, 1) };
+  };
+
   const devRate = settings.rates.DEVELOPER || 1;
   const features = Object.values(feats).map(f => {
     const over = settings.featureHours[f.key] || {};
@@ -245,13 +276,46 @@ export function aggregate(records, settings = mergeSettings(), { month } = {}) {
       hours[phase] = over[phase] ?? settings.hours[phase] ?? 0;
       humanVnd += hours[phase] * (settings.rates[role] || 0);
     }
-    return { ...f, hours, humanVnd, aiHours: f.vnd / devRate, ratio: humanVnd ? f.vnd / humanVnd : null };
+    const fTok = sumTok(f.tokens);
+    return { ...f, hours, humanVnd, aiHours: f.vnd / devRate, ratio: humanVnd ? f.vnd / humanVnd : null, sharePct: shareOf(f.usd, fTok) };
   }).sort((a, b) => b.vnd - a.vnd);
+
+  const byLane = Object.values(lanes).map(l => {
+    const lTok = sumTok(l.tokens);
+    const q = quotaOf(l.usd, lTok, (settings.laneLimits || {})[String(l.lane)]);
+    return { ...l, sharePct: shareOf(l.usd, lTok), ...q };
+  }).sort((a, b) => a.lane - b.lane);
+
+  const byModel = Object.values(models).map(mod => {
+    const mTok = sumTok(mod.tokens);
+    const q = quotaOf(mod.usd, mTok, (settings.modelLimits || {})[mod.model]);
+    return { ...mod, sharePct: shareOf(mod.usd, mTok), ...q };
+  }).sort((a, b) => b.usd - a.usd);
+
+  // Rolling 5h and 7d window usage for immediate % visibility even before rate_limit_event fires
+  const win5h = { usd: 0, tokens: zeroTok() };
+  const win7d = { usd: 0, tokens: zeroTok() };
+  for (const r of records) {
+    const ts = Date.parse(r.at);
+    if (!Number.isFinite(ts)) continue;
+    const ageMs = now - ts;
+    if (ageMs >= 0 && ageMs <= 5 * 3600 * 1000) add(win5h, r, 0);
+    if (ageMs >= 0 && ageMs <= 7 * 86400 * 1000) add(win7d, r, 0);
+  }
+  const lim5h = settings.fiveHourUsdLimit || 15;
+  const lim7d = settings.sevenDayUsdLimit || 60;
+  const quotas = {
+    month: quotaOf(totals.usd, totalTok, { usd: settings.monthlyBudgetUsd, tokens: settings.monthlyTokenLimit }),
+    five_hour: { usd: win5h.usd, tokens: win5h.tokens, limitUsd: lim5h, pct: lim5h > 0 ? round((win5h.usd / lim5h) * 100, 1) : 0 },
+    seven_day: { usd: win7d.usd, tokens: win7d.tokens, limitUsd: lim7d, pct: lim7d > 0 ? round((win7d.usd / lim7d) * 100, 1) : 0 },
+  };
+
   return roundVnd({
     month: m, totals, features,
     byDay: Object.values(days).sort((a, b) => a.day.localeCompare(b.day)),
-    byLane: Object.values(lanes).sort((a, b) => a.lane - b.lane),
-    byModel: Object.values(models).sort((a, b) => b.usd - a.usd),
+    byLane,
+    byModel,
+    quotas,
     months: Object.keys(monthUsd).sort().reverse(),
   });
 }

@@ -1,4 +1,4 @@
-import { STEPS, validateModels, usesGateway } from './providers.js';
+import { STEPS, validateModels, usesGateway, readAllLaneDefaults } from './providers.js';
 import { normalizeEfforts } from './usage.js';
 
 export class HttpError extends Error {
@@ -34,16 +34,20 @@ export async function assignLane(n, body, d) {
   const spec_dir = String(body.spec_dir || '').trim();
   if (!requirement && !spec_dir) throw new HttpError(400, 'cần nhập yêu cầu hoặc chọn spec');
   if (spec_dir && !SPEC_RE.test(spec_dir)) throw new HttpError(400, 'spec_dir không hợp lệ');
+  const laneDef = readAllLaneDefaults()[String(n)] || {};
   const models = {};
-  for (const s of STEPS) models[s.id] = (body.models || {})[s.id] || 'claude:claude-opus-5-5';
+  for (const s of STEPS) models[s.id] = (body.models || {})[s.id] || laneDef[s.id] || 'claude:claude-opus-5-5';
   const errs = validateModels(models);
   if (errs.length) throw new HttpError(400, errs.join('; '));
-  const impl = parseInt(body.impl_agents, 10);
+  const impl = parseInt(body.impl_agents ?? laneDef.impl_agents, 10);
   const implAgents = impl > 0 && impl <= 9 ? impl : 1;
 
   const gates = normalizeGates(body.gates);
   let effort;
-  try { effort = normalizeEfforts(body.effort, STEPS.map(s => s.id)); } catch (e) { throw new HttpError(400, e.message); }
+  try {
+    const rawEffort = body.effort !== undefined ? body.effort : (laneDef.effort || {});
+    effort = normalizeEfforts(rawEffort, STEPS.map(s => s.id));
+  } catch (e) { throw new HttpError(400, e.message); }
 
   const lane = await d.lane(n);
   if (!lane) throw new HttpError(404, `lane ${n} không tồn tại`);

@@ -167,4 +167,19 @@ assert_contains "$U" '"usd": 0.75' "cost recorded"
 FAKE_USAGE=1 FAKE_ERR=1 FAKE_RESULT='overloaded' rs 2 senior-gate "$P" >/dev/null 2>&1
 assert_eq "2" "$(wc -l < "$HARNESS_ROOT/run/lane2/usage.jsonl" | tr -d ' ')" "usage recorded even when the step fails"
 
+# 10. per-lane model defaults & per-feature model config in config/models.json
+echo '{"defaults":{"senior-gate":"claude:claude-opus-5-5"},"lanes":{"2":{"senior-gate":"claude:claude-sonnet-5-5","effort":{"senior-gate":"low"}}}}' > "$HARNESS_ROOT/config/models.json"
+st 2 set-json effort '{}' >/dev/null
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" >/dev/null
+A="$(cat "$HARNESS_ROOT/claude.args")"
+assert_contains "$A" $'--model\nclaude-sonnet-5-5' "per-lane model default beats global default"
+assert_contains "$A" $'--effort\nlow' "per-lane effort default used"
+
+echo '{"defaults":{"senior-gate":"claude:claude-opus-5-5"},"lanes":{"2":{"senior-gate":"claude:claude-sonnet-5-5"}},"features":{"run_42":{"senior-gate":"claude:claude-haiku-5-5","effort":{"senior-gate":"medium"}}}}' > "$HARNESS_ROOT/config/models.json"
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" >/dev/null
+A="$(cat "$HARNESS_ROOT/claude.args")"
+assert_contains "$A" $'--model\nclaude-haiku-5-5' "per-feature model config beats per-lane default"
+assert_contains "$A" $'--effort\nmedium' "per-feature effort config used"
+
 finish
+

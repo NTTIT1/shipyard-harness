@@ -1,5 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { UserPlus, KeyRound, Lock, Unlock } from 'lucide-react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import {
+  UserPlus, KeyRound, Lock, Unlock, Users, Shield, User,
+  CheckCircle2, AlertCircle, Search, Mail, Info, ShieldCheck, X
+} from 'lucide-react';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Modal from './Modal.jsx';
@@ -8,6 +11,30 @@ import { validateNewUser, validatePassword, userState, isAdmin } from '../lib/us
 
 const EMPTY = { email: '', fullName: '', password: '', systemRole: 'USER' };
 
+const AVATAR_COLORS = [
+  '#2563eb', '#059669', '#7c3aed', '#d97706', '#db2777', '#0891b2', '#4f46e5'
+];
+
+function getAvatarColor(str = '') {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  const idx = Math.abs(hash) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[idx];
+}
+
+function getInitials(name = '', email = '') {
+  const clean = name.trim();
+  if (clean) {
+    const parts = clean.split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return clean.slice(0, 2).toUpperCase();
+  }
+  if (email) return email.slice(0, 2).toUpperCase();
+  return 'U';
+}
+
 function ResetPassword({ target, onClose, onDone }) {
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
@@ -15,17 +42,40 @@ function ResetPassword({ target, onClose, onDone }) {
   const save = async () => {
     const v = validatePassword(pw, pw2);
     if (v) return setErr(v);
-    try { await platform.resetPassword(target.id, pw); onDone(`Đã đặt lại mật khẩu cho ${target.email}.`); onClose(); }
-    catch (e) { setErr(e.message); }
+    try {
+      await platform.resetPassword(target.id, pw);
+      onDone(`Đã đặt lại mật khẩu cho ${target.email}.`);
+      onClose();
+    } catch (e) {
+      setErr(e.message);
+    }
   };
   return (
     <Modal title={`Đặt lại mật khẩu — ${target.email}`} onClose={onClose}
       buttons={[{ label: 'Huỷ', fn: onClose }, { label: 'Đặt lại', cls: 'add', fn: save }]}>
-      <div className="pj-form">
-        <input type="password" autoComplete="new-password" aria-label="Mật khẩu mới" placeholder="Mật khẩu mới (≥ 8 ký tự)" value={pw} onChange={e => setPw(e.target.value)} />
-        <input type="password" autoComplete="new-password" aria-label="Nhập lại mật khẩu" placeholder="Nhập lại" value={pw2} onChange={e => setPw2(e.target.value)} />
-        {err && <p className="m-err" role="alert">{err}</p>}
-        <p className="rv-sub">Người dùng sẽ bị đăng xuất khỏi các thiết bị khác và được mở khoá nếu đang bị tạm khoá.</p>
+      <div className="pj-form" style={{ border: 'none', padding: 0 }}>
+        <div className="form-field" style={{ marginBottom: 10 }}>
+          <label className="form-label">Mật khẩu mới</label>
+          <input type="password" autoComplete="new-password" aria-label="Mật khẩu mới"
+            placeholder="Mật khẩu mới (≥ 8 ký tự)" value={pw} onChange={e => setPw(e.target.value)} />
+        </div>
+        <div className="form-field" style={{ marginBottom: 10 }}>
+          <label className="form-label">Nhập lại mật khẩu</label>
+          <input type="password" autoComplete="new-password" aria-label="Nhập lại mật khẩu"
+            placeholder="Nhập lại" value={pw2} onChange={e => setPw2(e.target.value)} />
+        </div>
+        {err && (
+          <div className="alert-banner err" role="alert">
+            <AlertCircle size={16} />
+            <div className="alert-banner-content">{err}</div>
+          </div>
+        )}
+        <div className="alert-banner info" style={{ marginTop: 8 }}>
+          <Info size={16} />
+          <div className="alert-banner-content rv-sub" style={{ margin: 0 }}>
+            Người dùng sẽ bị đăng xuất khỏi các thiết bị khác và được mở khoá nếu đang bị tạm khoá.
+          </div>
+        </div>
       </div>
     </Modal>
   );
@@ -43,18 +93,53 @@ function MyPassword({ onLogout }) {
       setF({ cur: '', pw: '', pw2: '' });
       setMsg({ err: '', ok: 'Đã đổi mật khẩu. Đăng nhập lại bằng mật khẩu mới…' });
       setTimeout(() => onLogout?.(), 1500);
-    } catch (e2) { setMsg({ err: e2.message === 'Current password is incorrect' ? 'Mật khẩu hiện tại không đúng.' : e2.message, ok: '' }); }
+    } catch (e2) {
+      setMsg({ err: e2.message === 'Current password is incorrect' ? 'Mật khẩu hiện tại không đúng.' : e2.message, ok: '' });
+    }
   };
   return (
-    <form className="pj-form us-narrow" onSubmit={submit}>
-      <strong>Đổi mật khẩu của tôi</strong>
-      <input type="password" required autoComplete="current-password" aria-label="Mật khẩu hiện tại" placeholder="Mật khẩu hiện tại" value={f.cur} onChange={e => setF({ ...f, cur: e.target.value })} />
-      <input type="password" required autoComplete="new-password" aria-label="Mật khẩu mới" placeholder="Mật khẩu mới (≥ 8 ký tự)" value={f.pw} onChange={e => setF({ ...f, pw: e.target.value })} />
-      <input type="password" required autoComplete="new-password" aria-label="Nhập lại mật khẩu mới" placeholder="Nhập lại mật khẩu mới" value={f.pw2} onChange={e => setF({ ...f, pw2: e.target.value })} />
-      {msg.err && <p className="m-err" role="alert">{msg.err}</p>}
-      {msg.ok && <p className="rv-sub" role="status">{msg.ok}</p>}
-      <Button type="submit" icon={KeyRound}>Đổi mật khẩu</Button>
-    </form>
+    <div className="card-panel">
+      <div className="card-header">
+        <div className="card-header-title">
+          <KeyRound size={17} style={{ color: 'var(--accent)' }} />
+          <span>Đổi mật khẩu của tôi</span>
+        </div>
+      </div>
+      <div className="card-body">
+        <form className="pj-form us-narrow" onSubmit={submit} style={{ border: 'none', padding: 0 }}>
+          <div className="form-field">
+            <label className="form-label">Mật khẩu hiện tại</label>
+            <input type="password" required autoComplete="current-password" aria-label="Mật khẩu hiện tại"
+              placeholder="Nhập mật khẩu hiện tại" value={f.cur} onChange={e => setF({ ...f, cur: e.target.value })} />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Mật khẩu mới</label>
+            <input type="password" required autoComplete="new-password" aria-label="Mật khẩu mới"
+              placeholder="Mật khẩu mới (≥ 8 ký tự)" value={f.pw} onChange={e => setF({ ...f, pw: e.target.value })} />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Xác nhận mật khẩu mới</label>
+            <input type="password" required autoComplete="new-password" aria-label="Nhập lại mật khẩu mới"
+              placeholder="Nhập lại mật khẩu mới" value={f.pw2} onChange={e => setF({ ...f, pw2: e.target.value })} />
+          </div>
+          {msg.err && (
+            <div className="alert-banner err" role="alert">
+              <AlertCircle size={16} />
+              <div className="alert-banner-content m-err" style={{ margin: 0 }}>{msg.err}</div>
+            </div>
+          )}
+          {msg.ok && (
+            <div className="alert-banner ok" role="status">
+              <CheckCircle2 size={16} />
+              <div className="alert-banner-content rv-sub" style={{ margin: 0, color: 'var(--ok)' }}>{msg.ok}</div>
+            </div>
+          )}
+          <div style={{ marginTop: 4 }}>
+            <Button type="submit" variant="primary" icon={KeyRound}>Đổi mật khẩu</Button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -65,70 +150,292 @@ function AdminUsers({ me }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [resetFor, setResetFor] = useState(null);
+  const [query, setQuery] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+
   const load = useCallback(async () => {
     try { setRows(await platform.adminUsers()); setErr(''); } catch (e) { setErr(e.message); }
   }, []);
   useEffect(() => { load(); }, [load]);
+
   const act = async (fn, ok) => {
     setBusy(true); setNote('');
     try { await fn(); await load(); if (ok) setNote(ok); } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
+
   const create = e => {
     e.preventDefault();
     const v = validateNewUser(form);
     if (v) return setErr(v);
-    act(async () => { await platform.createUser(form); setForm(EMPTY); },
-      `Đã tạo tài khoản ${form.email.trim()}. Gửi email + mật khẩu cho họ, rồi thêm họ vào dự án ở mục Dự án → Thành viên.`);
+    act(async () => {
+      await platform.createUser(form);
+      setForm(EMPTY);
+      setShowAdd(false);
+    }, `Đã tạo tài khoản ${form.email.trim()}. Gửi email + mật khẩu cho họ, rồi thêm họ vào dự án ở mục Dự án → Thành viên.`);
   };
+
+  // KPI calculations
+  const stats = useMemo(() => {
+    const total = rows.length;
+    const admins = rows.filter(u => u.systemRole === 'SYS_ADMIN').length;
+    const active = rows.filter(u => u.status === 'ACTIVE' && (!u.lockedUntil || Date.parse(u.lockedUntil) <= Date.now())).length;
+    const locked = rows.filter(u => u.status === 'DISABLED' || (u.lockedUntil && Date.parse(u.lockedUntil) > Date.now())).length;
+    return { total, admins, active, locked };
+  }, [rows]);
+
+  // Filtered rows
+  const filteredRows = useMemo(() => {
+    if (!query.trim()) return rows;
+    const q = query.toLowerCase();
+    return rows.filter(u =>
+      (u.fullName || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q)
+    );
+  }, [rows, query]);
+
   return (
     <>
-      {err && <p className="m-err" role="alert">{err}</p>}
-      {note && <p className="rv-sub" role="status">{note}</p>}
-      <div className="us-scroll">
-        <table className="grid">
-          <thead><tr><th>Người dùng</th><th>Quyền hệ thống</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
-          <tbody>
-            {rows.map(u => {
-              const st = userState(u);
-              const self = u.id === me?.id;
-              return (
-                <tr key={u.id}>
-                  <td>{u.fullName}{self && <span className="faint"> (bạn)</span>}<div className="faint">{u.email}</div></td>
-                  <td>
-                    <select aria-label={`Quyền hệ thống của ${u.email}`} value={u.systemRole} disabled={busy || self}
-                      onChange={e => act(() => platform.updateUser(u.id, { systemRole: e.target.value }))}>
-                      <option value="USER">Người dùng</option>
-                      <option value="SYS_ADMIN">Quản trị hệ thống</option>
-                    </select>
-                  </td>
-                  <td><Badge tone={st.tone}>{st.label}</Badge></td>
-                  <td className="us-actions">
-                    <Button size="sm" variant="ghost" icon={KeyRound} disabled={busy} onClick={() => setResetFor(u)}>Đặt lại mật khẩu</Button>
-                    {!self && (u.status === 'DISABLED'
-                      ? <Button size="sm" variant="ghost" icon={Unlock} disabled={busy}
-                          onClick={() => act(() => platform.updateUser(u.id, { status: 'ACTIVE' }), `Đã mở khoá ${u.email}.`)}>Mở khoá</Button>
-                      : <Button size="sm" variant="ghost" icon={Lock} disabled={busy}
-                          onClick={() => window.confirm(`Khoá tài khoản ${u.email}? Họ sẽ không đăng nhập được nữa.`)
-                            && act(() => platform.updateUser(u.id, { status: 'DISABLED' }), `Đã khoá ${u.email}.`)}>Khoá</Button>)}
+      {/* Top KPI Statistics */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <div className="stat-icon accent"><Users size={18} /></div>
+          <div className="stat-info">
+            <span className="stat-val">{stats.total}</span>
+            <span className="stat-label">Tổng tài khoản</span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon info"><Shield size={18} /></div>
+          <div className="stat-info">
+            <span className="stat-val">{stats.admins}</span>
+            <span className="stat-label">Quản trị viên</span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon ok"><CheckCircle2 size={18} /></div>
+          <div className="stat-info">
+            <span className="stat-val">{stats.active}</span>
+            <span className="stat-label">Đang hoạt động</span>
+          </div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon warn"><Lock size={18} /></div>
+          <div className="stat-info">
+            <span className="stat-val">{stats.locked}</span>
+            <span className="stat-label">Đã / Tạm khoá</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Notifications */}
+      {err && (
+        <div className="alert-banner err" role="alert">
+          <AlertCircle size={18} />
+          <div className="alert-banner-content m-err" style={{ margin: 0 }}>{err}</div>
+          <button className="linklike" onClick={() => setErr('')} style={{ color: 'inherit', marginLeft: 'auto' }}>✕</button>
+        </div>
+      )}
+      {note && (
+        <div className="alert-banner ok" role="status">
+          <CheckCircle2 size={18} />
+          <div className="alert-banner-content rv-sub" style={{ margin: 0, color: 'var(--ok)' }}>{note}</div>
+          <button className="linklike" onClick={() => setNote('')} style={{ color: 'inherit', marginLeft: 'auto' }}>✕</button>
+        </div>
+      )}
+
+      {/* User Directory Card */}
+      <div className="card-panel">
+        <div className="card-header">
+          <div className="card-header-title">
+            <Users size={18} style={{ color: 'var(--accent)' }} />
+            <span>Danh sách người dùng</span>
+            <span className="bdg bdg-neutral" style={{ marginLeft: 4 }}>{filteredRows.length}</span>
+          </div>
+          <Button
+            size="sm"
+            variant={showAdd ? 'secondary' : 'primary'}
+            icon={showAdd ? X : UserPlus}
+            onClick={() => setShowAdd(!showAdd)}>
+            {showAdd ? 'Đóng form tạo' : 'Tạo tài khoản'}
+          </Button>
+        </div>
+
+        {/* Collapsible / Expandable Create User Section */}
+        {showAdd && (
+          <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-subtle)', padding: '16px 18px' }}>
+            <form className="pj-form" onSubmit={create} style={{ border: 'none', padding: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <UserPlus size={16} style={{ color: 'var(--accent)' }} />
+                <strong style={{ fontSize: 13.5 }}>Tạo tài khoản mới</strong>
+              </div>
+              <div className="form-grid-2">
+                <div className="form-field">
+                  <label className="form-label">Email đăng nhập</label>
+                  <input type="email" required aria-label="Email" placeholder="email@công-ty.vn"
+                    value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+                </div>
+                <div className="form-field">
+                  <label className="form-label">Họ và tên</label>
+                  <input required aria-label="Họ tên" placeholder="Họ tên người dùng"
+                    value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} />
+                </div>
+                <div className="form-field">
+                  <label className="form-label">Mật khẩu ban đầu</label>
+                  <input type="password" required autoComplete="new-password" aria-label="Mật khẩu ban đầu"
+                    placeholder="Mật khẩu ban đầu (≥ 8 ký tự)" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+                </div>
+                <div className="form-field">
+                  <label className="form-label">Quyền hệ thống</label>
+                  <select aria-label="Quyền hệ thống" value={form.systemRole}
+                    onChange={e => setForm({ ...form, systemRole: e.target.value })}>
+                    <option value="USER">Người dùng (USER)</option>
+                    <option value="SYS_ADMIN">Quản trị hệ thống (SYS_ADMIN)</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <Button type="submit" variant="primary" icon={UserPlus} disabled={busy}>Tạo tài khoản</Button>
+                <Button type="button" variant="ghost" onClick={() => setShowAdd(false)}>Huỷ</Button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Search bar inside directory */}
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+          <div className="filter-bar">
+            <div className="search-input-wrap">
+              <Search size={15} />
+              <input
+                type="text"
+                placeholder="Tìm người dùng theo tên hoặc email…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+              />
+            </div>
+            {query && (
+              <Button size="sm" variant="ghost" onClick={() => setQuery('')}>
+                Xoá bộ lọc
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* User Table */}
+        <div className="us-scroll modern-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+          <table className="grid modern-table">
+            <thead>
+              <tr>
+                <th>Người dùng</th>
+                <th>Quyền hệ thống</th>
+                <th>Trạng thái</th>
+                <th style={{ textAlign: 'right' }}>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRows.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-faint)' }}>
+                    Không tìm thấy người dùng nào phù hợp với "{query}".
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : (
+                filteredRows.map(u => {
+                  const st = userState(u);
+                  const self = u.id === me?.id;
+                  const initials = getInitials(u.fullName, u.email);
+                  const avatarBg = getAvatarColor(u.id || u.email);
+
+                  return (
+                    <tr key={u.id}>
+                      <td>
+                        <div className="user-info-cell">
+                          <div className="user-avatar" style={{ backgroundColor: avatarBg }}>
+                            {initials}
+                          </div>
+                          <div>
+                            <div className="user-name-row">
+                              <span>{u.fullName || '—'}</span>
+                              {self && <Badge tone="accent">bạn</Badge>}
+                            </div>
+                            <div className="user-email-row">
+                              <Mail size={12} style={{ opacity: 0.7 }} />
+                              <span>{u.email}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          {u.systemRole === 'SYS_ADMIN' ? (
+                            <Shield size={15} style={{ color: 'var(--info)' }} />
+                          ) : (
+                            <User size={15} style={{ color: 'var(--text-faint)' }} />
+                          )}
+                          <select
+                            aria-label={`Quyền hệ thống của ${u.email}`}
+                            value={u.systemRole}
+                            disabled={busy || self}
+                            className="role-select-box"
+                            onChange={e => act(() => platform.updateUser(u.id, { systemRole: e.target.value }))}>
+                            <option value="USER">Người dùng</option>
+                            <option value="SYS_ADMIN">Quản trị hệ thống</option>
+                          </select>
+                        </div>
+                      </td>
+                      <td>
+                        <Badge tone={st.tone} dot={true}>{st.label}</Badge>
+                      </td>
+                      <td className="us-actions" style={{ justifyContent: 'flex-end' }}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={KeyRound}
+                          disabled={busy}
+                          title="Đặt lại mật khẩu cho tài khoản này"
+                          onClick={() => setResetFor(u)}>
+                          Đặt lại mật khẩu
+                        </Button>
+                        {!self && (u.status === 'DISABLED' ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            icon={Unlock}
+                            disabled={busy}
+                            title="Mở khoá tài khoản"
+                            onClick={() => act(() => platform.updateUser(u.id, { status: 'ACTIVE' }), `Đã mở khoá ${u.email}.`)}>
+                            Mở khoá
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            icon={Lock}
+                            disabled={busy}
+                            title="Khoá tài khoản"
+                            onClick={() => window.confirm(`Khoá tài khoản ${u.email}? Họ sẽ không đăng nhập được nữa.`)
+                              && act(() => platform.updateUser(u.id, { status: 'DISABLED' }), `Đã khoá ${u.email}.`)}>
+                            Khoá
+                          </Button>
+                        ))}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <form className="pj-form us-narrow" onSubmit={create}>
-        <strong>Tạo tài khoản</strong>
-        <input type="email" required aria-label="Email" placeholder="email@công-ty.vn" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-        <input required aria-label="Họ tên" placeholder="Họ tên" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} />
-        <input type="password" required autoComplete="new-password" aria-label="Mật khẩu ban đầu" placeholder="Mật khẩu ban đầu (≥ 8 ký tự)" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
-        <select aria-label="Quyền hệ thống" value={form.systemRole} onChange={e => setForm({ ...form, systemRole: e.target.value })}>
-          <option value="USER">Người dùng</option>
-          <option value="SYS_ADMIN">Quản trị hệ thống</option>
-        </select>
-        <Button type="submit" variant="primary" icon={UserPlus} disabled={busy}>Tạo tài khoản</Button>
-      </form>
-      <p className="rv-sub">Quyền hệ thống chỉ quyết định ai quản lý tài khoản. Ai được vào dự án nào, giữ vai trò gì (PM, BA, Tester…) thì đặt ở <b>Dự án → Thành viên</b>.</p>
+
+      {/* Informative Callout */}
+      <div className="alert-banner info">
+        <Info size={18} style={{ color: 'var(--accent)' }} />
+        <div className="alert-banner-content rv-sub" style={{ margin: 0 }}>
+          <b>Quyền hệ thống</b> quyết định ai quản lý tài khoản và thiết lập toàn cục. Để phân quyền truy cập dự án cụ thể (PM, BA, Tech Lead, Tester…), hãy mở mục <b>Dự án → Thành viên</b>.
+        </div>
+      </div>
+
       {resetFor && <ResetPassword target={resetFor} onClose={() => setResetFor(null)} onDone={setNote} />}
     </>
   );
@@ -138,7 +445,20 @@ export default function UsersView({ user, onLogout }) {
   const admin = isAdmin(user);
   return (
     <section className="rv-page" aria-labelledby="us-title">
-      <h1 id="us-title" className="rv-h1">{admin ? 'Người dùng' : 'Tài khoản'}</h1>
+      <div className="rv-page-header">
+        <div className="rv-page-title-wrap">
+          <h1 id="us-title" className="rv-h1">
+            <Users size={22} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+            <span>{admin ? 'Quản lý người dùng' : 'Tài khoản cá nhân'}</span>
+          </h1>
+          <p className="rv-page-desc">
+            {admin
+              ? 'Quản trị danh sách người dùng, cấp quyền hệ thống và quản lý bảo mật truy cập.'
+              : 'Xem thông tin tài khoản và cập nhật mật khẩu của bạn.'}
+          </p>
+        </div>
+      </div>
+
       {admin && <AdminUsers me={user} />}
       <MyPassword onLogout={onLogout} />
     </section>

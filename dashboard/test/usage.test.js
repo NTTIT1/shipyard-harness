@@ -121,3 +121,34 @@ describe('vnd rounding', () => {
     expect(a.byDay[0].vnd).toBe(333333);
   });
 });
+
+describe('quota percentages per lane, model, and time windows', () => {
+  it('calculates quotaPct and sharePct for lanes, models, and monthly/rolling windows', () => {
+    const recs = [
+      { at: '2026-10-10T03:00:00Z', lane: 1, step: 'main', model: 'opus', feature: 'f1', in: 400, out: 100, cacheRead: 0, cacheWrite: 0, usd: 15 },
+      { at: '2026-10-11T03:00:00Z', lane: 2, step: 'main', model: 'sonnet', feature: 'f2', in: 200, out: 50, cacheRead: 0, cacheWrite: 0, usd: 5 },
+    ];
+    const s = mergeSettings({
+      monthlyBudgetUsd: 40,
+      monthlyTokenLimit: 1000,
+      laneLimits: { '1': { usd: 20, tokens: 1000 }, '2': { usd: 25, tokens: 500 } },
+      modelLimits: { opus: { usd: 30, tokens: 2000 } },
+    });
+    const a = aggregate(recs, s, { month: '2026-10' });
+    expect(a.quotas.month.usdPct).toBeCloseTo(50); // 20 / 40 = 50%
+    expect(a.quotas.month.tokenPct).toBeCloseTo(75); // 750 / 1000 = 75%
+    expect(a.quotas.month.quotaPct).toBeCloseTo(75);
+
+    const lane1 = a.byLane.find(l => l.lane === 1);
+    expect(lane1.sharePct).toBeCloseTo(75); // 15 / 20 = 75%
+    expect(lane1.usdPct).toBeCloseTo(75); // 15 / 20 = 75%
+    expect(lane1.tokenPct).toBeCloseTo(50); // 500 / 1000 = 50%
+    expect(lane1.quotaPct).toBeCloseTo(75);
+
+    const opus = a.byModel.find(m => m.model === 'opus');
+    expect(opus.sharePct).toBeCloseTo(75);
+    expect(opus.usdPct).toBeCloseTo(50); // 15 / 30 = 50%
+    expect(opus.quotaPct).toBeCloseTo(50);
+  });
+});
+

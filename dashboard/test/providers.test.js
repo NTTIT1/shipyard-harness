@@ -115,3 +115,43 @@ describe('corrupt store is never overwritten', () => {
     }
   });
 });
+
+describe('per-lane model defaults & per-feature models', () => {
+  it('stores and retrieves per-lane model defaults independently of global defaults', () => {
+    P.writeModelDefaults({ main: 'claude:claude-opus-5-5', impl_agents: 2 });
+    P.writeLaneModelDefaults(2, { main: 'claude:claude-sonnet-5-5', pm: 'claude:claude-haiku-5-5', impl_agents: 3, effort: { pm: 'high' } });
+
+    const lane2 = P.readLaneModelDefaults(2);
+    expect(lane2.main).toBe('claude:claude-sonnet-5-5');
+    expect(lane2.pm).toBe('claude:claude-haiku-5-5');
+    expect(lane2.impl_agents).toBe(3);
+    expect(lane2.effort).toEqual({ pm: 'high' });
+
+    // Lane 1 has no custom defaults -> falls back to global defaults
+    const lane1 = P.readLaneModelDefaults(1);
+    expect(lane1.main).toBe('claude:claude-opus-5-5');
+    expect(P.readAllLaneDefaults()['2'].impl_agents).toBe(3);
+
+    // Resetting lane 2 restores fallback
+    P.writeLaneModelDefaults(2, null);
+    expect(P.readAllLaneDefaults()['2']).toBeUndefined();
+  });
+
+  it('stores and retrieves per-feature model configs', () => {
+    P.writeFeatureModels('feat-auth', { models: { 'code-review': 'openai:gpt-x' }, impl_agents: 4, effort: { 'code-review': 'max' } });
+    const feats = P.readFeatureModels();
+    expect(feats['feat-auth']['code-review']).toBe('openai:gpt-x');
+    expect(feats['feat-auth'].impl_agents).toBe(4);
+    expect(feats['feat-auth'].effort).toEqual({ 'code-review': 'max' });
+
+    // Writing global defaults preserves feature models
+    P.writeModelDefaults({ main: 'claude:claude-opus-5-5', impl_agents: 2 });
+    expect(P.readFeatureModels()['feat-auth']['code-review']).toBe('openai:gpt-x');
+
+    // Reset removes feature config
+    P.writeFeatureModels('feat-auth', null);
+    expect(P.readFeatureModels()['feat-auth']).toBeUndefined();
+  });
+});
+
+

@@ -134,24 +134,111 @@ export function publicProviders() {
   return out;
 }
 
-export function readModelDefaults() {
-  const doc = readJson(modelsPath(), {});
-  const d = doc.defaults || {};
+function normalizeEntry(d = {}, eff = {}, fallback = null) {
   const out = {};
-  for (const s of STEPS) out[s.id] = d[s.id] || DEFAULT_MODEL;
-  out.impl_agents = Number.isInteger(d.impl_agents) && d.impl_agents > 0 ? d.impl_agents : 1;
-  try { out.effort = normalizeEfforts(doc.effort, STEPS.map(s => s.id)); } catch { out.effort = {}; }
+  for (const s of STEPS) out[s.id] = d[s.id] || (fallback ? fallback[s.id] : DEFAULT_MODEL);
+  const defaultImpl = fallback ? fallback.impl_agents : 1;
+  out.impl_agents = Number.isInteger(d.impl_agents) && d.impl_agents > 0 ? d.impl_agents : defaultImpl;
+  try {
+    const normEff = normalizeEfforts(eff, STEPS.map(s => s.id));
+    out.effort = fallback ? { ...(fallback.effort || {}), ...normEff } : normEff;
+  } catch {
+    out.effort = fallback ? { ...(fallback.effort || {}) } : {};
+  }
   return out;
 }
 
+export function readModelDefaults() {
+  const doc = readJson(modelsPath(), {});
+  return normalizeEntry(doc.defaults || {}, doc.effort || {}, null);
+}
+
 export function writeModelDefaults(defaults) {
+  const prev = readJson(modelsPath(), {});
   const errs = validateModels(Object.fromEntries(STEPS.map(s => [s.id, defaults[s.id] || DEFAULT_MODEL])));
   if (errs.length) throw new Error(errs.join('; '));
   const effort = normalizeEfforts(defaults.effort, STEPS.map(s => s.id));
   const impl = parseInt(defaults.impl_agents, 10);
-  const doc = { defaults: { ...Object.fromEntries(STEPS.map(s => [s.id, defaults[s.id] || DEFAULT_MODEL])), impl_agents: impl > 0 ? impl : 1 }, effort };
+  const doc = {
+    ...prev,
+    defaults: { ...Object.fromEntries(STEPS.map(s => [s.id, defaults[s.id] || DEFAULT_MODEL])), impl_agents: impl > 0 ? impl : 1 },
+    effort,
+  };
   fs.mkdirSync(path.dirname(modelsPath()), { recursive: true });
   fs.writeFileSync(modelsPath(), JSON.stringify(doc, null, 2) + '\n');
+}
+
+export function readAllLaneDefaults() {
+  const doc = readJson(modelsPath(), {});
+  const base = normalizeEntry(doc.defaults || {}, doc.effort || {}, null);
+  const lanes = doc.lanes || {};
+  const out = {};
+  for (const [k, v] of Object.entries(lanes)) {
+    if (!v || typeof v !== 'object') continue;
+    out[k] = normalizeEntry(v.models || v, v.effort || {}, base);
+  }
+  return out;
+}
+
+export function readLaneModelDefaults(n) {
+  const all = readAllLaneDefaults();
+  return all[String(n)] || readModelDefaults();
+}
+
+export function writeLaneModelDefaults(n, config) {
+  const key = String(n);
+  if (!/^[1-9]\d*$/.test(key)) throw new Error(`lane không hợp lệ: ${n}`);
+  const prev = readJson(modelsPath(), {});
+  const lanes = { ...(prev.lanes || {}) };
+  if (!config || config.reset) {
+    delete lanes[key];
+  } else {
+    const base = readModelDefaults();
+    const stepMap = Object.fromEntries(STEPS.map(s => [s.id, config[s.id] || (config.models || {})[s.id] || base[s.id] || DEFAULT_MODEL]));
+    const errs = validateModels(stepMap);
+    if (errs.length) throw new Error(errs.join('; '));
+    const effort = normalizeEfforts(config.effort, STEPS.map(s => s.id));
+    const impl = parseInt(config.impl_agents, 10);
+    lanes[key] = { ...stepMap, impl_agents: impl > 0 && impl <= 9 ? impl : (base.impl_agents || 1), effort };
+  }
+  const doc = { ...prev, lanes };
+  fs.mkdirSync(path.dirname(modelsPath()), { recursive: true });
+  fs.writeFileSync(modelsPath(), JSON.stringify(doc, null, 2) + '\n');
+  return readLaneModelDefaults(n);
+}
+
+export function readFeatureModels() {
+  const doc = readJson(modelsPath(), {});
+  const base = normalizeEntry(doc.defaults || {}, doc.effort || {}, null);
+  const feats = doc.features || {};
+  const out = {};
+  for (const [k, v] of Object.entries(feats)) {
+    if (!v || typeof v !== 'object') continue;
+    out[k] = normalizeEntry(v.models || v, v.effort || {}, base);
+  }
+  return out;
+}
+
+export function writeFeatureModels(featureKey, config) {
+  const key = String(featureKey || '').trim();
+  if (!key || key.length > 200) throw new Error('feature key không hợp lệ');
+  const prev = readJson(modelsPath(), {});
+  const features = { ...(prev.features || {}) };
+  if (!config || config.reset) {
+    delete features[key];
+  } else {
+    const base = readModelDefaults();
+    const stepMap = Object.fromEntries(STEPS.map(s => [s.id, config[s.id] || (config.models || {})[s.id] || base[s.id] || DEFAULT_MODEL]));
+    const errs = validateModels(stepMap);
+    if (errs.length) throw new Error(errs.join('; '));
+    const effort = normalizeEfforts(config.effort, STEPS.map(s => s.id));
+    const impl = parseInt(config.impl_agents, 10);
+    features[key] = { ...stepMap, impl_agents: impl > 0 && impl <= 9 ? impl : (base.impl_agents || 1), effort };
+  }
+  const doc = { ...prev, features };
+  fs.mkdirSync(path.dirname(modelsPath()), { recursive: true });
+  fs.writeFileSync(modelsPath(), JSON.stringify(doc, null, 2) + '\n');
+  return readFeatureModels()[key] || null;
 }
 
 function split(v) {

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { AUTH_ENABLED } from '../services/auth.js';
 import { aggregate, readAllUsage, readSettings, writeSettings, setFeatureHours, readPlan } from '../services/usage.js';
+import { readModelDefaults, readAllLaneDefaults, readFeatureModels } from '../services/providers.js';
 
 // Costs screen (admins only — it shows salaries). Data: run/lane*/usage.jsonl + config/costs.json.
 export function costsRouter({ authEnabled = AUTH_ENABLED } = {}) {
@@ -17,7 +18,14 @@ export function costsRouter({ authEnabled = AUTH_ENABLED } = {}) {
     if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return res.status(400).json({ ok: false, error: 'tháng phải dạng YYYY-MM' });
     try {
       const settings = readSettings();
-      res.json({ ...aggregate(readAllUsage(), settings, { month }), settings, plan: readPlan() });
+      res.json({
+        ...aggregate(readAllUsage(), settings, { month }),
+        settings,
+        plan: readPlan(),
+        global_defaults: readModelDefaults(),
+        lane_defaults: readAllLaneDefaults(),
+        feature_models: readFeatureModels(),
+      });
     } catch (e) { fail(res, e); }
   });
   router.put('/api/costs/settings', admin, (req, res) => {
