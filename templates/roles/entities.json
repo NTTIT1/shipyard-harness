@@ -1,0 +1,12 @@
+{
+  "entities": [
+    {"type": "TABLE", "key": "orders", "name": "Bảng đơn hàng"},
+    {"type": "API", "key": "POST /api/orders", "name": "Tạo đơn hàng"},
+    {"type": "SCREEN", "key": "order-list", "name": "Danh sách đơn hàng"}
+  ],
+  "relations": [
+    {"from": "FEATURE:this", "to": "TABLE:orders", "type": "TOUCHES"},
+    {"from": "SCREEN:order-list", "to": "API:POST /api/orders", "type": "CALLS"},
+    {"from": "API:POST /api/orders", "to": "TABLE:orders", "type": "TOUCHES"}
+  ]
+}

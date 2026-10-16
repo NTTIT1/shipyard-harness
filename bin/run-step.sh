@@ -27,6 +27,11 @@ case "$STEP" in
   senior-gate) AGENT="senior-gate-reviewer"; VERDICT_RE='^VERDICT: ' ;;
   ticketer) AGENT="ticketer"; VERDICT_RE='^TICKET: ' ;;
   dev-qc) AGENT="dev-qc"; VERDICT_RE='^DEV-QC: ' ;;
+  pm) AGENT="pm-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
+  ba) AGENT="ba-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
+  arch) AGENT="architect-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
+  design) AGENT="designer-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
+  test) AGENT="tester-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   *) usage ;;
 esac
 

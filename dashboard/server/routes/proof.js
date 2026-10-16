@@ -44,7 +44,9 @@ router.get('/proof/:n(\\d)/*', (req, res) => {
 router.get('/spec/:n(\\d)/*', (req, res) => {
   const p = specFile(parseInt(req.params.n, 10), decodeURIComponent(req.params[0]));
   if (!p) return res.status(404).send('not found');
-  res.type('text/plain; charset=utf-8').sendFile(p);
+  const ext = path.extname(p).toLowerCase();
+  const ct = ext === '.md' ? 'text/plain; charset=utf-8' : ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+  res.type(ct).sendFile(p);
 });
 
 export default router;
