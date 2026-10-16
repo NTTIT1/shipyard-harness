@@ -23,3 +23,4 @@
 # platform maven build output
 /platform/**/target/
 __pycache__/
+/dashboard/e2e/shots/

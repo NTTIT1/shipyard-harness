@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Square, Play, Check, Power, PowerOff, Eraser, RefreshCcw, KeyRound, RotateCcw, Trash2, GitBranch, ExternalLink } from 'lucide-react';
+import { Plus, Square, Play, Check, Power, PowerOff, Eraser, RefreshCcw, KeyRound, RotateCcw, Trash2, GitBranch, ExternalLink, ClipboardCheck } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Menu from './ui/Menu.jsx';
@@ -9,7 +9,7 @@ import { stopSession, resumeSession } from '../lib/api.js';
 
 const STATUS_TONE = { running: 'accent', waiting: 'warn', blocked: 'danger', failed: 'danger', passed: 'ok', provisioning: 'info' };
 
-export default function LaneHeader({ lane, archived, onAction, onCreds, onAssign, onTab }) {
+export default function LaneHeader({ lane, archived, onAction, onCreds, onAssign, onTab, onReview }) {
   const [err, setErr] = useState('');
   const run = fn => async () => { setErr(''); try { await fn(); } catch (e) { setErr(e.message); } };
   const acts = primaryActions(lane, { archived });
@@ -29,6 +29,7 @@ export default function LaneHeader({ lane, archived, onAction, onCreds, onAssign
     { label: 'Reset lane', icon: RotateCcw, danger: true, onSelect: () => onAction(n, 'reset') },
     { label: 'Xoá lane', icon: Trash2, danger: true, onSelect: () => onAction(n, 'remove') },
   ];
+  const waitingReview = !archived && lane.run_id && lane.status === 'waiting' && String(lane.stage || '').startsWith('review-');
   const branch = lane.git_branch || lane.branch || '';
   return (
     <header className="lh">
@@ -45,9 +46,11 @@ export default function LaneHeader({ lane, archived, onAction, onCreds, onAssign
           {lane.ticket_url && <a href={lane.ticket_url} target="_blank" rel="noreferrer">ticket <ExternalLink size={12} aria-hidden="true" /></a>}
           {lane.manual_test_url && <a href={lane.manual_test_url} target="_blank" rel="noreferrer">{lane.manual_test_url.replace('http://localhost', 'localhost')} <ExternalLink size={12} aria-hidden="true" /></a>}
         </div>
+        {waitingReview && lane.needs_action && <p className="rv-sub">Đang chờ: {lane.needs_action}</p>}
         {err && <p className="m-err">{err}</p>}
       </div>
       <div className="lh-actions">
+        {waitingReview && onReview && <Button variant="primary" icon={ClipboardCheck} onClick={onReview}>Mở màn hình duyệt</Button>}
         {acts.map(a => BTN[a])}
         {!archived && <Menu items={menu} label={`Thao tác lane ${n}`} />}
       </div>

@@ -131,6 +131,16 @@ public class ProjectService {
         return allowed;
     }
 
+    /** Members with their roles (enum order); caller must be a member (404 otherwise). */
+    public List<com.shipyard.platform.project.dto.MemberDto> listMembers(String currentUserId, String projectId) {
+        if (rolesOf(projectId, currentUserId).isEmpty()) throw new ResourceNotFoundException("Project not found");
+        Map<String, List<String>> byUser = new LinkedHashMap<>();
+        projectMemberRepository.findByIdProjectId(projectId).stream()
+                .sorted(Comparator.comparing(ProjectMember::getRole))
+                .forEach(m -> byUser.computeIfAbsent(m.getId().getUserId(), k -> new ArrayList<>()).add(m.getRole().name()));
+        return byUser.entrySet().stream().map(e -> new com.shipyard.platform.project.dto.MemberDto(e.getKey(), e.getValue())).toList();
+    }
+
     /** Roles in enum order (OWNER first), empty when not a member. */
     public List<String> rolesOf(String projectId, String userId) {
         return projectMemberRepository.findByIdProjectIdAndIdUserId(projectId, userId).stream()

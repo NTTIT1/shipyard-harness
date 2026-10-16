@@ -47,6 +47,7 @@ router.post('/api/gateway/restart', wrap(async () => restartGateway()));
 router.post(`${lanePath}/assign`, wrap(async req => {
   const n = num(req);
   return assignLane(n, req.body || {}, {
+    assignedBy: req.user?.id,
     lane: async x => (await lanesPayload()).lanes.find(l => l.lane === x),
     isRunning: S.isRunning,
     ensureGateway,
