@@ -166,3 +166,22 @@ describe('usage tracking', () => {
     expect(plan.five_hour.utilization).toBe(42);
   });
 });
+
+describe('project AI-team rules', () => {
+  it('appends the developer rules to the lane session system prompt', async () => {
+    const asked = [];
+    S.configureSessions({ query: fakeQuery([]), teamRules: (cwd, step) => { asked.push([path.basename(cwd), step]); return '# Luật dự án — vai trò DEV\nRULE'; } });
+    S.startSession(7, { model: 'claude-opus-5-5', prompt: 'go' });
+    await tick();
+    expect(asked).toEqual([['lane7', 'main']]);
+    expect(lastOpts.extraArgs).toEqual({ 'append-system-prompt': '# Luật dự án — vai trò DEV\nRULE' });
+    S.stopAll();
+  });
+  it('adds nothing when the project has no AI team', async () => {
+    S.configureSessions({ query: fakeQuery([]), teamRules: () => '' });
+    S.startSession(8, { model: 'claude-opus-5-5', prompt: 'go' });
+    await tick();
+    expect(lastOpts.extraArgs).toBeUndefined();
+    S.stopAll();
+  });
+});

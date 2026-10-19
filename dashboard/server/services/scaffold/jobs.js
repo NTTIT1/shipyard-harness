@@ -6,6 +6,7 @@ import { run as runCmd, writeFiles, probeTools } from './util.js';
 import { stackById } from './catalog.js';
 import { commonFiles } from './common.js';
 import { ciFiles } from './ci.js';
+import { teamFiles } from './team.js';
 import { pushRepo, PROVIDER_LABEL } from './remotes.js';
 
 export const WORKSPACES_ROOT = process.env.SHIPYARD_WORKSPACES || path.join(os.homedir(), 'shipyard-workspaces');
@@ -72,6 +73,7 @@ export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeToo
         writeFiles(j.dir, stack.overlay(ctx));
         writeFiles(j.dir, commonFiles(ctx, stack, now().toISOString()));
         writeFiles(j.dir, ciFiles(provider, stack.id, ctx.options));
+        writeFiles(j.dir, teamFiles(ctx, stack));
         // Same peer-dep mode for teammates and CI as the install that produced package-lock.json.
         if (fs.existsSync(path.join(j.dir, 'package.json')) && (ctx.tools?.npm?.major || 0) < 10) {
           writeFiles(j.dir, { '.npmrc': 'legacy-peer-deps=true\n' });
