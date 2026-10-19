@@ -8,6 +8,7 @@ import credsRoutes from './routes/creds.js';
 import authRoutes from './routes/auth.js';
 import { platformRouter } from './routes/platform.js';
 import { costsRouter } from './routes/costs.js';
+import { scaffoldRouter } from './routes/scaffold.js';
 import { requireAuth } from './services/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,6 +30,7 @@ export function createApp(authOpts) {
   app.use(requireAuth(authOpts));
   app.use(platformRouter());
   app.use(costsRouter());
+  app.use(scaffoldRouter());
   // agentui first: its POST /api/lane/:n/assign would otherwise hit lanes' /:action.
   app.use(agentuiRoutes);
   app.use(lanesRoutes);

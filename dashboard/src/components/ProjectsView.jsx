@@ -3,13 +3,14 @@ import {
   Plus, Trash2, Copy, Check, UserPlus, FolderKanban,
   GitBranch, ExternalLink, Search, CheckCircle2,
   AlertCircle, Shield, Info, ArrowRight, Layers, SlidersHorizontal,
-  Cpu, RotateCcw, Save
+  Cpu, RotateCcw, Save, Wand2
 } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Tabs from './ui/Tabs.jsx';
 import MemoryPanel from './MemoryPanel.jsx';
 import DeleteProjectButton from './DeleteProjectButton.jsx';
+import NewProjectWizard from './NewProjectWizard.jsx';
 import StepModels from './StepModels.jsx';
 import { platform } from '../lib/platform.js';
 import { fetchProviders, saveFeatureModels } from '../lib/api.js';
@@ -576,6 +577,7 @@ export default function ProjectsView({ user, onOpenRun }) {
   const [copied, setCopied] = useState(false);
   const [searchPj, setSearchPj] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [wizard, setWizard] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -714,6 +716,12 @@ export default function ProjectsView({ user, onOpenRun }) {
                 </strong>
               </div>
               <div className="card-body" style={{ padding: '12px 14px' }}>
+                {user?.role === 'SYS_ADMIN' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+                    <Button variant="primary" icon={Wand2} onClick={() => setWizard(true)}>Tạo từ khung (chọn ngôn ngữ, framework…)</Button>
+                    <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>Hoặc khai báo một repo đã có:</span>
+                  </div>
+                )}
                 <form className="pj-form" onSubmit={create} style={{ border: 'none', padding: 0 }}>
                   <div className="form-field">
                     <label className="form-label">Tên dự án</label>
@@ -858,6 +866,11 @@ export default function ProjectsView({ user, onOpenRun }) {
           </div>
         )}
       </div>
+      {wizard && (
+        <NewProjectWizard
+          onClose={() => setWizard(false)}
+          onCreated={async id => { setShowCreate(false); await load(); if (id) setSel(id); }} />
+      )}
     </section>
   );
 }
