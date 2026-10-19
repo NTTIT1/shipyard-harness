@@ -5,12 +5,12 @@ import Badge from './ui/Badge.jsx';
 import Tabs from './ui/Tabs.jsx';
 import Markdown from './Markdown.jsx';
 import { platform } from '../lib/platform.js';
-import { STEPS, STEP_LABEL, ROLE_LABEL, STATUS_LABEL, ACTION_LABEL, validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, inboxItemFor, hasUiToSend, safeImageSrc } from '../lib/review.js';
+import { runSteps, STEP_LABEL, ROLE_LABEL, STATUS_LABEL, ACTION_LABEL, validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, inboxItemFor, hasUiToSend, safeImageSrc } from '../lib/review.js';
 
 function Stepper({ steps, current }) {
   return (
     <ol className="stepper" aria-label="Tiến trình">
-      {STEPS.map(s => {
+      {runSteps(steps).map(s => {
         const st = (steps.find(x => x.step === s) || {}).status || 'PENDING';
         return <li key={s} className={`${st}${s === current ? ' on' : ''}`} aria-current={s === current ? 'step' : undefined}>
           {STEP_LABEL[s]} <span className="faint">· {STATUS_LABEL[st]}</span></li>;

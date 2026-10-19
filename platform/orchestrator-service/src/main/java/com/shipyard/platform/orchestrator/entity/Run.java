@@ -17,6 +17,7 @@ public class Run {
     @Enumerated(EnumType.STRING) public Step currentStep;
     @Enumerated(EnumType.STRING) public RunStatus status;
     public Boolean hasUi;
+    @Enumerated(EnumType.STRING) public com.shipyard.platform.orchestrator.domain.RunKind kind = com.shipyard.platform.orchestrator.domain.RunKind.FEATURE;
     public String createdBy;
     /** Step name -> REQUIRED|AUTO chosen for this feature; wins over the project gate policy. */
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.Map<String, String> gateOverrides;

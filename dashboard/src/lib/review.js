@@ -1,6 +1,12 @@
 // Pure helpers for the review screen (unit-tested; mirrors orchestrator rules, spec §3.2).
 export const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
-export const STEP_LABEL = { PM: 'PM — Yêu cầu', BA: 'BA — Nghiệp vụ', ARCH: 'Kiến trúc', DESIGN: 'Thiết kế UI', DEV: 'Lập trình', TEST: 'Kiểm thử' };
+export const STEP_LABEL = { PM: 'PM — Yêu cầu', BA: 'BA — Nghiệp vụ', ARCH: 'Kiến trúc', DESIGN: 'Thiết kế UI', DEV: 'Lập trình', TEST: 'Kiểm thử',
+  MANAGER: 'Luật dự án (AI Manager)' };
+
+/** Steps shown for a run: a project-rules (SETUP) run has only MANAGER. */
+export function runSteps(steps) {
+  return (steps || []).some(s => s.step === 'MANAGER') ? ['MANAGER'] : STEPS;
+}
 export const ROLE_LABEL = { PM: 'PM', BA: 'BA', TECH_LEAD: 'Tech Lead', DESIGNER: 'Designer', DEVELOPER: 'Developer', TESTER: 'Tester',
   OWNER: 'Owner', MAINTAINER: 'Maintainer', VIEWER: 'Viewer', OWNER_FALLBACK: 'Owner (duyệt thay)', AUTO: 'Tự động' };
 export const ACTION_LABEL = { APPROVE: 'Duyệt', REQUEST_CHANGES: 'Yêu cầu sửa', SEND_BACK: 'Trả về bước trước', CANCEL: 'Huỷ tính năng' };

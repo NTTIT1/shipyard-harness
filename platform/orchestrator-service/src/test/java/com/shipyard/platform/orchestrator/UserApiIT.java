@@ -172,7 +172,9 @@ class UserApiIT extends OrchestratorIT {
     @Test
     void gatePolicyOnlyOwnerOrMaintainerMayChange() {
         Map<String, String> policy = data(user("usr_ba", HttpMethod.GET, "/api/v1/projects/" + P + "/gate-policy", null));
-        assertThat(policy).hasSize(6).containsEntry("BA", "REQUIRED");
+        assertThat(policy).hasSize(6).containsEntry("BA", "REQUIRED").doesNotContainKey("MANAGER");
+        assertThat(user("usr_owner", HttpMethod.PUT, "/api/v1/projects/" + P + "/gate-policy", Map.of("MANAGER", "AUTO"))
+                .getStatusCode().value()).isEqualTo(400);
         assertThat(user("usr_ba", HttpMethod.PUT, "/api/v1/projects/" + P + "/gate-policy", Map.of("BA", "AUTO"))
                 .getStatusCode().value()).isEqualTo(403);
         assertThat(user("usr_owner", HttpMethod.PUT, "/api/v1/projects/" + P + "/gate-policy", Map.of("BA", "AUTO"))

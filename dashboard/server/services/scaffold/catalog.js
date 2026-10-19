@@ -79,7 +79,9 @@ export function validateRequest(body, tools, stacks = STACKS) {
   if (missing.length) throw bad(`Máy chủ thiếu công cụ: ${missing.join(', ')}. ${missing.map(t => TOOL_HINT[t]).filter(Boolean).join(' · ')}`);
   const problem = stack.check(options, tools);
   if (problem) throw bad(problem);
-  return { name, slug, description, stack: stack.id, options, git: validateGit(b.git) };
+  const brief = String(b.brief || '').trim();
+  if (brief.length > 20000) throw bad('Tài liệu cho AI tối đa 20.000 ký tự (tải thêm file sau)');
+  return { name, slug, description, stack: stack.id, options, git: validateGit(b.git), aiTeam: b.aiTeam !== false, brief };
 }
 
 /** local | github (owner = user/org login) | gitlab (owner = namespace id); private unless asked. */

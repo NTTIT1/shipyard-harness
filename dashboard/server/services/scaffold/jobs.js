@@ -18,11 +18,13 @@ export const STAGES = [
   { id: 'git', label: 'Khởi tạo Git' },
   { id: 'remote', label: 'Tạo repo & push' },
   { id: 'register', label: 'Đăng ký dự án' },
+  { id: 'team', label: 'Giao AI Manager soạn luật' },
 ];
 /** Stages that touch nothing local, so a failure there can be retried in place. */
-const RETRYABLE = ['remote', 'register'];
+const RETRYABLE = ['remote', 'register', 'team'];
 
-export const stagesFor = spec => STAGES.filter(s => s.id !== 'remote' || (spec.git?.provider || 'local') !== 'local');
+export const stagesFor = spec => STAGES.filter(s => (s.id !== 'remote' || (spec.git?.provider || 'local') !== 'local')
+  && (s.id !== 'team' || spec.aiTeam !== false));
 
 const MAX_LOG = 4000;
 const MAX_JOBS = 30;
@@ -43,14 +45,14 @@ export async function initRepo(dir, { authorName, authorEmail, stackId, run }) {
  * once created, is never deleted from here.
  */
 export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeTools(), fetchImpl = fetch,
-  run = runCmd, registerProject, remotes = null, now = () => new Date() } = {}) {
+  run = runCmd, registerProject, remotes = null, setup = null, now = () => new Date() } = {}) {
   const jobs = new Map();
   const locks = new Set();
 
   const publicJob = j => j && ({
     id: j.id, slug: j.spec.slug, name: j.spec.name, stack: j.spec.stack, git: j.spec.git, status: j.status,
     stage: j.stage, stageList: j.stageList, stages: j.stages, error: j.error, errorTail: j.errorTail, dir: j.dir,
-    remote: j.remote || null, project: j.project, retryable: j.status === 'failed' && RETRYABLE.includes(j.stage),
+    remote: j.remote || null, project: j.project, setupRunId: j.setupRunId || null, retryable: j.status === 'failed' && RETRYABLE.includes(j.stage),
     startedAt: j.startedAt, finishedAt: j.finishedAt, log: j.log.slice(-400),
   });
 
@@ -74,6 +76,7 @@ export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeToo
         writeFiles(j.dir, commonFiles(ctx, stack, now().toISOString()));
         writeFiles(j.dir, ciFiles(provider, stack.id, ctx.options));
         writeFiles(j.dir, teamFiles(ctx, stack));
+        if (j.spec.brief) writeFiles(j.dir, { '.shipyard/human/brief.md': `# Mô tả từ người tạo dự án\n\n${j.spec.brief}\n` });
         // Same peer-dep mode for teammates and CI as the install that produced package-lock.json.
         if (fs.existsSync(path.join(j.dir, 'package.json')) && (ctx.tools?.npm?.major || 0) < 10) {
           writeFiles(j.dir, { '.npmrc': 'legacy-peer-deps=true\n' });
@@ -101,6 +104,13 @@ export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeToo
         j.project = await registerProject({ slug: j.spec.slug, name: j.spec.name, repoUrl: j.remote?.cloneUrl || j.dir,
           defaultBranch: 'development' }, j.token);
         ctx.log(`Đã tạo dự án ${j.project?.id || ''}`);
+      },
+      async team() {
+        if (!j.setupRunId) {
+          j.setupRunId = await setup.start({ projectId: j.project.id, slug: j.spec.slug, name: j.spec.name, stack: stack.id,
+            dir: j.dir, provider, createdBy: user.id });
+        }
+        ctx.log(`AI Manager đang soạn luật (run ${j.setupRunId}); xong sẽ có trong "Chờ duyệt".`);
       },
     };
   }

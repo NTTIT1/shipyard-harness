@@ -22,6 +22,8 @@ export const scaffold = {
   removeProvider: id => call('DELETE', `/api/scaffold/git-providers/${id}`),
   owners: id => call('GET', `/api/scaffold/git-providers/${id}/owners`),
   discard: id => call('DELETE', `/api/scaffold/jobs/${id}`),
+  setup: runId => call('GET', `/api/scaffold/setup/${runId}`),
+  retrySetup: runId => call('POST', `/api/scaffold/setup/${runId}/retry`),
 };
 
 export const SLUG_RE = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
@@ -53,6 +55,7 @@ export function wizardSteps(stack) {
     ...(stack?.noDatabase ? [] : [{ id: 'db', label: 'Database' }]),
     { id: 'options', label: 'Tuỳ chọn' },
     { id: 'git', label: 'Kho Git' },
+    { id: 'team', label: 'Đội AI' },
     { id: 'review', label: 'Xem lại' },
   ];
 }
@@ -72,6 +75,8 @@ export function stepProblem(step, form, stack) {
       if (form.git.provider === 'local') return '';
       if (!form.git.owner) return form.git.provider === 'github' ? 'Chọn tài khoản hoặc tổ chức GitHub' : 'Chọn group GitLab';
       return '';
+    case 'team':
+      return (form.brief || '').length > 20000 ? 'Tài liệu tối đa 20.000 ký tự' : '';
     case 'options':
       for (const o of stack?.options || []) {
         if (o.type === 'text' && !new RegExp(o.pattern).test(String(form.options[o.id] ?? ''))) return `${o.label}: ${o.help || 'không hợp lệ'}`;
@@ -93,6 +98,7 @@ export function summary(form, stack) {
   rows.push(['Ngôn ngữ', stack.languageLabel], ['Framework', stack.label]);
   for (const o of stack.options) rows.push([o.label, choiceLabel(o, form.options[o.id])]);
   rows.push(['Kho Git', gitLabel(form.git)]);
+  rows.push(['Đội AI', form.aiTeam === false ? 'Không (chỉ dùng luật khởi đầu)' : `AI Manager soạn luật, bạn duyệt${form.brief?.trim() ? ' · có tài liệu kèm' : ''}`]);
   return rows;
 }
 
@@ -103,3 +109,8 @@ export function gitLabel(git) {
   const where = git.ownerLabel || git.owner;
   return `${PROVIDER_LABEL[git.provider]} · ${where} · ${git.visibility === 'public' ? 'công khai' : 'riêng tư'} (push main + development, có CI)`;
 }
+
+export const SETUP_STATUS = {
+  queued: 'Đang xếp hàng…', drafting: 'AI Manager đang soạn luật…', 'awaiting-review': 'Đã nộp bộ luật — vào "Chờ duyệt" để xem và duyệt',
+  publishing: 'Đang commit luật đã duyệt…', done: 'Luật đã được duyệt và commit vào development', cancelled: 'Đã huỷ', error: 'Lỗi',
+};
