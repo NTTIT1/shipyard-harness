@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2, Circle, Loader2, Rocket, RotateCcw, Trash2, XCircle, StopCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Circle, Loader2, Rocket, RotateCcw, Trash2, XCircle, StopCircle, AlertTriangle, ExternalLink, KeyRound } from 'lucide-react';
 import Modal from './Modal.jsx';
 import Badge from './ui/Badge.jsx';
-import { scaffold, slugify, findStack, defaultOptions, wizardSteps, stepProblem, summary } from '../lib/scaffold.js';
+import { scaffold, slugify, findStack, defaultOptions, wizardSteps, stepProblem, summary, PROVIDER_LABEL } from '../lib/scaffold.js';
 import '../styles/wizard.css';
 
 const JOB_KEY = 'shipyard.scaffoldJob';
@@ -45,6 +45,7 @@ function JobView({ job, stages }) {
       {job.status === 'done' && (
         <p className="wz-done" role="status">
           <CheckCircle2 size={16} aria-hidden="true" /> Đã tạo dự án <b>{job.name}</b> tại <code>{job.dir}</code>
+          {job.remote && <a href={job.remote.webUrl} target="_blank" rel="noreferrer" className="wz-link">{job.remote.webUrl} <ExternalLink size={13} aria-hidden="true" /></a>}
         </p>
       )}
       {job.error && (
@@ -58,11 +59,100 @@ function JobView({ job, stages }) {
   );
 }
 
+function TokenForm({ provider, current, onSaved, onCancel }) {
+  const [token, setToken] = useState('');
+  const [url, setUrl] = useState(current?.url || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const save = async e => {
+    e.preventDefault();
+    setBusy(true); setErr('');
+    try { onSaved(await scaffold.saveProvider(provider, { token, url })); } catch (e2) { setErr(e2.message); }
+    setBusy(false);
+  };
+  const help = provider === 'github'
+    ? 'Fine-grained token: quyền Administration (read & write) + Contents (read & write) trên các repo; hoặc classic token có quyền repo (và read:org để thấy tổ chức).'
+    : 'Personal/Group access token có quyền api và write_repository.';
+  return (
+    <form className="wz-token" onSubmit={save}>
+      <div className="form-field">
+        <label className="form-label" htmlFor={`wz-tok-${provider}`}>Token {PROVIDER_LABEL[provider]} (dùng chung cho cả hệ thống)</label>
+        <input id={`wz-tok-${provider}`} type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)}
+          placeholder={current?.configured ? `Để trống để giữ token ${current.tokenHint}` : ''} />
+        <span className="faint">{help}</span>
+      </div>
+      {provider === 'gitlab' && (
+        <div className="form-field">
+          <label className="form-label" htmlFor="wz-gl-url">Địa chỉ GitLab</label>
+          <input id="wz-gl-url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://gitlab.com" />
+          <span className="faint">Đổi nếu dùng GitLab tự host.</span>
+        </div>
+      )}
+      {err && <p className="m-err" role="alert">{err}</p>}
+      <div className="wz-row">
+        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!token && !current?.configured)}>{busy ? 'Đang kiểm tra…' : 'Kiểm tra & lưu'}</button>
+        {onCancel && <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Huỷ</button>}
+      </div>
+    </form>
+  );
+}
+
+function GitStep({ git, slug, providers, onChange, onProviders }) {
+  const [owners, setOwners] = useState(null);
+  const [err, setErr] = useState('');
+  const [editing, setEditing] = useState(false);
+  const p = git.provider;
+  const conn = providers?.[p];
+  useEffect(() => {
+    setOwners(null); setErr('');
+    if (p === 'local' || !conn?.configured) return;
+    scaffold.owners(p).then(list => {
+      setOwners(list);
+      if (!list.some(o => o.id === git.owner) && list[0]) onChange({ owner: list[0].id, ownerLabel: list[0].label });
+    }, e => setErr(e.message));
+  }, [p, conn?.configured, conn?.login]); // eslint-disable-line react-hooks/exhaustive-deps
+  const saved = c => { onProviders({ ...providers, [p]: c }); setEditing(false); };
+  return (
+    <div className="wz-fields wz-git">
+      <fieldset className="wz-grid">
+        <legend className="form-label">Nơi lưu repo</legend>
+        {['local', 'github', 'gitlab'].map(id => (
+          <Choice key={id} name="git" value={id} current={p} title={PROVIDER_LABEL[id]}
+            desc={id === 'local' ? 'Chỉ git init trên máy chủ' : providers?.[id]?.configured ? `Đã kết nối: ${providers[id].login}` : 'Chưa kết nối — nhập token ở bước này'}
+            onPick={v => onChange({ provider: v, owner: '', ownerLabel: '' })} />
+        ))}
+      </fieldset>
+      {p !== 'local' && (!conn?.configured || editing) && <TokenForm provider={p} current={conn} onSaved={saved} onCancel={conn?.configured ? () => setEditing(false) : null} />}
+      {p !== 'local' && conn?.configured && !editing && (
+        <>
+          <div className="form-field">
+            <label className="form-label" htmlFor="wz-owner">{p === 'github' ? 'Tài khoản / tổ chức' : 'Group / namespace'}</label>
+            {owners ? (
+              <select id="wz-owner" value={git.owner} onChange={e => onChange({ owner: e.target.value, ownerLabel: owners.find(o => o.id === e.target.value)?.label })}>
+                {owners.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            ) : !err && <span className="faint">Đang tải danh sách…</span>}
+            {err && <p className="m-err" role="alert">{err}</p>}
+          </div>
+          <fieldset className="wz-row wz-vis">
+            <legend className="form-label">Quyền xem</legend>
+            <label className="wz-check"><input type="radio" name="vis" checked={git.visibility !== 'public'} onChange={() => onChange({ visibility: 'private' })} /> Riêng tư</label>
+            <label className="wz-check"><input type="radio" name="vis" checked={git.visibility === 'public'} onChange={() => onChange({ visibility: 'public' })} /> Công khai</label>
+          </fieldset>
+          <p className="faint">Repo mới: <b>{(owners?.find(o => o.id === git.owner)?.label || '…').replace(/ \(cá nhân\)$/, '')}/{slug}</b>. Shipyard push nhánh main + development và thêm file CI {p === 'github' ? '(GitHub Actions)' : '(.gitlab-ci.yml)'}.
+            {' '}<button type="button" className="linklike" onClick={() => setEditing(true)}><KeyRound size={12} aria-hidden="true" /> Đổi token</button></p>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function NewProjectWizard({ onClose, onCreated }) {
   const [catalog, setCatalog] = useState(null);
   const [err, setErr] = useState('');
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState({ name: '', slug: '', slugTouched: false, description: '', language: '', stack: '', options: {} });
+  const [form, setForm] = useState({ name: '', slug: '', slugTouched: false, description: '', language: '', stack: '', options: {},
+    git: { provider: 'local', owner: '', ownerLabel: '', visibility: 'private' } });
   const [job, setJob] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -91,7 +181,8 @@ export default function NewProjectWizard({ onClose, onCreated }) {
   const create = useCallback(async () => {
     setBusy(true); setErr('');
     try {
-      const j = await scaffold.start({ name: form.name.trim(), slug: form.slug, description: form.description.trim(), stack: form.stack, options: form.options });
+      const j = await scaffold.start({ name: form.name.trim(), slug: form.slug, description: form.description.trim(), stack: form.stack,
+        options: form.options, git: { provider: form.git.provider, owner: form.git.owner, visibility: form.git.visibility } });
       remember(j.id);
       setJob({ ...j, log: j.log || [] });
     } catch (e) { setErr(e.message); }
@@ -108,8 +199,8 @@ export default function NewProjectWizard({ onClose, onCreated }) {
   if (job) {
     buttons = [];
     if (job.status === 'running') buttons.push({ label: 'Huỷ', icon: StopCircle, cls: 'warn', disabled: busy, fn: act(async () => setJob(await scaffold.cancel(job.id))) });
-    if (job.status === 'failed' && job.stage === 'register') {
-      buttons.push({ label: 'Thử lại đăng ký', icon: RotateCcw, cls: 'add', disabled: busy, fn: act(async () => setJob(await scaffold.retryRegister(job.id))) });
+    if (job.retryable) {
+      buttons.push({ label: 'Thử lại', icon: RotateCcw, cls: 'add', disabled: busy, fn: act(async () => setJob(await scaffold.retry(job.id))) });
     } else if (job.status === 'failed' || job.status === 'cancelled') {
       buttons.push({ label: 'Xoá thư mục & sửa lựa chọn', icon: Trash2, cls: 'warn', disabled: busy,
         fn: act(async () => { await scaffold.discard(job.id); remember(null); setJob(null); setStep(steps.length - 1); }) });
@@ -129,7 +220,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
     <Modal title={job ? `Đang tạo ${job.name}` : 'Tạo dự án mới từ khung'} wide onClose={onClose} buttons={buttons}>
       {err && <p className="m-err" role="alert">{err}</p>}
       {!catalog && !err && <p className="muted-empty">Đang tải danh mục…</p>}
-      {job && catalog && <JobView job={job} stages={catalog.stages} />}
+      {job && catalog && <JobView job={job} stages={job.stageList || catalog.stages} />}
       {!job && catalog && (
         <div className="wz">
           <ol className="wz-steps" aria-label="Các bước">
@@ -224,12 +315,9 @@ export default function NewProjectWizard({ onClose, onCreated }) {
             )}
 
             {cur === 'git' && (
-              <fieldset className="wz-grid">
-                <legend className="form-label">Nơi lưu repo</legend>
-                <Choice name="git" value="local" current="local" title="Chỉ trên máy" desc="git init, commit đầu tiên, nhánh main + development" onPick={() => {}} />
-                <Choice name="git" value="github" current="local" title="GitHub" desc="Sắp có (giai đoạn 2)" disabled onPick={() => {}} />
-                <Choice name="git" value="gitlab" current="local" title="GitLab" desc="Sắp có (giai đoạn 2)" disabled onPick={() => {}} />
-              </fieldset>
+              <GitStep git={form.git} slug={form.slug} providers={catalog.providers}
+                onChange={g => set({ git: { ...form.git, ...g } })}
+                onProviders={p => setCatalog(c => ({ ...c, providers: p }))} />
             )}
 
             {cur === 'review' && stack && (

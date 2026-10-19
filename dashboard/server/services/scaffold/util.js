@@ -18,10 +18,10 @@ export function childEnv(extra = {}) {
  * Run a command (argv array, never a shell string). Output lines go to `log`.
  * Rejects with the tail of the output when it exits non-zero or times out.
  */
-export function run(cmd, args, { cwd, log = () => {}, timeoutMs = 10 * 60_000, env, signal } = {}) {
+export function run(cmd, args, { cwd, log = () => {}, timeoutMs = 10 * 60_000, env, extraEnv, signal } = {}) {
   return new Promise((resolve, reject) => {
     log(`$ ${[cmd, ...args].join(' ')}`);
-    const child = spawn(cmd, args, { cwd, env: env || childEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(cmd, args, { cwd, env: env || childEnv(extraEnv), stdio: ['ignore', 'pipe', 'pipe'] });
     const tail = [];
     let buf = '';
     const onData = d => {

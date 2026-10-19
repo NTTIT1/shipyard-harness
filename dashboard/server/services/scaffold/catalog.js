@@ -79,5 +79,17 @@ export function validateRequest(body, tools, stacks = STACKS) {
   if (missing.length) throw bad(`Máy chủ thiếu công cụ: ${missing.join(', ')}. ${missing.map(t => TOOL_HINT[t]).filter(Boolean).join(' · ')}`);
   const problem = stack.check(options, tools);
   if (problem) throw bad(problem);
-  return { name, slug, description, stack: stack.id, options };
+  return { name, slug, description, stack: stack.id, options, git: validateGit(b.git) };
+}
+
+/** local | github (owner = user/org login) | gitlab (owner = namespace id); private unless asked. */
+export function validateGit(g = {}) {
+  const provider = String(g?.provider || 'local');
+  if (provider === 'local') return { provider };
+  if (!['github', 'gitlab'].includes(provider)) throw bad('Nơi lưu repo không hợp lệ');
+  const owner = String(g.owner || '').trim();
+  const ok = provider === 'github' ? /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(owner) : /^\d{1,12}$/.test(owner);
+  if (!ok) throw bad(provider === 'github' ? 'Chọn tài khoản hoặc tổ chức GitHub' : 'Chọn group/namespace GitLab');
+  const visibility = g.visibility === 'public' ? 'public' : 'private';
+  return { provider, owner, visibility };
 }
