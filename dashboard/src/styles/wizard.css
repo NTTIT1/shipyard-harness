@@ -1,0 +1,52 @@
+/* New-project wizard (NewProjectWizard.jsx) */
+.wz { display: flex; flex-direction: column; gap: 14px; min-height: 340px }
+.wz-steps { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; padding: 0 0 12px; list-style: none; border-bottom: 1px solid var(--border) }
+.wz-steps li { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-faint) }
+.wz-steps li.on { color: var(--text); font-weight: 600 }
+.wz-steps li.past { color: var(--text-muted) }
+.wz-num { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--border-strong); font-size: 11px }
+.wz-steps li.on .wz-num { background: var(--accent); border-color: var(--accent); color: var(--accent-fg) }
+.wz-steps li.past .wz-num { background: var(--accent-soft); border-color: transparent; color: var(--accent) }
+.wz-body { flex: 1 }
+.wz-fields { display: flex; flex-direction: column; gap: 14px; max-width: 520px }
+.wz-fields .faint { font-size: 12px }
+.wz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 10px; margin: 0; padding: 0; border: 0 }
+.wz-grid legend { margin-bottom: 8px; padding: 0 }
+.wz-choice { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg-subtle); cursor: pointer; transition: border-color .14s, background .14s }
+.wz-choice:hover { border-color: var(--border-strong) }
+.wz-choice.on { border-color: var(--accent); background: var(--accent-soft) }
+.wz-choice.off { cursor: not-allowed; opacity: .6 }
+.wz-choice input { position: absolute; opacity: 0; pointer-events: none }
+.wz-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px }
+.wz-choice-title { font-weight: 600; font-size: 14px }
+.wz-choice-desc { font-size: 12.5px; color: var(--text-muted) }
+.wz-missing { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; font-size: 12px }
+.wz-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer }
+.wz-check input { accent-color: var(--accent); width: 16px; height: 16px }
+.wz-hint { margin: 0; font-size: 12.5px; color: var(--text-faint) }
+.wz-summary { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 13.5px }
+.wz-summary th { width: 38%; padding: 6px 10px 6px 0; text-align: left; font-weight: 500; color: var(--text-muted); vertical-align: top }
+.wz-summary td { padding: 6px 0; overflow-wrap: anywhere }
+.wz-summary tr + tr { border-top: 1px solid var(--border) }
+.wz-job { display: flex; flex-direction: column; gap: 12px }
+.wz-stages { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0; padding: 0; list-style: none }
+.wz-stage { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted) }
+.wz-stage.running, .wz-stage.done { color: var(--text) }
+.wz-stage.failed { color: var(--danger) }
+.wz-ok { color: var(--ok) } .wz-bad { color: var(--danger) }
+.wz-spin { color: var(--accent); animation: wz-spin 1s linear infinite }
+@keyframes wz-spin { to { transform: rotate(360deg) } }
+@media (prefers-reduced-motion: reduce) { .wz-spin { animation: none } }
+.wz-done { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--ok-soft); font-size: 13px }
+.wz-done code, .wz-fields code { overflow-wrap: anywhere }
+.wz-err { display: flex; gap: 8px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--danger-soft); font-size: 13px; overflow-wrap: anywhere }
+.wz-err svg { flex: none; margin-top: 2px; color: var(--danger) }
+.wz-log { height: 300px; margin: 0; padding: 10px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); font-family: var(--mono); font-size: 11.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap }
+@media (max-width: 600px) {
+  .wz-step-label { display: none }
+  .wz-steps li.on .wz-step-label { display: inline }
+  .wz-log { height: 220px }
+}
