@@ -25,7 +25,7 @@ export function initializrUrl(ctx) {
     type: o.build === 'gradle' ? 'gradle-project' : 'maven-project',
     language: 'java', javaVersion: o.javaVersion, packaging: 'jar',
     groupId: o.groupId, artifactId: ctx.slug, name: ctx.slug, description: ctx.description || ctx.name,
-    packageName: javaPackage(o.groupId, ctx.slug), baseDir: ctx.slug,
+    packageName: javaPackage(o.groupId, ctx.slug), baseDir: path.basename(ctx.dir || ctx.slug),
     dependencies: springDependencies(o).join(','),
   });
   return `${INITIALIZR}/starter.zip?${q}`;

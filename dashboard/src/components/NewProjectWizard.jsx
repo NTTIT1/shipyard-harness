@@ -8,7 +8,7 @@ import Badge from './ui/Badge.jsx';
 import { Choice, JobView, GitStep, RoleSkillsConfigurator } from './projects/WizardSteps.jsx';
 import {
   scaffold, slugify, findStack, defaultOptions, defaultRoleSkills,
-  wizardSteps, stepProblem, summary, PROVIDER_LABEL
+  wizardSteps, stepProblem, summary, PROVIDER_LABEL, KINDS, languagesFor, frontendStacks
 } from '../lib/scaffold.js';
 import '../styles/wizard.css';
 
@@ -21,7 +21,8 @@ export default function NewProjectWizard({ onClose, onCreated }) {
   const [err, setErr] = useState('');
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
-    name: '', slug: '', slugTouched: false, description: '', language: '', stack: '', options: {},
+    name: '', slug: '', slugTouched: false, description: '', kind: 'single', language: '', stack: '', options: {},
+    frontend: { stack: '', options: {} },
     git: { provider: 'local', owner: '', ownerLabel: '', visibility: 'private' },
     aiTeam: true, brief: '', roleSkills: defaultRoleSkills(null, 'java-spring'),
   });
@@ -42,19 +43,22 @@ export default function NewProjectWizard({ onClose, onCreated }) {
   useEffect(() => { if (job?.status === 'done') remember(null); }, [job?.status]);
 
   const stack = findStack(catalog, form.stack);
-  const steps = wizardSteps(stack);
+  const fstack = form.kind === 'fullstack' ? findStack(catalog, form.frontend.stack) : null;
+  const steps = wizardSteps(stack, form.kind);
   const cur = steps[Math.min(step, steps.length - 1)].id;
-  const problem = stepProblem(cur, form, stack);
+  const problem = stepProblem(cur, form, stack, fstack);
+  const languages = languagesFor(catalog, form.kind);
+  const setFeOpt = (k, v) => setForm(f => ({ ...f, frontend: { ...f.frontend, options: { ...f.frontend.options, [k]: v } } }));
   const set = patch => setForm(f => ({ ...f, ...patch }));
   const setOpt = (k, v) => setForm(f => ({ ...f, options: { ...f.options, [k]: v } }));
-  const lang = catalog?.languages.find(l => l.id === form.language);
+  const lang = languages.find(l => l.id === form.language);
 
   const create = useCallback(async () => {
     setBusy(true); setErr('');
     try {
       const j = await scaffold.start({
-        name: form.name.trim(), slug: form.slug, description: form.description.trim(), stack: form.stack,
-        options: form.options, git: { provider: form.git.provider, owner: form.git.owner, visibility: form.git.visibility },
+        name: form.name.trim(), slug: form.slug, description: form.description.trim(), kind: form.kind, stack: form.stack,
+        options: form.options, ...(form.kind === 'fullstack' ? { frontend: form.frontend } : {}), git: { provider: form.git.provider, owner: form.git.owner, visibility: form.git.visibility },
         aiTeam: form.aiTeam, brief: form.aiTeam ? form.brief : '',
         roleSkills: form.roleSkills,
       });
@@ -132,10 +136,25 @@ export default function NewProjectWizard({ onClose, onCreated }) {
               </div>
             )}
 
+            {cur === 'kind' && (
+              <fieldset className="wz-grid">
+                <legend className="form-label">Dự án gồm những gì?</legend>
+                {KINDS.map(k => (
+                  <Choice key={k.id} name="kind" value={k.id} current={form.kind} title={k.label} desc={k.desc}
+                    onPick={v => {
+                      if (v === form.kind) return;
+                      const fe = v === 'fullstack' ? frontendStacks(catalog)[0] : null;
+                      set({ kind: v, language: '', stack: '', options: {},
+                        frontend: { stack: fe?.id || '', options: fe ? defaultOptions(fe) : {} } });
+                    }} />
+                ))}
+              </fieldset>
+            )}
+
             {cur === 'language' && (
               <fieldset className="wz-grid">
-                <legend className="form-label">Chọn ngôn ngữ</legend>
-                {catalog.languages.map(l => (
+                <legend className="form-label">{form.kind === 'fullstack' ? 'Ngôn ngữ cho backend' : 'Chọn ngôn ngữ'}</legend>
+                {languages.map(l => (
                   <Choice key={l.id} name="language" value={l.id} current={form.language} title={l.label}
                     badge={`${l.stacks.length} framework`}
                     desc={l.stacks.map(s => s.label).join(' · ')}
@@ -146,7 +165,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
 
             {cur === 'stack' && lang && (
               <fieldset className="wz-grid">
-                <legend className="form-label">Framework cho {lang.label}</legend>
+                <legend className="form-label">{form.kind === 'fullstack' ? `Backend (${lang.label})` : `Framework cho ${lang.label}`}</legend>
                 {lang.stacks.map(s => (
                   <Choice key={s.id} name="stack" value={s.id} current={form.stack} title={s.label} desc={s.description}
                     badge={s.available ? 'Sẵn sàng' : 'Thiếu công cụ'}
@@ -205,6 +224,35 @@ export default function NewProjectWizard({ onClose, onCreated }) {
               </div>
             )}
 
+            {cur === 'frontend' && (
+              <div className="wz-fields">
+                <fieldset className="wz-grid">
+                  <legend className="form-label">Frontend (thư mục frontend/, gọi backend qua /api)</legend>
+                  {frontendStacks(catalog).map(s => (
+                    <Choice key={s.id} name="frontend" value={s.id} current={form.frontend.stack} title={s.label} desc={s.description}
+                      badge={s.available ? 'Sẵn sàng' : 'Thiếu công cụ'} disabled={!s.available}
+                      onPick={v => set({ frontend: { stack: v, options: defaultOptions(findStack(catalog, v)) } })} />
+                  ))}
+                </fieldset>
+                {fstack && fstack.options.filter(o => o.id !== 'db').map(o => (
+                  o.type === 'bool' ? (
+                    <label key={o.id} className="wz-check">
+                      <input type="checkbox" checked={!!form.frontend.options[o.id]} onChange={e => setFeOpt(o.id, e.target.checked)} />
+                      <span>{o.label}</span>
+                    </label>
+                  ) : (
+                    <div key={o.id} className="form-field">
+                      <label className="form-label" htmlFor={`wz-fe-${o.id}`}>{o.label}</label>
+                      <select id={`wz-fe-${o.id}`} value={form.frontend.options[o.id]} onChange={e => setFeOpt(o.id, e.target.value)}>
+                        {(o.choices || []).map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                      </select>
+                    </div>
+                  )
+                ))}
+                <p className="wz-hint">Shipyard nối sẵn frontend với backend: Vite chuyển <code>/api</code> sang backend, trang chủ hiện trạng thái backend; <code>./dev.sh</code> chạy cả hai.</p>
+              </div>
+            )}
+
             {cur === 'git' && (
               <GitStep git={form.git} slug={form.slug} providers={catalog.providers}
                 onChange={g => set({ git: { ...form.git, ...g } })}
@@ -240,14 +288,15 @@ export default function NewProjectWizard({ onClose, onCreated }) {
             {cur === 'review' && stack && (
               <div className="wz-review-box">
                 <div className="wz-review-pills">
-                  <span className="wz-pill"><Terminal size={12} /> {stack.languageLabel} · {stack.label}</span>
+                  <span className="wz-pill"><Terminal size={12} /> {fstack ? 'backend/ ' : ''}{stack.languageLabel} · {stack.label}</span>
+                  {fstack && <span className="wz-pill"><Terminal size={12} /> frontend/ {fstack.languageLabel} · {fstack.label}</span>}
                   {form.options.db && form.options.db !== 'none' && (
                     <span className="wz-pill"><Database size={12} /> {form.options.db}</span>
                   )}
                   <span className="wz-pill"><GitBranch size={12} /> {PROVIDER_LABEL[form.git.provider]}</span>
                 </div>
                 <table className="wz-summary">
-                  <tbody>{summary(form, stack, catalog).map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody>
+                  <tbody>{summary(form, stack, catalog, fstack).map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody>
                 </table>
                 <p className="faint">Shipyard sẽ sinh khung dự án tại <code>{catalog.root}/{form.slug}</code>, nạp các Skill AI vào <code>.shipyard/</code> & <code>.claude/skills/</code>, chạy thử lệnh build + test, khởi tạo kho Git và đăng ký dự án tự động.</p>
               </div>

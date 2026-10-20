@@ -132,7 +132,7 @@ export default {
   check: (_o, tools) => (tools.node?.ok && tools.node.major < 20 ? `Cần Node 20 trở lên (máy đang có ${tools.node.version})` : ''),
 
   async generate(ctx) {
-    await ctx.run('npm', ['exec', '--yes', '--', NEST_CLI, 'new', ctx.slug, '--skip-git', '--skip-install',
+    await ctx.run('npm', ['exec', '--yes', '--', NEST_CLI, 'new', path.basename(ctx.dir), '--skip-git', '--skip-install',
       '--package-manager', 'npm'], { cwd: ctx.parentDir });
     await ctx.run('npm', npmInstallArgs(ctx.tools), { cwd: ctx.dir });
     await ctx.run('npm', npmInstallArgs(ctx.tools, nestPackages(ctx.options)), { cwd: ctx.dir });

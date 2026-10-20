@@ -5,6 +5,7 @@ import tsNestjs from './stacks/ts-nestjs.js';
 import { DB_LABEL } from './dbs.js';
 import { SLUG_RE } from './util.js';
 import { ROLE_META, SKILL_CATALOG, defaultRoleSkillsForStack } from './team.js';
+import { BACKEND_STACKS, FRONTEND_STACKS } from './fullstack.js';
 
 export const STACKS = [javaSpring, pythonFastapi, tsReactVite, tsNestjs];
 
@@ -28,13 +29,15 @@ export function publicCatalog(tools, stacks = STACKS) {
     const missing = [...new Set(s.requires({}))].filter(t => !tools[t]?.ok);
     lang.stacks.push({
       id: s.id, label: s.label, description: s.description, noDatabase: !!s.noDatabase,
+      // which half of a fullstack repo this stack can be
+      role: BACKEND_STACKS.includes(s.id) ? 'backend' : FRONTEND_STACKS.includes(s.id) ? 'frontend' : null,
       options: s.options.map(o => ({ ...o, choices: o.choices?.map(choiceOf) })),
       available: missing.length === 0,
       missing: missing.map(t => ({ tool: t, hint: TOOL_HINT[t] || '' })),
       defaultRoleSkills: defaultRoleSkillsForStack(s.id),
     });
   }
-  return { languages, roles: ROLE_META, skillCatalog: SKILL_CATALOG };
+  return { languages, roles: ROLE_META, skillCatalog: SKILL_CATALOG, kinds: ['single', 'fullstack'] };
 }
 
 export function stackById(id, stacks = STACKS) {
@@ -75,10 +78,37 @@ export function validateRequest(body, tools, stacks = STACKS) {
   const stack = stackById(String(b.stack || ''), stacks);
   if (!stack) throw bad('Framework không hợp lệ');
 
-  const given = b.options || {};
+  const kind = b.kind === 'fullstack' ? 'fullstack' : 'single';
+  const options = validateOptions(stack, b.options);
+  let frontend = null;
+  if (kind === 'fullstack') {
+    if (!BACKEND_STACKS.includes(stack.id)) throw bad('Dự án fullstack: phần backend phải là Spring Boot, FastAPI hoặc NestJS');
+    const fstack = stackById(String(b.frontend?.stack || ''), stacks);
+    if (!fstack || !FRONTEND_STACKS.includes(fstack.id)) throw bad('Dự án fullstack: chọn framework cho frontend');
+    frontend = { stack: fstack.id, options: validateOptions(fstack, b.frontend?.options) };
+  }
+  const parts = [[stack, options], ...(frontend ? [[stackById(frontend.stack, stacks), frontend.options]] : [])];
+  const missing = [...new Set(parts.flatMap(([st, o]) => st.requires(o)))].filter(t => !tools[t]?.ok);
+  if (missing.length) throw bad(`Máy chủ thiếu công cụ: ${missing.join(', ')}. ${missing.map(t => TOOL_HINT[t]).filter(Boolean).join(' · ')}`);
+  for (const [st, o] of parts) {
+    const problem = st.check(o, tools);
+    if (problem) throw bad(problem);
+  }
+  const brief = String(b.brief || '').trim();
+  if (brief.length > 20000) throw bad('Tài liệu cho AI tối đa 20.000 ký tự (tải thêm file sau)');
+  const roleSkills = validateRoleSkills(b.roleSkills);
+  return {
+    name, slug, description, kind, stack: stack.id, options, ...(frontend ? { frontend } : {}),
+    git: validateGit(b.git), aiTeam: b.aiTeam !== false, brief,
+    ...(roleSkills ? { roleSkills } : {}),
+  };
+}
+
+/** Every option is a listed choice, a boolean, or text matching its pattern (never free-form to a shell). */
+function validateOptions(stack, given = {}) {
   const options = {};
   for (const o of stack.options) {
-    const v = given[o.id] ?? o.default;
+    const v = (given || {})[o.id] ?? o.default;
     if (o.type === 'bool') options[o.id] = v === true || v === 'true';
     else if (o.type === 'choice') {
       const ids = o.choices.map(c => choiceOf(c).id);
@@ -91,18 +121,7 @@ export function validateRequest(body, tools, stacks = STACKS) {
     }
   }
   if (stack.noDatabase) options.db = 'none';
-
-  const missing = [...new Set(stack.requires(options))].filter(t => !tools[t]?.ok);
-  if (missing.length) throw bad(`Máy chủ thiếu công cụ: ${missing.join(', ')}. ${missing.map(t => TOOL_HINT[t]).filter(Boolean).join(' · ')}`);
-  const problem = stack.check(options, tools);
-  if (problem) throw bad(problem);
-  const brief = String(b.brief || '').trim();
-  if (brief.length > 20000) throw bad('Tài liệu cho AI tối đa 20.000 ký tự (tải thêm file sau)');
-  const roleSkills = validateRoleSkills(b.roleSkills);
-  return {
-    name, slug, description, stack: stack.id, options, git: validateGit(b.git), aiTeam: b.aiTeam !== false, brief,
-    ...(roleSkills ? { roleSkills } : {}),
-  };
+  return options;
 }
 
 /** local | github (owner = user/org login) | gitlab (owner = namespace id); private unless asked. */

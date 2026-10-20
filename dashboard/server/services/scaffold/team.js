@@ -141,7 +141,7 @@ export function teamJson(roleSkills = null) {
   }, null, 2) + '\n';
 }
 
-const STACK_RULES = {
+export const STACK_RULES = {
   'java-spring': o => [
     `- Java ${o.javaVersion}, Spring Boot. Code trong package gốc đã sinh; chia theo tầng \`controller\` → \`service\` → \`repository\`, DTO riêng cho request/response (không trả entity ra API).`,
     '- Inject bằng constructor (không dùng field injection). Cấu hình qua biến môi trường như trong `application.properties`.',
@@ -235,10 +235,11 @@ Mỗi vai trò AI còn có luật riêng (\`.shipyard/team.json\` quy định ai
 }
 
 /** Everything the AI team needs, as files relative to the project root. */
-export function teamFiles(ctx, stack) {
+export function teamFiles(ctx, stack, starter = null) {
   const rs = ctx.roleSkills || null;
   const files = { '.shipyard/team.json': teamJson(rs), 'CLAUDE.md': claudeMd(ctx) };
-  const rules = starterRules(ctx, stack);
+  // `starter`: rules prepared by the caller (a fullstack repo writes one set for both apps).
+  const rules = starter || starterRules(ctx, stack);
 
   if (rs && typeof rs === 'object') {
     const selectedSkillIds = new Set();

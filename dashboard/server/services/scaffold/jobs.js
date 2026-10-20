@@ -7,6 +7,7 @@ import { stackById } from './catalog.js';
 import { commonFiles } from './common.js';
 import { ciFiles } from './ci.js';
 import { teamFiles } from './team.js';
+import { partsOf, frontendWiring, backendNaming, fullstackRootFiles, fullstackCiFiles, fullstackStarterRules } from './fullstack.js';
 import { pushRepo, PROVIDER_LABEL } from './remotes.js';
 
 export const WORKSPACES_ROOT = process.env.SHIPYARD_WORKSPACES || path.join(os.homedir(), 'shipyard-workspaces');
@@ -50,7 +51,8 @@ export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeToo
   const locks = new Set();
 
   const publicJob = j => j && ({
-    id: j.id, slug: j.spec.slug, name: j.spec.name, stack: j.spec.stack, git: j.spec.git, status: j.status,
+    id: j.id, slug: j.spec.slug, name: j.spec.name, kind: j.spec.kind || 'single', stack: j.spec.stack,
+    frontend: j.spec.frontend?.stack || null, git: j.spec.git, status: j.status,
     stage: j.stage, stageList: j.stageList, stages: j.stages, error: j.error, errorTail: j.errorTail, dir: j.dir,
     remote: j.remote || null, project: j.project, setupRunId: j.setupRunId || null, retryable: j.status === 'failed' && RETRYABLE.includes(j.stage),
     startedAt: j.startedAt, finishedAt: j.finishedAt, log: j.log.slice(-400),
@@ -65,26 +67,52 @@ export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeToo
     const stack = stackById(j.spec.stack);
     const ctx = j.ctx;
     const provider = j.spec.git?.provider || 'local';
+    const fullstack = j.spec.kind === 'fullstack';
+    // One part = one generated app: the root itself, or backend/ and frontend/ of a fullstack repo.
+    const parts = partsOf(j.spec, j.dir, stackById);
+    const partCtx = part => ({ ...ctx, dir: part.dir, parentDir: path.dirname(part.dir), options: part.options });
+    const [backend, frontend] = parts;
     return {
       async generate() {
         j.created = true;
-        await stack.generate(ctx);
-        if (!fs.existsSync(j.dir)) throw new Error('công cụ sinh khung không tạo thư mục dự án');
-      },
-      overlay() {
-        writeFiles(j.dir, stack.overlay(ctx));
-        writeFiles(j.dir, commonFiles(ctx, stack, now().toISOString()));
-        writeFiles(j.dir, ciFiles(provider, stack.id, ctx.options));
-        writeFiles(j.dir, teamFiles(ctx, stack));
-        if (j.spec.brief) writeFiles(j.dir, { '.shipyard/human/brief.md': `# Mô tả từ người tạo dự án\n\n${j.spec.brief}\n` });
-        // Same peer-dep mode for teammates and CI as the install that produced package-lock.json.
-        if (fs.existsSync(path.join(j.dir, 'package.json')) && (ctx.tools?.npm?.major || 0) < 10) {
-          writeFiles(j.dir, { '.npmrc': 'legacy-peer-deps=true\n' });
+        if (fullstack) fs.mkdirSync(j.dir, { recursive: true });
+        for (const part of parts) {
+          if (fullstack) ctx.log(`── ${part.role}: ${part.stack.label}`);
+          await part.stack.generate(partCtx(part));
+          if (!fs.existsSync(part.dir)) throw new Error(`công cụ sinh khung không tạo thư mục ${part.sub || 'dự án'}`);
         }
       },
-      verify: () => stack.verify(ctx),
+      overlay() {
+        for (const part of parts) writeFiles(part.dir, part.stack.overlay(partCtx(part)));
+        if (fullstack) {
+          writeFiles(frontend.dir, frontendWiring(ctx, backend, frontend));
+          writeFiles(backend.dir, backendNaming(ctx, backend));
+          writeFiles(j.dir, fullstackRootFiles(ctx, backend, frontend, now().toISOString()));
+          fs.chmodSync(path.join(j.dir, 'dev.sh'), 0o755);
+          writeFiles(j.dir, fullstackCiFiles(provider, parts));
+          writeFiles(j.dir, teamFiles(ctx, backend.stack, fullstackStarterRules(ctx, backend, frontend)));
+        } else {
+          writeFiles(j.dir, commonFiles(ctx, stack, now().toISOString()));
+          writeFiles(j.dir, ciFiles(provider, stack.id, ctx.options));
+          writeFiles(j.dir, teamFiles(ctx, stack));
+        }
+        if (j.spec.brief) writeFiles(j.dir, { '.shipyard/human/brief.md': `# Mô tả từ người tạo dự án\n\n${j.spec.brief}\n` });
+        // Same peer-dep mode for teammates and CI as the install that produced package-lock.json.
+        for (const part of parts) {
+          if (fs.existsSync(path.join(part.dir, 'package.json')) && (ctx.tools?.npm?.major || 0) < 10) {
+            writeFiles(part.dir, { '.npmrc': 'legacy-peer-deps=true\n' });
+          }
+        }
+      },
+      async verify() {
+        for (const part of parts) {
+          if (fullstack) ctx.log(`── kiểm tra ${part.role}`);
+          await part.stack.verify(partCtx(part));
+        }
+      },
       git: () => initRepo(j.dir, {
-        authorName: user.name || user.email.split('@')[0], authorEmail: user.email, stackId: stack.id, run: ctx.run,
+        authorName: user.name || user.email.split('@')[0], authorEmail: user.email,
+        stackId: fullstack ? `fullstack (${backend.stack.id} + ${frontend.stack.id})` : stack.id, run: ctx.run,
       }),
       async remote() {
         const g = j.spec.git;
@@ -107,7 +135,8 @@ export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeToo
       },
       async team() {
         if (!j.setupRunId) {
-          j.setupRunId = await setup.start({ projectId: j.project.id, slug: j.spec.slug, name: j.spec.name, stack: stack.id,
+          j.setupRunId = await setup.start({ projectId: j.project.id, slug: j.spec.slug, name: j.spec.name,
+            stack: fullstack ? `fullstack: backend/ ${backend.stack.id} + frontend/ ${frontend.stack.id}` : stack.id,
             dir: j.dir, provider, createdBy: user.id });
         }
         ctx.log(`AI Manager đang soạn luật (run ${j.setupRunId}); xong sẽ có trong "Chờ duyệt".`);

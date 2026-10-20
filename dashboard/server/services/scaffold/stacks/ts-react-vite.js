@@ -65,7 +65,8 @@ export default {
   check: (_o, tools) => (tools.node?.ok && tools.node.major < 20 ? `Cần Node 20 trở lên (máy đang có ${tools.node.version})` : ''),
 
   async generate(ctx) {
-    await ctx.run('npm', ['exec', '--yes', '--', CREATE_VITE, ctx.slug, '--template', 'react-ts', '--no-interactive'],
+    // The target folder is the project dir's own name (the slug, or `frontend` inside a fullstack repo).
+    await ctx.run('npm', ['exec', '--yes', '--', CREATE_VITE, path.basename(ctx.dir), '--template', 'react-ts', '--no-interactive'],
       { cwd: ctx.parentDir });
     await ctx.run('npm', npmInstallArgs(ctx.tools), { cwd: ctx.dir });
     if (ctx.options.tests) {

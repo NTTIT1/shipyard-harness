@@ -87,14 +87,36 @@ export function defaultRoleSkills(catalog, stackId) {
   return out;
 }
 
+export const KINDS = [
+  { id: 'single', label: 'Một ứng dụng', desc: 'Một backend hoặc một frontend, nằm ở thư mục gốc của repo' },
+  { id: 'fullstack', label: 'Fullstack: backend + frontend',
+    desc: 'Một repo gồm backend/ và frontend/, nối sẵn qua /api, chạy cả hai bằng ./dev.sh' },
+];
+
+/** Languages offered at the language step: a fullstack project picks its BACKEND language there. */
+export function languagesFor(catalog, kind) {
+  const langs = catalog?.languages || [];
+  if (kind !== 'fullstack') return langs;
+  return langs.map(l => ({ ...l, stacks: l.stacks.filter(s => s.role === 'backend') })).filter(l => l.stacks.length);
+}
+
+/** Frontend frameworks for the fullstack frontend step. */
+export function frontendStacks(catalog) {
+  return (catalog?.languages || []).flatMap(l => l.stacks.filter(s => s.role === 'frontend')
+    .map(s => ({ ...s, language: l.id, languageLabel: l.label })));
+}
+
 /** Wizard steps; the database step disappears for stacks without one (React + Vite). */
-export function wizardSteps(stack) {
+export function wizardSteps(stack, kind = 'single') {
+  const fullstack = kind === 'fullstack';
   return [
     { id: 'info', label: 'Thông tin' },
-    { id: 'language', label: 'Ngôn ngữ' },
-    { id: 'stack', label: 'Framework' },
+    { id: 'kind', label: 'Kiểu dự án' },
+    { id: 'language', label: fullstack ? 'Ngôn ngữ backend' : 'Ngôn ngữ' },
+    { id: 'stack', label: fullstack ? 'Backend' : 'Framework' },
     ...(stack?.noDatabase ? [] : [{ id: 'db', label: 'Database' }]),
-    { id: 'options', label: 'Tuỳ chọn' },
+    { id: 'options', label: fullstack ? 'Tuỳ chọn backend' : 'Tuỳ chọn' },
+    ...(fullstack ? [{ id: 'frontend', label: 'Frontend' }] : []),
     { id: 'git', label: 'Kho Git' },
     { id: 'team', label: 'Đội AI & Skill' },
     { id: 'review', label: 'Xem lại' },
@@ -102,8 +124,12 @@ export function wizardSteps(stack) {
 }
 
 /** Why the user cannot leave this step yet ('' = can continue). */
-export function stepProblem(step, form, stack) {
+export function stepProblem(step, form, stack, fstack = null) {
   switch (step) {
+    case 'kind': return form.kind ? '' : 'Chọn kiểu dự án';
+    case 'frontend':
+      if (!fstack) return 'Chọn framework cho frontend';
+      return fstack.available ? '' : `Máy chủ thiếu: ${fstack.missing.map(m => m.tool).join(', ')}`;
     case 'info':
       if (!form.name.trim()) return 'Nhập tên dự án';
       if (!SLUG_RE.test(form.slug)) return 'Slug: 3–40 ký tự gồm chữ thường, số, dấu gạch ngang; bắt đầu bằng chữ';
@@ -133,11 +159,19 @@ export function choiceLabel(option, value) {
 }
 
 /** Summary rows for the review step. */
-export function summary(form, stack, catalog) {
+export function summary(form, stack, catalog, fstack = null) {
   const rows = [['Tên', form.name], ['Slug', form.slug]];
   if (form.description) rows.push(['Mô tả', form.description]);
-  rows.push(['Ngôn ngữ', stack.languageLabel], ['Framework', stack.label]);
-  for (const o of stack.options) rows.push([o.label, choiceLabel(o, form.options[o.id])]);
+  if (form.kind === 'fullstack' && fstack) {
+    rows.push(['Kiểu dự án', 'Fullstack — backend/ + frontend/ trong một repo']);
+    rows.push(['Backend', `${stack.languageLabel} · ${stack.label}`]);
+    for (const o of stack.options) rows.push([`Backend · ${o.label}`, choiceLabel(o, form.options[o.id])]);
+    rows.push(['Frontend', `${fstack.languageLabel} · ${fstack.label}`]);
+    for (const o of fstack.options) rows.push([`Frontend · ${o.label}`, choiceLabel(o, form.frontend?.options?.[o.id])]);
+  } else {
+    rows.push(['Ngôn ngữ', stack.languageLabel], ['Framework', stack.label]);
+    for (const o of stack.options) rows.push([o.label, choiceLabel(o, form.options[o.id])]);
+  }
   rows.push(['Kho Git', gitLabel(form.git)]);
   rows.push(['Đội AI', form.aiTeam === false ? 'Không (chỉ dùng luật khởi đầu)' : `AI Manager soạn luật, bạn duyệt${form.brief?.trim() ? ' · có tài liệu kèm' : ''}`]);
   const roleEntries = Object.entries(form.roleSkills || {});

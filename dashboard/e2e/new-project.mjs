@@ -26,6 +26,7 @@ const slug = await p.inputValue('#wz-slug');
 ok(/^wizard-thu-\d+$/.test(slug), `slug derived from the name (${slug})`);
 await shot(p, 'wz1-info');
 await next.click();
+await next.click(); // project kind: one app (default)
 await m.getByText('TypeScript', { exact: true }).click(); await next.click();
 await m.getByText('React + Vite', { exact: true }).click();
 await shot(p, 'wz2-stack');

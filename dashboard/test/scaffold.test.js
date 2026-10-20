@@ -22,7 +22,7 @@ const req = (over = {}) => ({ name: 'Cửa hàng', slug: 'shop-api', stack: 'jav
 describe('validateRequest', () => {
   it('fills option defaults and keeps only catalog keys', () => {
     const s = validateRequest(req({ options: { db: 'mysql', evil: 'rm -rf /' } }), ALL);
-    expect(s).toEqual({ name: 'Cửa hàng', slug: 'shop-api', description: '', stack: 'java-spring',
+    expect(s).toEqual({ name: 'Cửa hàng', slug: 'shop-api', description: '', kind: 'single', stack: 'java-spring',
       options: { build: 'maven', javaVersion: '21', groupId: 'com.example', db: 'mysql', auth: 'none', docker: true },
       git: { provider: 'local' }, aiTeam: true, brief: '' });
   });

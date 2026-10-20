@@ -1,7 +1,7 @@
 // CI pipeline for the chosen remote: GitHub Actions or GitLab CI. Same build + test as the
 // wizard's verify stage, so a project that was green at creation stays green on its first push.
 
-function plan(stack, o) {
+export function plan(stack, o) {
   switch (stack) {
     case 'java-spring': {
       const gradle = o.build === 'gradle';
