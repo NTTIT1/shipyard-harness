@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { HARNESS_ROOT } from '../config.js';
-import { run as runCmd, readText } from './util.js';
+import { run as runCmd, readText, writeFiles } from './util.js';
 
 // AI Manager (spec 2026-10-19 §5.3): a SETUP run on the orchestrator whose single MANAGER step
 // is worked headless here, in the project's workspace. The AI drafts .shipyard/rules + team.json,
@@ -172,7 +172,9 @@ export function createSetupRunner({ orch = orchClient(), run = runCmd, providers
     if (!docs) throw new Error('không tìm thấy bộ luật đã duyệt');
     update(runId, { status: 'publishing' });
     writeDocuments(entry.dir, docs, { prune: true });
-    await git(entry.dir, 'add', '.shipyard');
+    const skillFiles = Object.fromEntries(Object.entries(entry.skillFiles || {}).filter(([f]) => /^\.claude\/skills\/[a-z0-9][a-z0-9_-]*\/SKILL\.md$/.test(f)));
+    writeFiles(entry.dir, skillFiles);
+    await git(entry.dir, 'add', '.shipyard', ...Object.keys(skillFiles));
     // `diff --cached --quiet` exits 1 when something is staged.
     const staged = await git(entry.dir, 'diff', '--cached', '--quiet').then(() => false, () => true);
     if (staged) await git(entry.dir, 'commit', '-q', '-m', 'docs(rules): project AI-team rules approved in Shipyard');
@@ -211,12 +213,12 @@ export function createSetupRunner({ orch = orchClient(), run = runCmd, providers
      * `documents` (a person's edit) is submitted as-is; otherwise the AI Manager drafts, guided by
      * `note`. `adopt` marks an existing codebase whose rules are only the generic starter.
      */
-    async start({ projectId, slug, name, stack, dir, provider, createdBy, branch = 'development', documents = null, note = '', adopt = false, title }) {
+    async start({ projectId, slug, name, stack, dir, provider, createdBy, branch = 'development', documents = null, skillFiles = null, note = '', adopt = false, title }) {
       await git(dir, 'switch', '-q', branch);
       const r = await orch.createRun({ projectId, laneRef: `${host}:setup:${slug}`, title: title || `Luật dự án — ${name}`,
         description: documents ? 'Thay đổi luật đội AI do người sửa' : 'AI Manager soạn luật cho đội AI của dự án', createdBy, kind: 'SETUP' });
       update(r.id, { projectId, slug, name, stack, dir, branch, provider: provider || 'local', status: 'queued',
-        documents, note: note || null, adopt: !!adopt, title: title || null, createdBy, createdAt: new Date().toISOString() });
+        documents, skillFiles, note: note || null, adopt: !!adopt, title: title || null, createdBy, createdAt: new Date().toISOString() });
       work(r.id);
       return r.id;
     },

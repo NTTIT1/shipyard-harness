@@ -25,6 +25,7 @@
   color: var(--text-muted); font-size: 12px; cursor: pointer }
 .tm-chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent) }
 .tm-chip:disabled { cursor: default }
+.tm-chip.sug { border-style: dashed }
 .tm-rules { display: grid; grid-template-columns: minmax(170px, 220px) 1fr; min-height: 340px }
 .tm-files { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-right: 1px solid var(--border) }
 .tm-file { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); background: none;

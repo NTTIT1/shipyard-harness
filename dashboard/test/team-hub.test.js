@@ -214,3 +214,39 @@ describe('team routes', () => {
     expect((await call(app(['OWNER']), 'GET', '/api/team/nope')).status).toBe(404);
   });
 });
+
+describe('team hub + skill catalog', () => {
+  it('a suggested skill the repo lacks is added as .claude/skills/<id>/SKILL.md on approval', async () => {
+    const o = origin({ team: true });
+    const setup = fakeSetup();
+    const catalog = [{ id: 'jpa-safety', label: 'JPA', desc: 'Transaction an toàn', roles: ['DEV'], content: '# JPA' }];
+    const hub = createTeamHub({ setup, providers, root: o.root, skillCatalog: catalog });
+    const p = project(o.bare);
+    expect((await hub.state(p)).skillCatalog).toEqual([{ id: 'jpa-safety', label: 'JPA', desc: 'Transaction an toàn', roles: ['DEV'] }]);
+    const team = structuredClone(TEAM);
+    team.roles.DEV.skills = ['spring-api', 'jpa-safety'];
+    await hub.propose(p, user, { team });
+    const r = setup.runs[0];
+    expect(Object.keys(r.skillFiles)).toEqual(['.claude/skills/jpa-safety/SKILL.md']);
+    expect(r.skillFiles['.claude/skills/jpa-safety/SKILL.md']).toContain('name: jpa-safety');
+    expect(r.note).toMatch(/jpa-safety/);
+    r.status = 'done';
+    team.roles.DEV.skills = ['made-up'];
+    await expect(hub.propose(p, user, { team })).rejects.toThrow(/không có trong repo/);
+  });
+});
+
+it('the runner commits catalog skill files together with the approved rules', async () => {
+  const o = origin({ team: true });
+  const dir = path.join(o.tmp, 'clone');
+  git(o.tmp, 'clone', '-q', '-b', 'develop', o.bare, dir);
+  const docs = { 'project.md': '# chung', 'dev.md': '# dev', 'team.json': JSON.stringify(TEAM) };
+  const state = { run_k: { projectId: 'p1', slug: 'hrm', name: 'HRM', dir, branch: 'develop', provider: 'host', status: 'awaiting-review',
+    skillFiles: { '.claude/skills/jpa-safety/SKILL.md': '---\nname: jpa-safety\n---\n', '../evil/SKILL.md': 'x' } } };
+  const orch = { next: async () => ({ mode: 'RELEASE', priorApproved: { MANAGER: docs } }), release: async () => {} };
+  const setup = createSetupRunner({ orch, providers, host: 'h', load: () => structuredClone(state), save: s => Object.assign(state, s) });
+  await setup.work('run_k');
+  expect(state.run_k.status).toBe('done');
+  expect(git(o.bare, 'show', 'develop:.claude/skills/jpa-safety/SKILL.md')).toContain('jpa-safety');
+  expect(fs.existsSync(path.join(o.tmp, 'evil'))).toBe(false);
+});

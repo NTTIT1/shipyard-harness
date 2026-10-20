@@ -31,7 +31,11 @@ export function providerFor(repoUrl, providers) {
   return 'host';
 }
 
-export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACES_ROOT, now = Date.now } = {}) {
+/**
+ * `skillCatalog`: Shipyard's suggested skills ({ id, label, desc, roles, content }). Choosing one the repo
+ * lacks adds `.claude/skills/<id>/SKILL.md` when the change is approved.
+ */
+export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACES_ROOT, now = Date.now, skillCatalog = [] } = {}) {
   const synced = new Map();
   const busy = new Set();
 
@@ -117,6 +121,7 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
       projectId: project.id, dir: ctx.dir, branch: ctx.branch, provider: ctx.provider,
       adopted: teamText != null, team, teamError, rules: teamText != null ? rulesOf(ctx) : {},
       skills: skillsOf(ctx), human: humanOf(ctx), setup: setupView(e), open: isOpen(e),
+      skillCatalog: skillCatalog.map(({ id, label, desc, roles }) => ({ id, label, desc, roles: roles || [] })),
     };
   }
 
@@ -158,12 +163,23 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
       if (!docs['project.md']?.trim()) throw fail(400, 'Phải giữ rules/project.md (luật chung)');
       const teamText = team === undefined ? show(ctx, 'team.json') : JSON.stringify(team, null, 2) + '\n';
       try { validateTeam(teamText); } catch (e) { throw fail(400, e.message); }
+      const inRepo = new Set(skillsOf(ctx));
+      const skillFiles = {};
       for (const [role, cfg] of Object.entries(JSON.parse(teamText).roles)) {
         for (const p of cfg?.reads || []) if (!docs[p.slice('rules/'.length)]) throw fail(400, `${role} đọc ${p} nhưng file này không còn`);
-        for (const s of cfg?.skills || []) if (!SKILL.test(s)) throw fail(400, `${role}: tên skill không hợp lệ "${s}"`);
+        for (const s of cfg?.skills || []) {
+          if (!SKILL.test(s)) throw fail(400, `${role}: tên skill không hợp lệ "${s}"`);
+          if (inRepo.has(s)) continue;
+          const c = skillCatalog.find(x => x.id === s);
+          if (!c) throw fail(400, `${role}: skill "${s}" không có trong repo lẫn danh mục gợi ý`);
+          skillFiles[`.claude/skills/${c.id}/SKILL.md`] = `---\nname: ${c.id}\ndescription: ${c.desc}\n---\n\n${c.content}\n`;
+        }
       }
+      const added = Object.keys(skillFiles).map(f => f.split('/')[2]);
+      const base = clip(note) || `Thay đổi luật do ${user.email || user.id} sửa trực tiếp`;
       return { runId: await startRun(project, ctx, user, {
-        documents: { ...docs, 'team.json': teamText }, note: clip(note) || `Thay đổi luật do ${user.email || user.id} sửa trực tiếp`,
+        documents: { ...docs, 'team.json': teamText }, skillFiles: added.length ? skillFiles : null,
+        note: added.length ? `${base}\nThêm skill từ danh mục Shipyard: ${added.join(', ')}` : base,
         title: `Sửa luật đội AI — ${project.name}`,
       }) };
     }),

@@ -6,6 +6,18 @@ import { teamApi, roleKeys, ruleColumns, toggleRole, forgetRule, ruleChanges, sa
 import { SETUP_STATUS } from '../lib/scaffold.js';
 import '../styles/team.css';
 
+/** Chips for one role: skills the repo has, Shipyard's suggestions for this role, and whatever is already chosen. */
+function skillChoices(s, team, role) {
+  const out = new Map();
+  for (const id of s.skills || []) out.set(id, { id, label: id });
+  for (const c of s.skillCatalog || []) if (!out.has(c.id) && (c.roles || []).includes(role)) out.set(c.id, { ...c, suggested: true });
+  for (const id of team.roles[role]?.skills || []) if (!out.has(id)) {
+    const c = (s.skillCatalog || []).find(x => x.id === id);
+    out.set(id, c ? { ...c, suggested: true } : { id, label: id });
+  }
+  return [...out.values()];
+}
+
 const OPEN_TONE = { queued: 'neutral', drafting: 'accent', 'awaiting-review': 'warn', publishing: 'accent', error: 'danger', done: 'ok', cancelled: 'neutral' };
 
 /** Per-project AI team: who reads which rules, the rules themselves, material for the AI Manager. */
@@ -138,12 +150,13 @@ export default function TeamPanel({ pid, onOpenRun }) {
                           );
                         })}
                         <td className="tm-skills">
-                          {s.skills.length === 0 && (team.roles[role]?.skills || []).length === 0 && <span className="faint">—</span>}
-                          {[...new Set([...s.skills, ...(team.roles[role]?.skills || [])])].map(sk => {
-                            const on = (team.roles[role]?.skills || []).includes(sk);
+                          {skillChoices(s, team, role).length === 0 && <span className="faint">—</span>}
+                          {skillChoices(s, team, role).map(sk => {
+                            const on = (team.roles[role]?.skills || []).includes(sk.id);
                             return (
-                              <button key={sk} type="button" className={`tm-chip${on ? ' on' : ''}`} aria-pressed={on} disabled={locked}
-                                onClick={() => setTeam(t => toggleRole(t, role, 'skills', sk))}>{sk}</button>
+                              <button key={sk.id} type="button" className={`tm-chip${on ? ' on' : ''}${sk.suggested ? ' sug' : ''}`} aria-pressed={on} disabled={locked}
+                                title={sk.suggested ? `${sk.label} — ${sk.desc} (gợi ý của Shipyard; được thêm vào repo khi duyệt)` : sk.desc || sk.id}
+                                onClick={() => setTeam(t => toggleRole(t, role, 'skills', sk.id))}>{sk.label}</button>
                             );
                           })}
                         </td>
@@ -152,7 +165,7 @@ export default function TeamPanel({ pid, onOpenRun }) {
                   </tbody>
                 </table>
               </div>
-              {s.skills.length === 0 && <p className="faint tm-pad">Repo chưa có skill nào trong <code>.claude/skills/</code>.</p>}
+              <p className="faint tm-pad">Skill viền nét đứt là gợi ý của Shipyard: chọn rồi gửi duyệt thì được thêm vào <code>.claude/skills/</code> của repo.</p>
             </section>
           )}
 
