@@ -168,13 +168,13 @@ export default function LaneAiPanel({ lane, onUpdated }) {
       {msg.err && (
         <div className="alert-banner err" role="alert">
           <AlertCircle size={16} />
-          <div className="alert-banner-content m-err" style={{ margin: 0 }}>{msg.err}</div>
+          <div className="alert-banner-content m-err u-m0">{msg.err}</div>
         </div>
       )}
       {msg.ok && (
         <div className="alert-banner ok" role="status">
           <CheckCircle2 size={16} />
-          <div className="alert-banner-content rv-sub" style={{ margin: 0, color: 'var(--ok)' }}>{msg.ok}</div>
+          <div className="alert-banner-content rv-sub u-m0 ic-ok">{msg.ok}</div>
         </div>
       )}
 
@@ -182,13 +182,13 @@ export default function LaneAiPanel({ lane, onUpdated }) {
       <div className="stats-grid">
         <div className="stat-card">
           <div className={`stat-icon ${pctTone(lu.quotaPct)}`}><Gauge size={18} /></div>
-          <div className="stat-info" style={{ width: '100%' }}>
+          <div className="stat-info u-w100">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
               <span className="stat-val">{lu.quotaPct}%</span>
               <Badge tone={pctTone(lu.quotaPct)}>Hạn mức Lane {n}</Badge>
             </div>
             <QuotaBar pct={lu.quotaPct} tone={pctTone(lu.quotaPct)} />
-            <span className="stat-label" style={{ marginTop: 4 }}>
+            <span className="stat-label u-mt4">
               {fmtUsd(lu.usd)} / {fmtUsd(lu.limitUsd)} ({lu.usdPct}%) · {fmtTokens(sumTokens(lu.tokens))} / {fmtTokens(lu.limitTokens)} token ({lu.tokenPct}%)
             </span>
           </div>
@@ -216,13 +216,13 @@ export default function LaneAiPanel({ lane, onUpdated }) {
 
         <div className="stat-card">
           <div className={`stat-icon ${pctTone(Math.max(q5h, q7d))}`}><Sparkles size={18} /></div>
-          <div className="stat-info" style={{ width: '100%' }}>
+          <div className="stat-info u-w100">
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 600 }}>
               <span>5 giờ: {Math.round(q5h)}%</span>
               <span>7 ngày: {Math.round(q7d)}%</span>
             </div>
             <QuotaBar pct={Math.max(q5h, q7d)} tone={pctTone(Math.max(q5h, q7d))} />
-            <span className="stat-label" style={{ marginTop: 4 }}>% Hạn mức phiên Claude toàn cục</span>
+            <span className="stat-label u-mt4">% Hạn mức phiên Claude toàn cục</span>
           </div>
         </div>
       </div>
@@ -231,7 +231,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
       <div className="card-panel">
         <div className="card-header">
           <div className="card-header-title">
-            <Gauge size={16} style={{ color: 'var(--accent)' }} />
+            <Gauge size={16} className="ic-accent" />
             <span>Hạn mức sử dụng riêng của Lane {n} (Tháng {usage.month})</span>
           </div>
         </div>
@@ -264,8 +264,8 @@ export default function LaneAiPanel({ lane, onUpdated }) {
 
           {/* Per-Model usage on this lane */}
           {usage.byModel && usage.byModel.length > 0 && (
-            <div style={{ marginTop: 14 }}>
-              <div className="form-label" style={{ marginBottom: 6 }}>Mức sử dụng theo từng Model trên Lane {n}:</div>
+            <div className="u-mt14">
+              <div className="form-label u-mb6">Mức sử dụng theo từng Model trên Lane {n}:</div>
               <div className="modern-table-wrap">
                 <table className="grid modern-table">
                   <thead>
@@ -289,9 +289,9 @@ export default function LaneAiPanel({ lane, onUpdated }) {
                         <td className="num">{fmtUsd(m.usd)}</td>
                         <td><Badge tone="accent">{m.sharePct}%</Badge></td>
                         <td style={{ minWidth: 140 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div className="row-6">
                             <Badge tone={pctTone(m.quotaPct)}>{m.quotaPct}%</Badge>
-                            <div style={{ flex: 1 }}><QuotaBar pct={m.quotaPct} tone={pctTone(m.quotaPct)} /></div>
+                            <div className="u-flex1"><QuotaBar pct={m.quotaPct} tone={pctTone(m.quotaPct)} /></div>
                           </div>
                         </td>
                       </tr>
@@ -308,14 +308,14 @@ export default function LaneAiPanel({ lane, onUpdated }) {
       <div className="card-panel">
         <div className="card-header">
           <div className="card-header-title">
-            <Cpu size={17} style={{ color: 'var(--accent)' }} />
+            <Cpu size={17} className="ic-accent" />
             <span>Cấu hình Model AI & Effort — Lane {n}</span>
             <Badge tone={hasCustomLane ? 'accent' : 'neutral'}>
               {hasCustomLane ? `Đang dùng cấu hình riêng Lane ${n}` : 'Đang kế thừa mặc định chung'}
             </Badge>
           </div>
         </div>
-        <div className="card-body" style={{ display: 'grid', gap: 14 }}>
+        <div className="card-body stack-14">
           <Tabs
             value={mode}
             onChange={setMode}
@@ -326,12 +326,12 @@ export default function LaneAiPanel({ lane, onUpdated }) {
           />
 
           {mode === 'lane-default' && laneDef && (
-            <div style={{ display: 'grid', gap: 12 }}>
-              <p className="rv-sub" style={{ margin: 0 }}>
+            <div className="stack-12">
+              <p className="rv-sub u-m0">
                 Thiết lập bộ Model AI & mức Effort riêng cho <b>Lane {n}</b>. Mỗi bước (PM, BA, Kiến trúc, Thiết kế, Code, Kiểm thử…) trên Lane {n} có thể chạy một model khác hẳn các lane khác.
               </p>
               <StepModels info={info} value={laneDef} onChange={setLaneDef} />
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+              <div className="row-wrap-8 u-mt4">
                 <Button variant="primary" icon={Save} disabled={busy} onClick={saveLaneDefault}>
                   Lưu cấu hình riêng cho Lane {n}
                 </Button>
@@ -345,9 +345,9 @@ export default function LaneAiPanel({ lane, onUpdated }) {
           )}
 
           {mode === 'feature' && featModels && (
-            <div style={{ display: 'grid', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <Layers size={16} style={{ color: 'var(--accent)' }} />
+            <div className="stack-12">
+              <div className="row-10">
+                <Layers size={16} className="ic-accent" />
                 <span style={{ fontSize: 13, fontWeight: 600 }}>Chọn tính năng cần cấu hình model:</span>
                 <select
                   className="role-select-box"
@@ -360,11 +360,11 @@ export default function LaneAiPanel({ lane, onUpdated }) {
                   ))}
                 </select>
               </div>
-              <p className="rv-sub" style={{ margin: 0 }}>
+              <p className="rv-sub u-m0">
                 Cấu hình model bên dưới chỉ áp dụng riêng cho tính năng đã chọn (ưu tiên cao hơn cấu hình của Lane {n} và mặc định chung).
               </p>
               <StepModels info={info} value={featModels} onChange={setFeatModels} />
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+              <div className="row-wrap-8 u-mt4">
                 <Button variant="primary" icon={Save} disabled={busy} onClick={() => saveForFeature(false)}>
                   Lưu model cho tính năng này
                 </Button>

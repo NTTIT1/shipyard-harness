@@ -1,8 +1,8 @@
-import { STEPS } from './review.js';
+import { runSteps } from './review.js';
 
 /** One row per pipeline step: the approved revision (else the latest), how many revisions, step status. */
 export function finalRevisions(view) {
-  return STEPS.map(step => {
+  return runSteps(view.steps).map(step => {
     const revs = (view.revisions || []).filter(r => r.step === step);
     const approved = [...revs].reverse().find(r => r.approvalStatus === 'APPROVED');
     return {

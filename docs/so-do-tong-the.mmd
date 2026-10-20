@@ -1,0 +1,112 @@
+%% Shipyard — sơ đồ tổng thể (một trang). Nguồn của docs/so-do-tong-the.svg / .png
+%% Đọc theo số ①→⑪: luồng một tính năng từ lúc giao việc đến khi chạy trên môi trường dev.
+flowchart TB
+  subgraph U["NGƯỜI DÙNG"]
+    direction LR
+    U2["Owner · SYS_ADMIN<br/><i>giao việc · dự án · tạo từ khung</i>"]
+    U1["PM · BA · Tech Lead · Designer · Dev · Tester<br/><i>duyệt từng bước</i>"]
+    U3["Người merge PR<br/><i>chỉ con người</i>"]
+  end
+
+  subgraph D["DASHBOARD  :8090  (Express BFF + React SPA)"]
+    direction LR
+    D1["Giao diện<br/>Bảng điều khiển · Chờ duyệt · Dự án<br/>Đội AI · Tài liệu · Chi phí · Chat lane"]
+    D2["BFF<br/>cookie JWT · proxy /api/platform<br/>đánh thức lane sau khi duyệt"]
+    D3["Phiên AI theo lane<br/>Agent SDK · SSE"]
+    D4["Wizard tạo dự án · Đội AI<br/>sinh khung · tạo repo · AI Manager"]
+  end
+
+  subgraph P["SHIPYARD PLATFORM  (Spring Boot, chỉ 127.0.0.1)"]
+    direction LR
+    P0["api-gateway :9080<br/>JWT → X-User-*"]
+    P1["auth :9081<br/>người dùng · JWT"]
+    P2["project :9082<br/>dự án · vai trò"]
+    P3["orchestrator :9084<br/>PM→BA→ARCH→DESIGN→DEV→TEST<br/>cổng duyệt · outbox"]
+    P4["context :9085<br/>bộ nhớ dự án · RAG"]
+    P5["lane :9083<br/><i>chưa dùng</i>"]
+  end
+
+  subgraph H["HARNESS  (bin/ · state/ · profiles/)"]
+    direction LR
+    H1["Điều khiển lane<br/>lane-up/down · state.sh<br/>khoá · CI gate · e2e"]
+    H2["orch.py<br/>cầu nối platform"]
+    H3["run-step.sh<br/>mỗi bước = 1 claude -p<br/>+ luật đội AI"]
+    L1["Lane 1…9<br/>clone repo app<br/>API :800N · FE :300N"]
+  end
+
+  subgraph S["DỮ LIỆU"]
+    direction LR
+    S1[("PostgreSQL + pgvector :5434<br/>5 database platform")]
+    S2[("Redis :6380")]
+    S3["Ollama :11434<br/>embedding"]
+    H4[("Postgres :5433 · Redis :6379<br/>DB riêng từng lane")]
+  end
+
+  subgraph A["AI AGENTS"]
+    direction LR
+    A1["Vai trò<br/>pm · ba · architect<br/>designer · tester · dev"]
+    A2["Kiểm soát<br/>qc-local · senior-gate<br/>dev-qc · ticketer"]
+    A3["manager-agent<br/>soạn luật dự án"]
+    H5["LiteLLM :4000<br/>model ngoài Claude"]
+  end
+
+  subgraph X["BÊN NGOÀI"]
+    direction LR
+    X1["GitHub / GitLab<br/>repo · PR"]
+    X2["CI"]
+    X3["Tracker"]
+    X4["Môi trường dev"]
+  end
+
+  %% hạ tầng
+  U1 & U2 --> D1
+  D1 <--> D2
+  D2 -->|"/api/v1 + JWT"| P0
+  P0 --> P1 & P2 & P3 & P4
+  P0 -.-> P5
+  P3 -->|outbox| P4
+  P1 & P2 & P3 & P4 --> S1
+  P2 --> S2
+  P4 --> S3
+  H1 --> L1
+  L1 --> H4
+  H3 -.-> H5
+
+  %% luồng một tính năng
+  U2 -->|"① giao việc"| D3
+  D3 -->|"② /ship-feature"| H1
+  H2 -->|"③ tạo run · /next · nộp"| P3
+  H3 -->|"④ agent làm bước"| A1
+  P3 -->|"⑤ chờ duyệt"| D1
+  U1 -.->|"⑥ duyệt · góp ý · sửa"| D1
+  D2 -->|"⑦ đánh thức"| D3
+  L1 -->|"⑧ code · CI · e2e · QC"| A2
+  A2 -->|"⑨ GO → PR"| X1
+  X1 --> X2
+  A2 --> X3
+  U3 -->|"⑩ merge"| X1
+  X1 --> X4
+  A2 -->|"⑪ QC dev → xong"| X4
+
+  %% tạo dự án & đội AI
+  D4 -->|"repo mới"| X1
+  D4 -->|"run SETUP"| P3
+  D4 --> A3
+  A3 -->|"luật đã duyệt"| X1
+
+  classDef human fill:#fff4e5,stroke:#d97706,color:#3b2405
+  classDef dash fill:#e8f0ff,stroke:#2563eb,color:#0b1d4d
+  classDef plat fill:#eafaf1,stroke:#059669,color:#06301f
+  classDef data fill:#f3f4f6,stroke:#6b7280,color:#111827
+  classDef harn fill:#f5ecff,stroke:#7c3aed,color:#2a0f57
+  classDef ai fill:#fdeef3,stroke:#db2777,color:#4a0a24
+  classDef ext fill:#ffffff,stroke:#334155,color:#0f172a
+  classDef unused fill:#fafafa,stroke:#9ca3af,color:#6b7280,stroke-dasharray:4 3
+  class U1,U2,U3 human
+  class D1,D2,D3,D4 dash
+  class P0,P1,P2,P3,P4 plat
+  class P5 unused
+  class S1,S2,S3,H4 data
+  class H1,H2,H3,L1 harn
+  class A1,A2,A3,H5 ai
+  class X1,X2,X3,X4 ext

@@ -1,68 +1,30 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2, Circle, Loader2, Rocket, RotateCcw, Trash2, XCircle, StopCircle, AlertTriangle } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ArrowLeft, ArrowRight, Rocket, RotateCcw,
+  Trash2, StopCircle, Terminal, GitBranch, Database
+} from 'lucide-react';
 import Modal from './Modal.jsx';
 import Badge from './ui/Badge.jsx';
-import { scaffold, slugify, findStack, defaultOptions, wizardSteps, stepProblem, summary } from '../lib/scaffold.js';
+import { Choice, JobView, GitStep, RoleSkillsConfigurator } from './projects/WizardSteps.jsx';
+import {
+  scaffold, slugify, findStack, defaultOptions, defaultRoleSkills,
+  wizardSteps, stepProblem, summary, PROVIDER_LABEL
+} from '../lib/scaffold.js';
 import '../styles/wizard.css';
 
 const JOB_KEY = 'shipyard.scaffoldJob';
 const remember = id => { try { id ? sessionStorage.setItem(JOB_KEY, id) : sessionStorage.removeItem(JOB_KEY); } catch { /* storage off */ } };
 const recall = () => { try { return sessionStorage.getItem(JOB_KEY); } catch { return null; } };
 
-function Choice({ name, value, current, onPick, title, desc, disabled, children }) {
-  return (
-    <label className={`wz-choice${current === value ? ' on' : ''}${disabled ? ' off' : ''}`}>
-      <input type="radio" name={name} value={value} checked={current === value} disabled={disabled} onChange={() => onPick(value)} />
-      <span className="wz-choice-title">{title}</span>
-      {desc && <span className="wz-choice-desc">{desc}</span>}
-      {children}
-    </label>
-  );
-}
-
-const STAGE_ICON = {
-  pending: <Circle size={16} className="faint" aria-hidden="true" />,
-  running: <Loader2 size={16} className="wz-spin" aria-hidden="true" />,
-  done: <CheckCircle2 size={16} className="wz-ok" aria-hidden="true" />,
-  failed: <XCircle size={16} className="wz-bad" aria-hidden="true" />,
-};
-const STAGE_STATE = { pending: 'chưa chạy', running: 'đang chạy', done: 'xong', failed: 'lỗi' };
-
-function JobView({ job, stages }) {
-  const logRef = useRef(null);
-  useEffect(() => { const el = logRef.current; if (el) el.scrollTop = el.scrollHeight; }, [job.log.length]);
-  return (
-    <div className="wz-job">
-      <ol className="wz-stages">
-        {stages.map(s => (
-          <li key={s.id} className={`wz-stage ${job.stages[s.id]}`}>
-            {STAGE_ICON[job.stages[s.id]]}
-            <span>{s.label}</span>
-            <span className="sr-only">: {STAGE_STATE[job.stages[s.id]]}</span>
-          </li>
-        ))}
-      </ol>
-      {job.status === 'done' && (
-        <p className="wz-done" role="status">
-          <CheckCircle2 size={16} aria-hidden="true" /> Đã tạo dự án <b>{job.name}</b> tại <code>{job.dir}</code>
-        </p>
-      )}
-      {job.error && (
-        <div className="wz-err" role="alert">
-          <AlertTriangle size={16} aria-hidden="true" />
-          <div><b>{job.status === 'cancelled' ? 'Đã huỷ' : 'Lỗi'}:</b> {job.error}</div>
-        </div>
-      )}
-      <pre ref={logRef} className="wz-log" aria-label="Nhật ký" tabIndex={0}>{job.log.join('\n')}</pre>
-    </div>
-  );
-}
-
 export default function NewProjectWizard({ onClose, onCreated }) {
   const [catalog, setCatalog] = useState(null);
   const [err, setErr] = useState('');
   const [step, setStep] = useState(0);
-  const [form, setForm] = useState({ name: '', slug: '', slugTouched: false, description: '', language: '', stack: '', options: {} });
+  const [form, setForm] = useState({
+    name: '', slug: '', slugTouched: false, description: '', language: '', stack: '', options: {},
+    git: { provider: 'local', owner: '', ownerLabel: '', visibility: 'private' },
+    aiTeam: true, brief: '', roleSkills: defaultRoleSkills(null, 'java-spring'),
+  });
   const [job, setJob] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -72,7 +34,6 @@ export default function NewProjectWizard({ onClose, onCreated }) {
     if (id) scaffold.job(id).then(setJob, () => remember(null));
   }, []);
 
-  // Poll while the job runs (polling also hands the server a fresh session token for registration).
   useEffect(() => {
     if (job?.status !== 'running') return undefined;
     const t = setTimeout(() => scaffold.job(job.id).then(setJob, e => setErr(e.message)), 1500);
@@ -91,7 +52,12 @@ export default function NewProjectWizard({ onClose, onCreated }) {
   const create = useCallback(async () => {
     setBusy(true); setErr('');
     try {
-      const j = await scaffold.start({ name: form.name.trim(), slug: form.slug, description: form.description.trim(), stack: form.stack, options: form.options });
+      const j = await scaffold.start({
+        name: form.name.trim(), slug: form.slug, description: form.description.trim(), stack: form.stack,
+        options: form.options, git: { provider: form.git.provider, owner: form.git.owner, visibility: form.git.visibility },
+        aiTeam: form.aiTeam, brief: form.aiTeam ? form.brief : '',
+        roleSkills: form.roleSkills,
+      });
       remember(j.id);
       setJob({ ...j, log: j.log || [] });
     } catch (e) { setErr(e.message); }
@@ -108,8 +74,8 @@ export default function NewProjectWizard({ onClose, onCreated }) {
   if (job) {
     buttons = [];
     if (job.status === 'running') buttons.push({ label: 'Huỷ', icon: StopCircle, cls: 'warn', disabled: busy, fn: act(async () => setJob(await scaffold.cancel(job.id))) });
-    if (job.status === 'failed' && job.stage === 'register') {
-      buttons.push({ label: 'Thử lại đăng ký', icon: RotateCcw, cls: 'add', disabled: busy, fn: act(async () => setJob(await scaffold.retryRegister(job.id))) });
+    if (job.retryable) {
+      buttons.push({ label: 'Thử lại', icon: RotateCcw, cls: 'add', disabled: busy, fn: act(async () => setJob(await scaffold.retry(job.id))) });
     } else if (job.status === 'failed' || job.status === 'cancelled') {
       buttons.push({ label: 'Xoá thư mục & sửa lựa chọn', icon: Trash2, cls: 'warn', disabled: busy,
         fn: act(async () => { await scaffold.discard(job.id); remember(null); setJob(null); setStep(steps.length - 1); }) });
@@ -129,13 +95,18 @@ export default function NewProjectWizard({ onClose, onCreated }) {
     <Modal title={job ? `Đang tạo ${job.name}` : 'Tạo dự án mới từ khung'} wide onClose={onClose} buttons={buttons}>
       {err && <p className="m-err" role="alert">{err}</p>}
       {!catalog && !err && <p className="muted-empty">Đang tải danh mục…</p>}
-      {job && catalog && <JobView job={job} stages={catalog.stages} />}
+      {job && catalog && <JobView job={job} stages={job.stageList || catalog.stages} />}
       {!job && catalog && (
         <div className="wz">
           <ol className="wz-steps" aria-label="Các bước">
             {steps.map((s, i) => (
-              <li key={s.id} className={i === step ? 'on' : i < step ? 'past' : ''} aria-current={i === step ? 'step' : undefined}>
-                <span className="wz-num">{i + 1}</span><span className="wz-step-label">{s.label}</span>
+              <li
+                key={s.id}
+                className={i === step ? 'on' : i < step ? 'past' : ''}
+                aria-current={i === step ? 'step' : undefined}
+                onClick={() => { if (i < step) setStep(i); }}
+                style={{ cursor: i < step ? 'pointer' : 'default' }}>
+                <span className="wz-num">{i < step ? '✓' : i + 1}</span><span className="wz-step-label">{s.label}</span>
               </li>
             ))}
           </ol>
@@ -166,6 +137,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                 <legend className="form-label">Chọn ngôn ngữ</legend>
                 {catalog.languages.map(l => (
                   <Choice key={l.id} name="language" value={l.id} current={form.language} title={l.label}
+                    badge={`${l.stacks.length} framework`}
                     desc={l.stacks.map(s => s.label).join(' · ')}
                     onPick={v => set({ language: v, ...(v !== form.language ? { stack: '', options: {} } : {}) })} />
                 ))}
@@ -177,7 +149,15 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                 <legend className="form-label">Framework cho {lang.label}</legend>
                 {lang.stacks.map(s => (
                   <Choice key={s.id} name="stack" value={s.id} current={form.stack} title={s.label} desc={s.description}
-                    disabled={!s.available} onPick={v => set({ stack: v, options: defaultOptions(findStack(catalog, v)) })}>
+                    badge={s.available ? 'Sẵn sàng' : 'Thiếu công cụ'}
+                    disabled={!s.available} onPick={v => {
+                      const picked = findStack(catalog, v);
+                      set({
+                        stack: v,
+                        options: defaultOptions(picked),
+                        roleSkills: defaultRoleSkills(catalog, v),
+                      });
+                    }}>
                     {!s.available && (
                       <span className="wz-missing">
                         <Badge tone="warn">thiếu {s.missing.map(m => m.tool).join(', ')}</Badge>
@@ -193,7 +173,9 @@ export default function NewProjectWizard({ onClose, onCreated }) {
               <fieldset className="wz-grid">
                 <legend className="form-label">Database</legend>
                 {stack.options.find(o => o.id === 'db').choices.map(c => (
-                  <Choice key={c.id} name="db" value={c.id} current={form.options.db} title={c.label} onPick={v => setOpt('db', v)} />
+                  <Choice key={c.id} name="db" value={c.id} current={form.options.db} title={c.label}
+                    desc={c.id === 'none' ? 'Không cấu hình Database ban đầu' : `Tự cấu hình kết nối, driver & Docker Compose cho ${c.label}`}
+                    onPick={v => setOpt('db', v)} />
                 ))}
               </fieldset>
             )}
@@ -224,20 +206,50 @@ export default function NewProjectWizard({ onClose, onCreated }) {
             )}
 
             {cur === 'git' && (
-              <fieldset className="wz-grid">
-                <legend className="form-label">Nơi lưu repo</legend>
-                <Choice name="git" value="local" current="local" title="Chỉ trên máy" desc="git init, commit đầu tiên, nhánh main + development" onPick={() => {}} />
-                <Choice name="git" value="github" current="local" title="GitHub" desc="Sắp có (giai đoạn 2)" disabled onPick={() => {}} />
-                <Choice name="git" value="gitlab" current="local" title="GitLab" desc="Sắp có (giai đoạn 2)" disabled onPick={() => {}} />
-              </fieldset>
+              <GitStep git={form.git} slug={form.slug} providers={catalog.providers}
+                onChange={g => set({ git: { ...form.git, ...g } })}
+                onProviders={p => setCatalog(c => ({ ...c, providers: p }))} />
+            )}
+
+            {cur === 'team' && (
+              <div className="wz-fields wz-git">
+                <RoleSkillsConfigurator
+                  catalog={catalog}
+                  stackId={form.stack || 'java-spring'}
+                  roleSkills={form.roleSkills}
+                  onChange={rs => set({ roleSkills: rs })}
+                />
+
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <label className="wz-check">
+                    <input type="checkbox" checked={form.aiTeam} onChange={e => set({ aiTeam: e.target.checked })} />
+                    <span>Giao <b>AI Manager</b> soạn thêm bộ luật chi tiết từ tài liệu dự án ngay sau khi tạo (bạn duyệt trước khi dùng)</span>
+                  </label>
+                  {form.aiTeam && (
+                    <div className="form-field">
+                      <label className="form-label" htmlFor="wz-brief">Tài liệu tổng quan cho AI Manager (không bắt buộc)</label>
+                      <textarea id="wz-brief" rows={4} maxLength={20000} value={form.brief} onChange={e => set({ brief: e.target.value })}
+                        placeholder={'Ví dụ: nghiệp vụ chính, chuẩn code của công ty, quy tắc đặt tên bảng, cách đặt tên nhánh, thư viện bắt buộc…'} />
+                      <span className="faint">Lưu vào <code>.shipyard/human/brief.md</code>. AI Manager đọc như tài liệu tham khảo để soạn luật; {form.brief.length.toLocaleString('vi-VN')}/20.000 ký tự.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {cur === 'review' && stack && (
-              <div>
+              <div className="wz-review-box">
+                <div className="wz-review-pills">
+                  <span className="wz-pill"><Terminal size={12} /> {stack.languageLabel} · {stack.label}</span>
+                  {form.options.db && form.options.db !== 'none' && (
+                    <span className="wz-pill"><Database size={12} /> {form.options.db}</span>
+                  )}
+                  <span className="wz-pill"><GitBranch size={12} /> {PROVIDER_LABEL[form.git.provider]}</span>
+                </div>
                 <table className="wz-summary">
-                  <tbody>{summary(form, stack).map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody>
+                  <tbody>{summary(form, stack, catalog).map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody>
                 </table>
-                <p className="faint">Shipyard sẽ sinh khung, build và chạy test. Chỉ khi build qua mới commit và tạo dự án. Có thể mất vài phút.</p>
+                <p className="faint">Shipyard sẽ sinh khung dự án tại <code>{catalog.root}/{form.slug}</code>, nạp các Skill AI vào <code>.shipyard/</code> & <code>.claude/skills/</code>, chạy thử lệnh build + test, khởi tạo kho Git và đăng ký dự án tự động.</p>
               </div>
             )}
           </div>

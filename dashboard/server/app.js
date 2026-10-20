@@ -9,6 +9,8 @@ import authRoutes from './routes/auth.js';
 import { platformRouter } from './routes/platform.js';
 import { costsRouter } from './routes/costs.js';
 import { scaffoldRouter } from './routes/scaffold.js';
+import { teamRouter } from './routes/team.js';
+import { SKILL_CATALOG } from './services/scaffold/team.js';
 import { requireAuth } from './services/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,6 +33,7 @@ export function createApp(authOpts) {
   app.use(platformRouter());
   app.use(costsRouter());
   app.use(scaffoldRouter());
+  app.use(teamRouter({ skillCatalog: SKILL_CATALOG }));
   // agentui first: its POST /api/lane/:n/assign would otherwise hit lanes' /:action.
   app.use(agentuiRoutes);
   app.use(lanesRoutes);

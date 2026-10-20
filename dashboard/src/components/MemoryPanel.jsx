@@ -22,10 +22,15 @@ const KIND_TONE = {
   FEATURE_SUMMARY: 'neutral'
 };
 
+/** More than the 5 lines shown collapsed. */
+const isLong = text => (text || '').length > 400 || (text || '').split('\n').length > 5;
+
 export default function MemoryPanel({ projectId, canManage }) {
   const [q, setQ] = useState('');
   const [kind, setKind] = useState('');
   const [items, setItems] = useState([]);
+  const [open, setOpen] = useState(() => new Set());
+  const toggleOpen = id => setOpen(o => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const [err, setErr] = useState('');
 
   const load = useCallback(async () => {
@@ -98,12 +103,11 @@ export default function MemoryPanel({ projectId, canManage }) {
       )}
 
       {items.length > 0 && (
-        <div style={{ display: 'grid', gap: 10 }}>
+        <div className="mem-list card-panel">
           {items.map(it => (
             <div
               key={it.id}
-              className={`mem-item card-panel${it.disabled ? ' off' : ''}`}
-              style={{ padding: '14px 16px', opacity: it.disabled ? 0.55 : 1 }}>
+              className={`mem-item${it.disabled ? ' off' : ''}${open.has(it.id) ? ' open' : ''}`}>
               <div className="rv-head" style={{ marginBottom: 6, alignItems: 'center' }}>
                 <strong style={{ fontSize: 14, color: 'var(--text)' }}>{it.title}</strong>
                 <span className="rv-btns" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -121,9 +125,13 @@ export default function MemoryPanel({ projectId, canManage }) {
                   )}
                 </span>
               </div>
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, whiteSpace: 'pre-wrap', maxHeight: '7.5em', overflow: 'hidden' }}>
-                {it.content}
-              </p>
+              <p className="mem-text" id={`mem-${it.id}`}>{it.content}</p>
+              {isLong(it.content) && (
+                <button type="button" className="linklike mem-toggle" aria-expanded={open.has(it.id)} aria-controls={`mem-${it.id}`}
+                  onClick={() => toggleOpen(it.id)}>
+                  {open.has(it.id) ? 'Thu gọn' : 'Xem toàn bộ'}
+                </button>
+              )}
             </div>
           ))}
         </div>

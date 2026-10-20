@@ -8,32 +8,9 @@ import Badge from './ui/Badge.jsx';
 import Modal from './Modal.jsx';
 import { platform } from '../lib/platform.js';
 import { validateNewUser, validatePassword, userState, isAdmin } from '../lib/users.js';
+import { avatarColor, initials } from '../lib/avatar.js';
 
 const EMPTY = { email: '', fullName: '', password: '', systemRole: 'USER' };
-
-const AVATAR_COLORS = [
-  '#2563eb', '#059669', '#7c3aed', '#d97706', '#db2777', '#0891b2', '#4f46e5'
-];
-
-function getAvatarColor(str = '') {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  const idx = Math.abs(hash) % AVATAR_COLORS.length;
-  return AVATAR_COLORS[idx];
-}
-
-function getInitials(name = '', email = '') {
-  const clean = name.trim();
-  if (clean) {
-    const parts = clean.split(/\s+/);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-    }
-    return clean.slice(0, 2).toUpperCase();
-  }
-  if (email) return email.slice(0, 2).toUpperCase();
-  return 'U';
-}
 
 function ResetPassword({ target, onClose, onDone }) {
   const [pw, setPw] = useState('');
@@ -54,12 +31,12 @@ function ResetPassword({ target, onClose, onDone }) {
     <Modal title={`Đặt lại mật khẩu — ${target.email}`} onClose={onClose}
       buttons={[{ label: 'Huỷ', fn: onClose }, { label: 'Đặt lại', cls: 'add', fn: save }]}>
       <div className="pj-form" style={{ border: 'none', padding: 0 }}>
-        <div className="form-field" style={{ marginBottom: 10 }}>
+        <div className="form-field u-mb10">
           <label className="form-label">Mật khẩu mới</label>
           <input type="password" autoComplete="new-password" aria-label="Mật khẩu mới"
             placeholder="Mật khẩu mới (≥ 8 ký tự)" value={pw} onChange={e => setPw(e.target.value)} />
         </div>
-        <div className="form-field" style={{ marginBottom: 10 }}>
+        <div className="form-field u-mb10">
           <label className="form-label">Nhập lại mật khẩu</label>
           <input type="password" autoComplete="new-password" aria-label="Nhập lại mật khẩu"
             placeholder="Nhập lại" value={pw2} onChange={e => setPw2(e.target.value)} />
@@ -70,9 +47,9 @@ function ResetPassword({ target, onClose, onDone }) {
             <div className="alert-banner-content">{err}</div>
           </div>
         )}
-        <div className="alert-banner info" style={{ marginTop: 8 }}>
+        <div className="alert-banner info u-mt8">
           <Info size={16} />
-          <div className="alert-banner-content rv-sub" style={{ margin: 0 }}>
+          <div className="alert-banner-content rv-sub u-m0">
             Người dùng sẽ bị đăng xuất khỏi các thiết bị khác và được mở khoá nếu đang bị tạm khoá.
           </div>
         </div>
@@ -101,7 +78,7 @@ function MyPassword({ onLogout }) {
     <div className="card-panel">
       <div className="card-header">
         <div className="card-header-title">
-          <KeyRound size={17} style={{ color: 'var(--accent)' }} />
+          <KeyRound size={17} className="ic-accent" />
           <span>Đổi mật khẩu của tôi</span>
         </div>
       </div>
@@ -125,16 +102,16 @@ function MyPassword({ onLogout }) {
           {msg.err && (
             <div className="alert-banner err" role="alert">
               <AlertCircle size={16} />
-              <div className="alert-banner-content m-err" style={{ margin: 0 }}>{msg.err}</div>
+              <div className="alert-banner-content m-err u-m0">{msg.err}</div>
             </div>
           )}
           {msg.ok && (
             <div className="alert-banner ok" role="status">
               <CheckCircle2 size={16} />
-              <div className="alert-banner-content rv-sub" style={{ margin: 0, color: 'var(--ok)' }}>{msg.ok}</div>
+              <div className="alert-banner-content rv-sub u-m0 ic-ok">{msg.ok}</div>
             </div>
           )}
-          <div style={{ marginTop: 4 }}>
+          <div className="u-mt4">
             <Button type="submit" variant="primary" icon={KeyRound}>Đổi mật khẩu</Button>
           </div>
         </form>
@@ -231,14 +208,14 @@ function AdminUsers({ me }) {
       {err && (
         <div className="alert-banner err" role="alert">
           <AlertCircle size={18} />
-          <div className="alert-banner-content m-err" style={{ margin: 0 }}>{err}</div>
+          <div className="alert-banner-content m-err u-m0">{err}</div>
           <button className="linklike" onClick={() => setErr('')} style={{ color: 'inherit', marginLeft: 'auto' }}>✕</button>
         </div>
       )}
       {note && (
         <div className="alert-banner ok" role="status">
           <CheckCircle2 size={18} />
-          <div className="alert-banner-content rv-sub" style={{ margin: 0, color: 'var(--ok)' }}>{note}</div>
+          <div className="alert-banner-content rv-sub u-m0 ic-ok">{note}</div>
           <button className="linklike" onClick={() => setNote('')} style={{ color: 'inherit', marginLeft: 'auto' }}>✕</button>
         </div>
       )}
@@ -247,7 +224,7 @@ function AdminUsers({ me }) {
       <div className="card-panel">
         <div className="card-header">
           <div className="card-header-title">
-            <Users size={18} style={{ color: 'var(--accent)' }} />
+            <Users size={18} className="ic-accent" />
             <span>Danh sách người dùng</span>
             <span className="bdg bdg-neutral" style={{ marginLeft: 4 }}>{filteredRows.length}</span>
           </div>
@@ -265,7 +242,7 @@ function AdminUsers({ me }) {
           <div style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-subtle)', padding: '16px 18px' }}>
             <form className="pj-form" onSubmit={create} style={{ border: 'none', padding: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <UserPlus size={16} style={{ color: 'var(--accent)' }} />
+                <UserPlus size={16} className="ic-accent" />
                 <strong style={{ fontSize: 13.5 }}>Tạo tài khoản mới</strong>
               </div>
               <div className="form-grid-2">
@@ -293,7 +270,7 @@ function AdminUsers({ me }) {
                   </select>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <div className="row-wrap-8 u-mt12">
                 <Button type="submit" variant="primary" icon={UserPlus} disabled={busy}>Tạo tài khoản</Button>
                 <Button type="button" variant="ghost" onClick={() => setShowAdd(false)}>Huỷ</Button>
               </div>
@@ -307,7 +284,8 @@ function AdminUsers({ me }) {
             <div className="search-input-wrap">
               <Search size={15} />
               <input
-                type="text"
+                type="search"
+                aria-label="Tìm người dùng"
                 placeholder="Tìm người dùng theo tên hoặc email…"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
@@ -329,7 +307,7 @@ function AdminUsers({ me }) {
                 <th>Người dùng</th>
                 <th>Quyền hệ thống</th>
                 <th>Trạng thái</th>
-                <th style={{ textAlign: 'right' }}>Thao tác</th>
+                <th className="u-right">Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -343,15 +321,15 @@ function AdminUsers({ me }) {
                 filteredRows.map(u => {
                   const st = userState(u);
                   const self = u.id === me?.id;
-                  const initials = getInitials(u.fullName, u.email);
-                  const avatarBg = getAvatarColor(u.id || u.email);
+                  const ini = initials(u.fullName, u.email);
+                  const avatarBg = avatarColor(u.id || u.email);
 
                   return (
                     <tr key={u.id}>
                       <td>
                         <div className="user-info-cell">
                           <div className="user-avatar" style={{ backgroundColor: avatarBg }}>
-                            {initials}
+                            {ini}
                           </div>
                           <div>
                             <div className="user-name-row">
@@ -359,18 +337,18 @@ function AdminUsers({ me }) {
                               {self && <Badge tone="accent">bạn</Badge>}
                             </div>
                             <div className="user-email-row">
-                              <Mail size={12} style={{ opacity: 0.7 }} />
+                              <Mail size={12} className="u-o70" />
                               <span>{u.email}</span>
                             </div>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <div className="irow-6">
                           {u.systemRole === 'SYS_ADMIN' ? (
-                            <Shield size={15} style={{ color: 'var(--info)' }} />
+                            <Shield size={15} className="ic-info" />
                           ) : (
-                            <User size={15} style={{ color: 'var(--text-faint)' }} />
+                            <User size={15} className="u-faint" />
                           )}
                           <select
                             aria-label={`Quyền hệ thống của ${u.email}`}
@@ -430,8 +408,8 @@ function AdminUsers({ me }) {
 
       {/* Informative Callout */}
       <div className="alert-banner info">
-        <Info size={18} style={{ color: 'var(--accent)' }} />
-        <div className="alert-banner-content rv-sub" style={{ margin: 0 }}>
+        <Info size={18} className="ic-accent" />
+        <div className="alert-banner-content rv-sub u-m0">
           <b>Quyền hệ thống</b> quyết định ai quản lý tài khoản và thiết lập toàn cục. Để phân quyền truy cập dự án cụ thể (PM, BA, Tech Lead, Tester…), hãy mở mục <b>Dự án → Thành viên</b>.
         </div>
       </div>
@@ -448,7 +426,7 @@ export default function UsersView({ user, onLogout }) {
       <div className="rv-page-header">
         <div className="rv-page-title-wrap">
           <h1 id="us-title" className="rv-h1">
-            <Users size={22} strokeWidth={1.75} style={{ color: 'var(--accent)' }} />
+            <Users size={22} strokeWidth={1.75} className="ic-accent" />
             <span>{admin ? 'Quản lý người dùng' : 'Tài khoản cá nhân'}</span>
           </h1>
           <p className="rv-page-desc">

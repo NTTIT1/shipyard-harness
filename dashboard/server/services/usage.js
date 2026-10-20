@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS = {
   featureHours: {},         // { featureKey: { PHASE: hours } }
   laneLimits: {},           // { [lane]: { usd?: number, tokens?: number } }
   modelLimits: {},          // { [model]: { usd?: number, tokens?: number } }
+  projectLimits: {},        // { [projectId]: { usd?: number, tokens?: number } }
 };
 
 const root = () => process.env.HARNESS_ROOT || HARNESS_ROOT;
@@ -82,9 +83,9 @@ export function toRecords(ctx, delta) {
   const base = {
     at: ctx.at || new Date().toISOString(), lane: ctx.lane, source: ctx.source || 'session', step: ctx.step || 'main',
     stage: ctx.stage || '', phase: phaseOf(ctx.step || 'main', ctx.stage), effort: ctx.effort || '',
-    runId: ctx.runId || '', feature: featureKey(ctx), featureTitle: ctx.featureTitle || '',
+    runId: ctx.runId || '', ...(ctx.projectId ? { projectId: ctx.projectId } : {}), feature: featureKey(ctx), featureTitle: ctx.featureTitle || '',
   };
-  const order = ['at', 'lane', 'source', 'step', 'stage', 'phase', 'model', 'effort', 'runId', 'feature', 'featureTitle'];
+  const order = ['at', 'lane', 'source', 'step', 'stage', 'phase', 'model', 'effort', 'runId', ...(ctx.projectId ? ['projectId'] : []), 'feature', 'featureTitle'];
   return Object.entries(delta).map(([model, d]) => {
     const r = { ...base, model };
     return { ...Object.fromEntries(order.map(k => [k, r[k]])), ...d };
@@ -101,7 +102,7 @@ export function readLaneContext(n) {
   } catch { /* flat or pending state */ }
   try {
     const s = JSON.parse(fs.readFileSync(file, 'utf8'));
-    return { runId: s.run_id || '', specDir: s.spec_dir || '', featureTitle: s.feature_title || '', stage: s.stage || '',
+    return { runId: s.run_id || '', projectId: s.run_project_id || s.project_id || '', specDir: s.spec_dir || '', featureTitle: s.feature_title || '', stage: s.stage || '',
       effort: (s.effort || {}).main || '' };
   } catch { return {}; }
 }
@@ -162,6 +163,7 @@ export function mergeSettings(s = {}) {
     featureHours: { ...(s.featureHours || {}) },
     laneLimits: { ...(s.laneLimits || {}) },
     modelLimits: { ...(s.modelLimits || {}) },
+    projectLimits: { ...(s.projectLimits || {}) },
   };
 }
 
@@ -198,6 +200,7 @@ export function writeSettings(patch) {
     hours: { ...cur.hours, ...cleanMap(patch.hours, Object.keys(DEFAULT_SETTINGS.hours)) },
     laneLimits: patch.laneLimits ? cleanLimitsMap(patch.laneLimits, cur.laneLimits) : cur.laneLimits,
     modelLimits: patch.modelLimits ? cleanLimitsMap(patch.modelLimits, cur.modelLimits) : cur.modelLimits,
+    projectLimits: patch.projectLimits ? cleanLimitsMap(patch.projectLimits, cur.projectLimits) : cur.projectLimits,
   });
   fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
   fs.writeFileSync(settingsFile(), JSON.stringify(next, null, 2) + '\n');
@@ -226,7 +229,7 @@ function add(acc, r, vnd) {
 }
 
 /** Everything the Costs screen shows for one month (YYYY-MM in settings.tzOffsetMin). */
-export function aggregate(records, settings = mergeSettings(), { month, now = Date.now() } = {}) {
+export function aggregate(records, settings = mergeSettings(), { month, now = Date.now(), defaultProjectId = '' } = {}) {
   const local = at => new Date(Date.parse(at) + settings.tzOffsetMin * 60000).toISOString();
   const dayOf = at => local(at).slice(0, 10);
   const monthOf = at => local(at).slice(0, 7);
@@ -239,15 +242,22 @@ export function aggregate(records, settings = mergeSettings(), { month, now = Da
   const m = month || monthOf(new Date().toISOString());
   const rows = records.filter(r => monthOf(r.at) === m);
   const totals = { usd: 0, vnd: 0, tokens: zeroTok() };
-  const days = {}, lanes = {}, models = {}, feats = {};
+  const days = {}, lanes = {}, models = {}, feats = {}, projects = {};
   for (const r of rows) {
     const v = vndOf(r);
+    const pid = r.projectId || defaultProjectId || '';
     add(totals, r, v);
     add(days[dayOf(r.at)] ||= { day: dayOf(r.at) }, r, v);
     add(lanes[r.lane] ||= { lane: r.lane }, r, v);
     add(models[r.model] ||= { model: r.model }, r, v);
-    const f = feats[r.feature] ||= { key: r.feature, title: r.featureTitle, lane: r.lane, runId: r.runId || '', phases: {}, last: r.at };
+    if (pid) {
+      const pj = projects[pid] ||= { projectId: pid, lanes: [] };
+      add(pj, r, v);
+      if (r.lane && !pj.lanes.includes(r.lane)) pj.lanes.push(r.lane);
+    }
+    const f = feats[r.feature] ||= { key: r.feature, title: r.featureTitle, lane: r.lane, runId: r.runId || '', projectId: pid, phases: {}, last: r.at };
     if (r.featureTitle) f.title = r.featureTitle;
+    if (pid && !f.projectId) f.projectId = pid;
     if (r.at > f.last) f.last = r.at;
     add(f, r, v);
     const ph = f.phases[r.phase || phaseOf(r.step, r.stage)] ||= { steps: {} };
@@ -292,6 +302,12 @@ export function aggregate(records, settings = mergeSettings(), { month, now = Da
     return { ...mod, sharePct: shareOf(mod.usd, mTok), ...q };
   }).sort((a, b) => b.usd - a.usd);
 
+  const byProject = Object.values(projects).map(pj => {
+    const pTok = sumTok(pj.tokens);
+    const q = quotaOf(pj.usd, pTok, (settings.projectLimits || {})[String(pj.projectId)]);
+    return { ...pj, lanes: (pj.lanes || []).sort((a, b) => a - b), sharePct: shareOf(pj.usd, pTok), ...q };
+  }).sort((a, b) => b.vnd - a.vnd);
+
   // Rolling 5h and 7d window usage for immediate % visibility even before rate_limit_event fires
   const win5h = { usd: 0, tokens: zeroTok() };
   const win7d = { usd: 0, tokens: zeroTok() };
@@ -315,6 +331,7 @@ export function aggregate(records, settings = mergeSettings(), { month, now = Da
     byDay: Object.values(days).sort((a, b) => a.day.localeCompare(b.day)),
     byLane,
     byModel,
+    byProject,
     quotas,
     months: Object.keys(monthUsd).sort().reverse(),
   });

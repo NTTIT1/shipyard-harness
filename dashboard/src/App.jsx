@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { useLanes } from './hooks/useLanes.js';
 import { useProof } from './hooks/useProof.js';
 import { useReviews } from './hooks/useReviews.js';
 import { postAction, deleteProof } from './lib/api.js';
+import { platform } from './lib/platform.js';
 import { useTheme } from './hooks/useTheme.js';
 import { laneAttention } from './lib/laneview.js';
 import { Menu as MenuIcon, Plus } from 'lucide-react';
@@ -25,15 +26,22 @@ import AssignModal from './components/AssignModal.jsx';
 import ChatPanel from './components/ChatPanel.jsx';
 import { useInbox } from './hooks/useInbox.js';
 import InboxView from './components/InboxView.jsx';
-import ReviewView from './components/ReviewView.jsx';
 import ProjectsView from './components/ProjectsView.jsx';
+import ProjectBoardView from './components/ProjectBoardView.jsx';
 import UsersView from './components/UsersView.jsx';
-import CostsView from './components/CostsView.jsx';
-import DocsView from './components/DocsView.jsx';
 import LaneAiPanel from './components/LaneAiPanel.jsx';
+import ViewLoading from './components/ui/ViewLoading.jsx';
+
+// Screens most sessions never open load on demand (separate chunks).
+const ReviewView = lazy(() => import('./components/ReviewView.jsx'));
+const NewProjectWizard = lazy(() => import('./components/NewProjectWizard.jsx'));
+const CostsView = lazy(() => import('./components/CostsView.jsx'));
+const DocsView = lazy(() => import('./components/DocsView.jsx'));
 
 export default function App({ user, onLogout }) {
   const { data, refreshNow } = useLanes();
+  const [projects, setProjects] = useState([]);
+  const [activeProjectId, setActiveProjectId] = useState('ALL');
   const [selectedLane, setSelectedLane] = useState(null);
   const [shot, setShot] = useState(null);
   const [gallery, setGallery] = useState(null);
@@ -41,16 +49,27 @@ export default function App({ user, onLogout }) {
   const [credsModal, setCredsModal] = useState(null);
   const [addLane, setAddLane] = useState(false);
   const [providers, setProviders] = useState(false);
-  const [view, setView] = useState('lanes');
+  const [wizard, setWizard] = useState(false);
+  const [view, setView] = useState('board');
   const [review, setReview] = useState(null);
   const inbox = useInbox();
   const openReview = useCallback(r => { setReview(r); setView('review'); }, []);
   const [docsRun, setDocsRun] = useState('');
   const openDocs = useCallback(runId => { setDocsRun(runId || ''); setView('docs'); }, []);
-  const [assign, setAssign] = useState(undefined); // undefined = closed, null = open w/o preselected lane, number = preselected
+  const [assign, setAssign] = useState(undefined);
+
+  const loadProjects = useCallback(async () => {
+    try {
+      const ps = await platform.projects();
+      if (Array.isArray(ps)) setProjects(ps);
+    } catch { /* platform optional */ }
+  }, []);
+
+  useEffect(() => { loadProjects(); }, [loadProjects]);
 
   const lanes = data?.lanes || [];
   const config = data?.config || {};
+  const canScaffold = !user || user.role === 'SYS_ADMIN';
 
   // auto-select first running lane
   useEffect(() => {
@@ -61,17 +80,16 @@ export default function App({ user, onLogout }) {
   }, [lanes, selectedLane]);
 
   const selectedLaneData = lanes.find(l => l.lane === selectedLane);
+  const selectedLaneProject = projects.find(p => p.id === selectedLaneData?.run_project_id)
+    || (projects.length === 1 ? projects[0] : null);
 
   const { proof, loadProof, selectFeature, selectedSlug } = useProof(selectedLane, lanes);
   const { reviews, loadReviews } = useReviews(selectedLane, lanes);
 
-  // Is the picker on a PAST feature (not the lane's current one)?
   const viewingPast = !!(proof && selectedSlug && proof._cur && selectedSlug !== proof._cur);
   const selectedFeature = viewingPast ? (proof.features || []).find(f => f.slug === selectedSlug) : null;
   const selectedFeatureState = selectedFeature?.state || null;
 
-  // A read-only "proof only" snapshot for older features whose pipeline state was
-  // never persisted (proof dirs exist, but no state/laneN/<slug>.json).
   const proofOnly = {
     lane: selectedLaneData?.lane, mode: selectedLaneData?.mode,
     feature_title: selectedSlug, stage: 'proof only', status: 'archived',
@@ -79,8 +97,6 @@ export default function App({ user, onLogout }) {
     notes: 'Proof only — no pipeline state was recorded for this past feature.',
   };
 
-  // Map + card follow the picker: live lane for the current feature; the archived
-  // snapshot if we have one; otherwise the proof-only view. Always switches.
   const mapLane = !viewingPast
     ? selectedLaneData
     : selectedFeatureState
@@ -89,7 +105,6 @@ export default function App({ user, onLogout }) {
           stage_age_sec: null, liveness: 'idle' }
       : proofOnly;
 
-  // soft refresh proof/reviews on each data tick
   useEffect(() => {
     if (selectedLane == null || !selectedLaneData) return;
     if (selectedLaneData.mode === 'pr-review') {
@@ -99,10 +114,9 @@ export default function App({ user, onLogout }) {
     }
   }, [data, selectedLane]);
 
-  // keyboard handling for gallery modal (Esc)
   useEffect(() => {
     const h = e => {
-      if (shot && e.key === 'Escape') { /* Lightbox handles its own */ return; }
+      if (shot && e.key === 'Escape') return;
       if (gallery && e.key === 'Escape') setGallery(null);
     };
     document.addEventListener('keydown', h);
@@ -171,8 +185,6 @@ export default function App({ user, onLogout }) {
   const [tab, setTab] = useState('overview');
   const attn = selectedLaneData ? laneAttention(selectedLaneData) : null;
   const needsChat = !viewingPast && (attn === 'question' || attn === 'approve');
-  // Switching lanes resets to Overview (or Chat if it needs an answer); afterwards jump to Chat only
-  // when attention NEWLY becomes question/approve, so polling never yanks the user around.
   const prevNeeds = useRef(false);
   useEffect(() => { setTab(needsChat ? 'chat' : 'overview'); prevNeeds.current = needsChat; }, [selectedLane]);
   useEffect(() => {
@@ -188,22 +200,67 @@ export default function App({ user, onLogout }) {
 
   return (
     <div className="app">
-      <Sidebar lanes={lanes} selected={selectedLane} onSelect={setSelectedLane}
-        onAssign={n => setAssign(n)} onAddLane={() => setAddLane(true)} onProviders={() => setProviders(true)}
-        theme={theme} onToggleTheme={toggle} user={user} onLogout={onLogout}
-        view={view} onView={setView} inboxCount={inbox.items.length} open={drawer} onClose={() => setDrawer(false)} returnFocusRef={menuBtn} />
-      <main className="main">
+      <a className="skip-link" href="#main-content">Bỏ qua tới nội dung</a>
+      <Sidebar
+        lanes={lanes}
+        projects={projects}
+        activeProjectId={activeProjectId}
+        onSelectProject={pid => { setActiveProjectId(pid); if (view === 'lanes') setView('board'); }}
+        projectProgress={data?.project_progress}
+        activeLanesCount={data?.active_lanes_count}
+        projectCosts={data?.project_costs}
+        selected={selectedLane}
+        onSelect={setSelectedLane}
+        onAssign={n => setAssign(n)}
+        onAddLane={() => setAddLane(true)}
+        onProviders={() => setProviders(true)}
+        theme={theme}
+        onToggleTheme={toggle}
+        user={user}
+        onLogout={onLogout}
+        view={view}
+        onView={setView}
+        inboxCount={inbox.items.length}
+        open={drawer}
+        onClose={() => setDrawer(false)}
+        onOpen={() => setDrawer(true)}
+        returnFocusRef={menuBtn}
+      />
+      <main className="main" id="main-content" tabIndex={-1}>
         <div className="topbar">
           <IconButton ref={menuBtn} icon={MenuIcon} label="Mở danh sách lane" onClick={() => setDrawer(true)} />
           <b>Shipyard</b>
         </div>
+        {view === 'board' && (
+          <ProjectBoardView
+            projects={projects}
+            lanes={lanes}
+            projectCosts={data?.project_costs}
+            activeProjectId={activeProjectId}
+            onSelectProject={setActiveProjectId}
+            onSelectLane={n => { setSelectedLane(n); setView('lanes'); }}
+            onOpenProjectSettings={pid => { setActiveProjectId(pid); setView('projects'); }}
+            onAssign={n => setAssign(n)}
+            onAddLane={() => setAddLane(true)}
+            onOpenWizard={() => setWizard(true)}
+            canScaffold={canScaffold}
+          />
+        )}
         {view === 'inbox' && <InboxView items={inbox.items} error={inbox.error} onOpen={i => openReview({ runId: i.runId, approvalId: i.approvalId })} />}
-        {view === 'review' && review && <ReviewView key={review.runId + (review.approvalId || '')} runId={review.runId} approvalId={review.approvalId}
-          inboxItems={inbox.items} onBack={() => setView('inbox')} onDecided={inbox.refresh} />}
-        {view === 'projects' && <ProjectsView user={user} onOpenRun={runId => openReview({ runId })} />}
+        {view === 'review' && review && <Suspense fallback={<ViewLoading />}><ReviewView key={review.runId + (review.approvalId || '')} runId={review.runId} approvalId={review.approvalId}
+          inboxItems={inbox.items} onBack={() => setView('inbox')} onDecided={inbox.refresh} /></Suspense>}
+        {view === 'projects' && (
+          <ProjectsView
+            user={user}
+            lanesData={data}
+            activeProjectId={activeProjectId}
+            onSelectProject={setActiveProjectId}
+            onOpenRun={runId => openReview({ runId })}
+          />
+        )}
         {view === 'users' && <UsersView user={user} onLogout={onLogout} />}
-        {view === 'costs' && <CostsView />}
-        {view === 'docs' && <DocsView key={docsRun} initialRunId={docsRun} onOpenRun={runId => openReview({ runId })} />}
+        {view === 'costs' && <Suspense fallback={<ViewLoading />}><CostsView /></Suspense>}
+        {view === 'docs' && <Suspense fallback={<ViewLoading />}><DocsView key={docsRun} initialRunId={docsRun} onOpenRun={runId => openReview({ runId })} /></Suspense>}
         {view === 'lanes' && (<>
         {!selectedLaneData ? (
           <div className="empty-state">
@@ -213,10 +270,18 @@ export default function App({ user, onLogout }) {
           </div>
         ) : (
           <>
-            <LaneHeader lane={headLane} archived={viewingPast} onAction={handleAction} onCreds={handleCreds}
+            <LaneHeader
+              lane={headLane}
+              projectName={selectedLaneProject?.name}
+              archived={viewingPast}
+              onBackToBoard={() => setView('board')}
+              onAction={handleAction}
+              onCreds={handleCreds}
               onReview={() => openReview({ runId: selectedLaneData.run_id })}
               onDocs={() => openDocs(selectedLaneData.run_id)}
-              onAssign={n => setAssign(n)} onTab={setTab} />
+              onAssign={n => setAssign(n)}
+              onTab={setTab}
+            />
             {selectedLaneData.mode === 'pr-review' ? (
               <div className="tabpanel"><ReviewTable reviews={reviews} needsAction={selectedLaneData.needs_action} config={config} /></div>
             ) : (
@@ -243,6 +308,14 @@ export default function App({ user, onLogout }) {
         </>)}
       </main>
 
+      {wizard && (
+        <Suspense fallback={null}>
+          <NewProjectWizard
+            onClose={() => setWizard(false)}
+            onCreated={async id => { await loadProjects(); if (id) setActiveProjectId(id); refreshNow(); }}
+          />
+        </Suspense>
+      )}
       {confirm && (
         <ConfirmModal lane={confirm.lane} action={confirm.action}
           title={confirm.title} message={confirm.message}
@@ -256,12 +329,12 @@ export default function App({ user, onLogout }) {
       {providers && <ProvidersModal lanes={lanes} onClose={() => setProviders(false)} />}
       {assign !== undefined && (
         <AssignModal lanes={lanes} initialLane={assign} onClose={() => setAssign(undefined)}
-          onDone={n => { setSelectedLane(n); refreshNow(); }} />
+          onDone={n => { setSelectedLane(n); setView('lanes'); refreshNow(); }} />
       )}
       {addLane && (
         <AddLaneModal onClose={() => setAddLane(false)} onDone={refreshNow} />
       )}
-      <GalleryModal gallery={gallery} onClose={() => setGallery(null)} onShot={openShot} />
+      {GalleryModal && <GalleryModal gallery={gallery} onClose={() => setGallery(null)} onShot={openShot} />}
       <Lightbox shot={shot} onClose={() => setShot(null)} onNav={shotNav} />
     </div>
   );

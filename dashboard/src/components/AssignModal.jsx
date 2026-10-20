@@ -78,7 +78,7 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
           {mode === 'new'
             ? <textarea className="req" rows={5} value={text} onChange={e => setText(e.target.value)}
                 placeholder="Mô tả tính năng cần làm…" />
-            : <select className="msel" value={spec} onChange={e => setSpec(e.target.value)}>
+            : <select className="msel" aria-label="Spec có sẵn" value={spec} onChange={e => setSpec(e.target.value)}>
                 {specs.map(s => <option key={s} value={s}>{s}</option>)}
               </select>}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 14, marginBottom: 8 }}>

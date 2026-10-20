@@ -42,7 +42,7 @@ export default function PipelineMap({ lane, config, archived }) {
         <span><i className="ld b" />current</span>
         <span><i className="ld w" />passed without evidence — check it</span>
         <span><i className="ld n" />pending</span>
-        <span style={{ color: 'var(--warn)' }}>{'↻ self-resolves & continues (hover)'}</span>
+        <span style={{ color: 'var(--warn-text)' }}>{'↻ self-resolves & continues (hover)'}</span>
         <span className="legend-r">{'red dashed = fail paths → fix · blue = re-entry'}</span>
       </div>
     </div>

@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface RunRepository extends JpaRepository<Run, String> {
     List<Run> findByProjectIdOrderByCreatedAtDesc(String projectId);
 
+    List<Run> findByProjectIdAndKind(String projectId, com.shipyard.platform.orchestrator.domain.RunKind kind);
+
     /** Row lock: every state change on a run is serialized (duplicate submits/decisions get a clean 409). */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from Run r where r.id = :id")

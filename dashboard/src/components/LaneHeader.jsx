@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { Plus, Square, Play, Check, Power, PowerOff, Eraser, RefreshCcw, KeyRound, RotateCcw, Trash2, GitBranch, ExternalLink, ClipboardCheck, FileText } from 'lucide-react';
+import {
+  Plus, Square, Play, Check, Power, PowerOff, Eraser, RefreshCcw,
+  KeyRound, RotateCcw, Trash2, GitBranch, ExternalLink, ClipboardCheck,
+  FileText, ArrowLeft, FolderKanban
+} from 'lucide-react';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Menu from './ui/Menu.jsx';
@@ -9,7 +13,7 @@ import { stopSession, resumeSession } from '../lib/api.js';
 
 const STATUS_TONE = { running: 'accent', waiting: 'warn', blocked: 'danger', failed: 'danger', passed: 'ok', provisioning: 'info' };
 
-export default function LaneHeader({ lane, archived, onAction, onCreds, onAssign, onTab, onReview, onDocs }) {
+export default function LaneHeader({ lane, projectName, archived, onBackToBoard, onAction, onCreds, onAssign, onTab, onReview, onDocs }) {
   const [err, setErr] = useState('');
   const run = fn => async () => { setErr(''); try { await fn(); } catch (e) { setErr(e.message); } };
   const acts = primaryActions(lane, { archived });
@@ -29,12 +33,30 @@ export default function LaneHeader({ lane, archived, onAction, onCreds, onAssign
     { label: 'Reset lane', icon: RotateCcw, danger: true, onSelect: () => onAction(n, 'reset') },
     { label: 'Xoá lane', icon: Trash2, danger: true, onSelect: () => onAction(n, 'remove') },
   ];
-  // Any waiting lane that drives a platform run is waiting on a reviewer (stage names vary by session).
   const waitingReview = !archived && !!lane.run_id && lane.status === 'waiting';
   const branch = lane.git_branch || lane.branch || '';
   return (
     <header className="lh">
       <div className="lh-main">
+        {onBackToBoard && (
+          <div className="lh-Subnav">
+            <button type="button" className="lh-back-btn" onClick={onBackToBoard}>
+              <ArrowLeft size={13} />
+              <span>Bảng điều khiển Dự án & Lanes</span>
+            </button>
+            {projectName && (
+              <>
+                <span className="faint">/</span>
+                <span className="lh-project-tag">
+                  <FolderKanban size={12} />
+                  <span>{projectName}</span>
+                </span>
+              </>
+            )}
+            <span className="faint">/</span>
+            <span className="mono faint" style={{ fontSize: 12 }}>Lane {n}</span>
+          </div>
+        )}
         <div className="lh-title">
           <span className="lh-lane">Lane {n}</span>
           <h1>{lane.feature_title || 'Chưa có việc'}</h1>

@@ -3,6 +3,9 @@ import { Camera, Ticket, ExternalLink, Check, Eraser, Trash2, Square, SquareChec
 import Button from './ui/Button.jsx';
 import { fmtWhen, prNum } from '../lib/format.js';
 
+/** Screenshot alt text from its group and file name: "qc-local: login form error". */
+const shotAlt = (group, file) => `${group}: ${file.replace(/\.[a-z0-9]+$/i, '').replace(/^\d+[-_]?/, '').replace(/[-_]+/g, ' ').trim() || file}`;
+
 function imgUrl(n, slug, grp, img) {
   return `/proof/${n}/${encodeURIComponent(slug)}/${encodeURIComponent(grp)}/${encodeURIComponent(img)}`;
 }
@@ -156,16 +159,16 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
                         if (cleanup) toggleSel(key); else onShot(f.slug, g, imgs.indexOf(img));
                       }}
                       title={cleanup ? `${img} — click to select` : `${img} — click to preview`}>
-                      <img loading="lazy" src={imgUrl(n, f.slug, g, img)} onError={handleImgError} />
+                      <img loading="lazy" src={imgUrl(n, f.slug, g, img)} alt={shotAlt(g, img)} onError={handleImgError} />
                       {cleanup && <span className="pf-check">{isSel ? <SquareCheck size={16} aria-hidden="true" /> : <Square size={16} aria-hidden="true" />}</span>}
                     </a>
                   );
                 })}
                 {!cleanup && imgs.length > CAP && (
-                  <a className="pf-more" onClick={() => onGallery(f.slug, g)}
-                    title={`show all ${imgs.length} screenshots`}>
+                  <button type="button" className="pf-more" onClick={() => onGallery(f.slug, g)}
+                    title={`Xem tất cả ${imgs.length} ảnh`} aria-label={`Xem tất cả ${imgs.length} ảnh của nhóm ${g}`}>
                     +{imgs.length - (CAP - 1)}
-                  </a>
+                  </button>
                 )}
               </div>
             </div>

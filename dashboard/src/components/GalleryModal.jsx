@@ -21,12 +21,12 @@ export default function GalleryModal({ gallery, onClose, onShot }) {
         </div>
         <div className="gal-grid">
           {imgs.map((img, ix) => (
-            <a key={img} onClick={() => onShot(slug, g, ix)} title={img}>
-              <img loading="lazy"
+            <button type="button" key={img} className="gal-item" onClick={() => onShot(slug, g, ix)} title={img}>
+              <img loading="lazy" alt=""
                 src={`/proof/${lane}/${encodeURIComponent(slug)}/${encodeURIComponent(g)}/${encodeURIComponent(img)}`}
                 onError={handleImgError} />
               <span>{img}</span>
-            </a>
+            </button>
           ))}
         </div>
       </div>

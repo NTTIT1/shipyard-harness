@@ -1,17 +1,64 @@
-/* Documents library: one collapsible card per pipeline step. */
-.dc-steps { display: grid; gap: 8px }
-.dc-step { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel) }
-.dc-step-head { width: 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; border: 0; background: none;
-  color: var(--text); font: inherit; text-align: left; cursor: pointer; border-radius: var(--radius) }
-.dc-step-head:disabled { cursor: default }
+/* Documents library workspace */
+.dc-workspace { display: flex; flex-direction: column; gap: 16px; width: 100%; max-width: 1400px; min-width: 0 }
+
+.dc-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap }
+.dc-header-titles { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 320px }
+
+.dc-project-select-wrap { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel) }
+.dc-project-select-label { font-size: 12.5px; font-weight: 600; color: var(--text-muted); white-space: nowrap }
+.dc-project-select { border: none; background: transparent; color: var(--text); font: 600 13px var(--font); cursor: pointer; padding-right: 4px }
+
+.dc-layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; min-width: 0 }
+
+/* Left Sidebar: Feature / Run Directory */
+.dc-sidebar { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: hidden; min-width: 0 }
+.dc-sidebar-head { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid var(--border); background: var(--bg-subtle) }
+.dc-sidebar-title { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-muted) }
+
+.dc-sidebar-search { position: relative; padding: 8px 10px; border-bottom: 1px solid var(--border) }
+.dc-sidebar-search svg { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-faint); pointer-events: none }
+.dc-sidebar-search input { width: 100%; padding: 6px 10px 6px 28px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text); font: 12.5px var(--font) }
+.dc-sidebar-search input:focus { border-color: var(--accent); background: var(--panel) }
+
+.dc-run-list { display: flex; flex-direction: column; padding: 6px; gap: 4px; max-height: 640px; overflow-y: auto }
+.dc-run-item { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; padding: 10px 12px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; min-width: 0; transition: background .15s var(--ease), border-color .15s var(--ease) }
+.dc-run-item:hover { background: var(--panel-hover) }
+.dc-run-item.active { background: var(--bg-subtle); border-color: var(--border-strong); box-shadow: var(--shadow-sm) }
+.dc-run-item-top { width: 100%; min-width: 0 }
+.dc-run-item-title { display: block; font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.4; overflow-wrap: anywhere }
+.dc-run-item.active .dc-run-item-title { color: var(--accent-text) }
+.dc-run-item-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%; font-size: 12px; color: var(--text-muted) }
+.dc-run-item-step { font-size: 12px; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+
+/* Right Panel: Selected Document Steps */
+.dc-main { min-width: 0 }
+.dc-detail-card { display: flex; flex-direction: column; gap: 16px; min-width: 0 }
+.dc-detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 16px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel) }
+.dc-detail-titles { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 300px }
+.dc-detail-h2 { margin: 0; font-size: 17px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; overflow-wrap: anywhere }
+.dc-detail-sub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-muted) }
+.dc-detail-date { display: inline-flex; align-items: center; gap: 5px; color: var(--text-faint) }
+.dc-detail-step-pill { font-size: 12px; color: var(--text-muted) }
+
+.dc-steps { display: flex; flex-direction: column; gap: 8px; min-width: 0 }
+.dc-step { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: hidden; transition: border-color .15s var(--ease) }
+.dc-step.open { border-color: var(--border-strong) }
+.dc-step-head { width: 100%; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 16px; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background .15s var(--ease) }
+.dc-step-head:disabled { cursor: default; opacity: 0.72 }
 .dc-step-head:not(:disabled):hover { background: var(--panel-hover) }
 .dc-step-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px }
-.dc-step-name { font-weight: 600; min-width: 120px }
-.dc-gap { width: 15px }
-.dc-who { font-size: 12.5px; color: var(--text-muted); margin-left: auto }
-.dc-body { display: grid; gap: 10px; padding: 0 12px 12px }
-.dc-doc-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 }
-.dc-run { display: grid !important; justify-items: start; gap: 2px; text-align: left; height: auto !important; padding-block: 6px !important; white-space: normal }
-.dc-run-title { font-weight: 500 }
-.dc-run .dc-run-title, .dc-run .faint { display: block; width: 100% }
-@media (max-width: 600px) { .dc-who { margin-left: 0; width: 100% } }
+.dc-step-chevron { width: 16px; height: 16px; display: inline-grid; place-items: center; color: var(--text-muted); flex-shrink: 0 }
+.dc-step-name { font-weight: 600; font-size: 13.5px; min-width: 140px; color: var(--text) }
+.dc-step-ver { font-size: 12px; color: var(--text-faint); font-variant-numeric: tabular-nums }
+.dc-step-empty { font-size: 12px; color: var(--text-faint); font-style: italic }
+.dc-who { font-size: 12px; color: var(--text-muted); margin-left: auto }
+
+.dc-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px 16px; border-top: 1px solid var(--border); background: var(--bg-subtle); min-width: 0 }
+.dc-doc-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 10px 0 }
+.dc-doc-content { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel); overflow-x: auto }
+.dc-footnote { text-wrap: pretty; margin: 0; font-size: 12.5px; color: var(--text-faint); line-height: 1.5 }
+
+@media (max-width: 900px) {
+  .dc-layout { grid-template-columns: minmax(0, 1fr) }
+  .dc-who { margin-left: 0; width: 100% }
+}

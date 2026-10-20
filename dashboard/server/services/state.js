@@ -125,11 +125,35 @@ async function readLane(n) {
   }
   lane.stage_age_sec = stageAge;
 
+  const cfg = harnessConfig();
+  if (!lane.run_project_id && cfg.platform_project_id) {
+    lane.run_project_id = cfg.platform_project_id;
+  }
+
   return lane;
+}
+
+export function computeAverageProgress(lanes = []) {
+  const active = lanes.filter(l => l.progress != null && l.stage && l.stage !== 'no-state');
+  if (!active.length) return { progress: null, activeCount: 0, totalCount: lanes.length };
+  const sum = active.reduce((acc, l) => acc + (Number(l.progress) || 0), 0);
+  return {
+    progress: Math.round(sum / active.length),
+    activeCount: active.length,
+    totalCount: lanes.length,
+  };
 }
 
 export async function lanesPayload() {
   const nums = discoverLanes();
   const lanes = await Promise.all(nums.map(n => readLane(n)));
-  return { lanes, dead_sec: DEAD_SEC, stall_sec: DEAD_SEC, config: harnessConfig() };
+  const avg = computeAverageProgress(lanes);
+  return {
+    lanes,
+    project_progress: avg.progress,
+    active_lanes_count: avg.activeCount,
+    dead_sec: DEAD_SEC,
+    stall_sec: DEAD_SEC,
+    config: harnessConfig(),
+  };
 }

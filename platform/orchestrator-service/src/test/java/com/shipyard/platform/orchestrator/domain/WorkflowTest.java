@@ -169,4 +169,45 @@ class WorkflowTest {
     void releaseOnlyFromReleasing() {
         assertThatThrownBy(() -> Workflow.release(run)).isInstanceOf(ConflictException.class);
     }
+
+    @Test
+    void featureRunsNeverContainManager() {
+        assertThat(steps).doesNotContainKey(MANAGER);
+        assertThat(steps.keySet()).containsExactly(PM, BA, ARCH, DESIGN, DEV, TEST);
+    }
+
+    @Test
+    void setupRunIsTheSingleManagerStepThenReleases() {
+        Run setup = new Run();
+        setup.id = "run_s";
+        Map<Step, RunStep> st = Workflow.newSteps(setup.id, RunKind.SETUP);
+        assertThat(st.keySet()).containsExactly(MANAGER);
+        Workflow.start(setup, st);
+        assertThat(setup.currentStep).isEqualTo(MANAGER);
+        Workflow.submit(setup, st, MANAGER);
+        Workflow.decide(setup, st, MANAGER, new Decision(DecisionAction.REQUEST_CHANGES, "thêm luật đặt tên bảng", null, null, null));
+        assertThat(Workflow.mode(setup, st)).isEqualTo(NextMode.REVISE);
+        Workflow.submit(setup, st, MANAGER);
+        Workflow.decide(setup, st, MANAGER, approve());
+        assertThat(setup.status).isEqualTo(RunStatus.RELEASING);
+        assertThat(Workflow.mode(setup, st)).isEqualTo(NextMode.RELEASE);
+    }
+
+    @Test
+    void cannotSendBackToAStepOutsideTheRun() {
+        Run setup = new Run();
+        setup.id = "run_s2";
+        Map<Step, RunStep> st = Workflow.newSteps(setup.id, RunKind.SETUP);
+        Workflow.start(setup, st);
+        Workflow.submit(setup, st, MANAGER);
+        assertThatThrownBy(() -> Workflow.decide(setup, st, MANAGER, new Decision(DecisionAction.SEND_BACK, "x", null, PM, null)))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void runKindParsesAndRejectsUnknown() {
+        assertThat(RunKind.parse(null)).isEqualTo(RunKind.FEATURE);
+        assertThat(RunKind.parse("setup")).isEqualTo(RunKind.SETUP);
+        assertThatThrownBy(() -> RunKind.parse("deploy")).isInstanceOf(BadRequestException.class);
+    }
 }

@@ -4,6 +4,7 @@ import tsReactVite from './stacks/ts-react-vite.js';
 import tsNestjs from './stacks/ts-nestjs.js';
 import { DB_LABEL } from './dbs.js';
 import { SLUG_RE } from './util.js';
+import { ROLE_META, SKILL_CATALOG, defaultRoleSkillsForStack } from './team.js';
 
 export const STACKS = [javaSpring, pythonFastapi, tsReactVite, tsNestjs];
 
@@ -30,9 +31,10 @@ export function publicCatalog(tools, stacks = STACKS) {
       options: s.options.map(o => ({ ...o, choices: o.choices?.map(choiceOf) })),
       available: missing.length === 0,
       missing: missing.map(t => ({ tool: t, hint: TOOL_HINT[t] || '' })),
+      defaultRoleSkills: defaultRoleSkillsForStack(s.id),
     });
   }
-  return { languages };
+  return { languages, roles: ROLE_META, skillCatalog: SKILL_CATALOG };
 }
 
 export function stackById(id, stacks = STACKS) {
@@ -40,6 +42,21 @@ export function stackById(id, stacks = STACKS) {
 }
 
 const bad = msg => Object.assign(new Error(msg), { status: 400 });
+
+export function validateRoleSkills(rs) {
+  if (!rs || typeof rs !== 'object') return undefined;
+  const out = {};
+  for (const role of Object.keys(ROLE_META)) {
+    const item = rs[role];
+    if (!item || typeof item !== 'object') continue;
+    const skills = Array.isArray(item.skills)
+      ? item.skills.filter(s => typeof s === 'string' && /^[a-z0-9][a-z0-9_-]{0,60}$/.test(s))
+      : [];
+    const customRule = String(item.customRule || '').trim().slice(0, 4000);
+    out[role] = { skills, customRule };
+  }
+  return Object.keys(out).length ? out : undefined;
+}
 
 /**
  * Validate a wizard submission against the catalog. Unknown keys are dropped; every option is
@@ -79,5 +96,24 @@ export function validateRequest(body, tools, stacks = STACKS) {
   if (missing.length) throw bad(`Máy chủ thiếu công cụ: ${missing.join(', ')}. ${missing.map(t => TOOL_HINT[t]).filter(Boolean).join(' · ')}`);
   const problem = stack.check(options, tools);
   if (problem) throw bad(problem);
-  return { name, slug, description, stack: stack.id, options };
+  const brief = String(b.brief || '').trim();
+  if (brief.length > 20000) throw bad('Tài liệu cho AI tối đa 20.000 ký tự (tải thêm file sau)');
+  const roleSkills = validateRoleSkills(b.roleSkills);
+  return {
+    name, slug, description, stack: stack.id, options, git: validateGit(b.git), aiTeam: b.aiTeam !== false, brief,
+    ...(roleSkills ? { roleSkills } : {}),
+  };
 }
+
+/** local | github (owner = user/org login) | gitlab (owner = namespace id); private unless asked. */
+export function validateGit(g = {}) {
+  const provider = String(g?.provider || 'local');
+  if (provider === 'local') return { provider };
+  if (!['github', 'gitlab'].includes(provider)) throw bad('Nơi lưu repo không hợp lệ');
+  const owner = String(g.owner || '').trim();
+  const ok = provider === 'github' ? /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/.test(owner) : /^\d{1,12}$/.test(owner);
+  if (!ok) throw bad(provider === 'github' ? 'Chọn tài khoản hoặc tổ chức GitHub' : 'Chọn group/namespace GitLab');
+  const visibility = g.visibility === 'public' ? 'public' : 'private';
+  return { provider, owner, visibility };
+}
+

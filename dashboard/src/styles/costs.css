@@ -4,8 +4,8 @@
 .ct-tile { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel) }
 .ct-tile-label { font-size: 12px; color: var(--text-muted) }
 .ct-tile-value { font-size: 20px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums }
-.ct-tile-value.tone-danger { color: var(--danger) } .ct-tile-value.tone-warn { color: var(--warn) } .ct-tile-value.tone-ok { color: var(--ok) }
-.ct-tile-sub { font-size: 11.5px; color: var(--text-faint) }
+.ct-tile-value.tone-danger { color: var(--danger-text) } .ct-tile-value.tone-warn { color: var(--warn-text) } .ct-tile-value.tone-ok { color: var(--ok-text) }
+.ct-tile-sub { font-size: 12px; color: var(--text-faint) }
 .ct-chart { margin: 0; display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius) }
 .ct-chart-title { font-size: 13px; color: var(--text-muted) }
 .ct-bars { position: relative; height: 180px; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--border) }
@@ -15,7 +15,7 @@
 .ct-col-bar.on { opacity: 1 }
 .ct-tip { position: absolute; top: 4px; margin: 0 6px; white-space: nowrap; display: grid; gap: 1px; padding: 6px 9px; font-size: 12px; background: var(--panel); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 2px 8px rgba(0,0,0,.12); pointer-events: none }
-.ct-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-faint) }
+.ct-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-faint) }
 .ct-table .num, .ct-sub .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
 .ct-expand { display: inline-flex; align-items: center; gap: 4px; text-align: left }
 .ct-detail > td { background: var(--bg-subtle) }

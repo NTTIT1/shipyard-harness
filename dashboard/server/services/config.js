@@ -62,6 +62,7 @@ export function harnessConfig() {
     repo: integ.CI_REPO || '',
     dev_site: hostFromUrl(integ.DEV_SITE_URL || ''),
     tracker_host: hostFromUrl(integ.TRACKER_URL || ''),
+    platform_project_id: integ.PLATFORM_PROJECT_ID || process.env.PLATFORM_PROJECT_ID || '',
     integrations: {
       tracker: integ.TRACKER_ENABLED === '1',
       dev_qc: integ.DEV_QC_ENABLED === '1',

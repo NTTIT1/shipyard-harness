@@ -16,7 +16,7 @@ export default function StepModels({ info, value, onChange }) {
         return (
           <div className="step-row" key={s.id}>
             <span className="step-label">{s.label}</span>
-            <ModelSelect value={value[s.id]} info={info} claudeOnly={s.claudeOnly} onChange={v => set(s.id, v)} />
+            <ModelSelect value={value[s.id]} info={info} claudeOnly={s.claudeOnly} label={`Model — ${s.label}`} onChange={v => set(s.id, v)} />
             <select className="msel step-effort" aria-label={`Effort — ${s.label}`} disabled={external}
               title={external ? 'Effort chỉ áp dụng cho model Claude' : 'Mức suy nghĩ: cao hơn = kỹ hơn nhưng tốn token hơn'}
               value={external ? '' : (value.effort || {})[s.id] || ''} onChange={e => setEffort(s.id, e.target.value)}>
