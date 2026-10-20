@@ -52,3 +52,6 @@
   .tm-files { border-right: 0; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap }
   .tm-run { margin-left: 0 }
 }
+.tm-branch { display: flex; flex-direction: column; gap: 8px }
+.tm-branch-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.tm-branch select { min-width: 200px }

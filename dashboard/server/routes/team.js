@@ -28,7 +28,7 @@ export function platformProjectLookup(gatewayUrl = PLATFORM_URL, fetchImpl = fet
 export function teamRouter({ authEnabled = AUTH_ENABLED, providers = createProviderStore(), setup = defaultSetupRunner({ providers }),
   skillCatalog = [], hub = createTeamHub({ setup, providers, skillCatalog }), lookup = platformProjectLookup() } = {}) {
   const router = Router();
-  const fail = (res, e) => res.status(e.status || 500).json({ ok: false, error: e.message });
+  const fail = (res, e) => res.status(e.status || 500).json({ ok: false, error: e.message, ...(e.branches ? { branches: e.branches } : {}) });
 
   const member = async (req, res, next) => {
     try {
@@ -45,6 +45,9 @@ export function teamRouter({ authEnabled = AUTH_ENABLED, providers = createProvi
 
   router.get('/api/team/:pid', member, async (req, res) => {
     try { res.json({ ...(await hub.state(req.project, { force: req.query.refresh === '1' })), canManage: req.canManage }); } catch (e) { fail(res, e); }
+  });
+  router.put('/api/team/:pid/branch', member, manager, async (req, res) => {
+    try { res.json(await hub.setBranch(req.project, req.body?.branch)); } catch (e) { fail(res, e); }
   });
   router.post('/api/team/:pid/adopt', member, manager, async (req, res) => {
     try { res.status(202).json(await hub.adopt(req.project, req.user, req.body || {})); } catch (e) { fail(res, e); }

@@ -24,6 +24,8 @@ const OPEN_TONE = { queued: 'neutral', drafting: 'accent', 'awaiting-review': 'w
 export default function TeamPanel({ pid, onOpenRun }) {
   const [s, setS] = useState(null);
   const [err, setErr] = useState('');
+  const [branchChoices, setBranchChoices] = useState(null);
+  const [pick, setPick] = useState('');
   const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -42,8 +44,11 @@ export default function TeamPanel({ pid, onOpenRun }) {
       const st = await teamApi.state(pid, refresh);
       setS(st);
       if (!keepEdits) { setTeam(st.team); setRules(st.rules || {}); }
-      setErr('');
-    } catch (e) { setErr(e.message); }
+      setErr(''); setBranchChoices(null);
+    } catch (e) {
+      setErr(e.message);
+      if (e.branches) { setBranchChoices(e.branches); setPick(p => p || (e.branches.find(b => /^(develop|development|dev)$/.test(b)) || e.branches[0] || '')); }
+    }
     setLoading(false);
   }, [pid]);
   useEffect(() => { load(); }, [load]);
@@ -76,9 +81,24 @@ export default function TeamPanel({ pid, onOpenRun }) {
   }
   if (!s) {
     return (
-      <div className="alert-banner err" role="alert">
-        <AlertCircle size={16} /><div className="alert-banner-content">{err || 'Không tải được'}</div>
-        <Button size="sm" variant="ghost" icon={RefreshCw} onClick={() => load(true)}>Thử lại</Button>
+      <div className="tm">
+        <div className="alert-banner err" role="alert">
+          <AlertCircle size={16} /><div className="alert-banner-content">{err || 'Không tải được'}</div>
+          <Button size="sm" variant="ghost" icon={RefreshCw} onClick={() => load(true)}>Thử lại</Button>
+        </div>
+        {branchChoices?.length > 0 && (
+          <section className="card-panel tm-pad tm-branch">
+            <label className="form-label" htmlFor="tm-branch">Luật của đội AI nằm trên nhánh nào (nhánh tích hợp của dự án)?</label>
+            <div className="tm-branch-row">
+              <select id="tm-branch" value={pick} onChange={e => setPick(e.target.value)}>
+                {branchChoices.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+              <Button variant="primary" disabled={!pick || !!busy}
+                onClick={() => act('branch', () => teamApi.setBranch(pid, pick))}>{busy === 'branch' ? 'Đang lưu…' : 'Dùng nhánh này'}</Button>
+            </div>
+            <p className="faint">Chỉ cần chọn một lần. Lane của dự án cũng phải đọc luật từ nhánh này (<code>INTEGRATION_BRANCH</code>).</p>
+          </section>
+        )}
       </div>
     );
   }

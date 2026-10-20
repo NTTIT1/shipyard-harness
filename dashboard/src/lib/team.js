@@ -7,13 +7,14 @@ async function call(method, url, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok || j.ok === false) throw Object.assign(new Error(j.error || `HTTP ${r.status}`), { status: r.status });
+  if (!r.ok || j.ok === false) throw Object.assign(new Error(j.error || `HTTP ${r.status}`), { status: r.status, branches: j.branches });
   return j;
 }
 const enc = encodeURIComponent;
 
 export const teamApi = {
   state: (pid, refresh = false) => call('GET', `/api/team/${enc(pid)}${refresh ? '?refresh=1' : ''}`),
+  setBranch: (pid, branch) => call('PUT', `/api/team/${enc(pid)}/branch`, { branch }),
   adopt: (pid, note) => call('POST', `/api/team/${enc(pid)}/adopt`, { note }),
   propose: (pid, body) => call('POST', `/api/team/${enc(pid)}/propose`, body),
   redraft: (pid, note) => call('POST', `/api/team/${enc(pid)}/redraft`, { note }),

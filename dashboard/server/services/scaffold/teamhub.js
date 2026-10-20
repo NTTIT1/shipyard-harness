@@ -35,8 +35,11 @@ export function providerFor(repoUrl, providers) {
  * `skillCatalog`: Shipyard's suggested skills ({ id, label, desc, roles, content }). Choosing one the repo
  * lacks adds `.claude/skills/<id>/SKILL.md` when the change is approved.
  */
-export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACES_ROOT, now = Date.now, skillCatalog = [] } = {}) {
+export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACES_ROOT, now = Date.now, skillCatalog = [],
+  branchFile = path.join(root, '.team', 'branches.json') } = {}) {
   const synced = new Map();
+  // Per-project override of the rules branch, for repos whose integration branch differs from the platform's defaultBranch.
+  const branches = () => { try { return JSON.parse(fs.readFileSync(branchFile, 'utf8')); } catch { return {}; } };
   const busy = new Set();
 
   const gitOut = (dir, ...args) => {
@@ -49,7 +52,7 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
 
   /** Local repo the team tab works in: the wizard's workspace, or a clone Shipyard keeps under <root>/.team/. */
   async function locate(project) {
-    const branch = project.defaultBranch || 'development';
+    const branch = branches()[project.id] || project.defaultBranch || 'development';
     const known = setup.forProject(project.id).find(e => e.dir && fs.existsSync(e.dir));
     if (known) return { dir: known.dir, branch: known.branch || branch, provider: known.provider || 'local' };
     const url = project.repoUrl || '';
@@ -75,8 +78,12 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
     const hasOrigin = (gitOut(ctx.dir, 'remote') || '').split('\n').includes('origin');
     const g = (...a) => run('git', a, { cwd: ctx.dir, log: () => {} });
     if (hasOrigin) {
-      await run('git', ['fetch', '-q', 'origin', ctx.branch], { cwd: ctx.dir, log: () => {}, extraEnv: gitAuthEnv(providers, ctx.provider) })
-        .catch(e => { throw fail(502, `Không fetch được nhánh ${ctx.branch}: ${e.message}`); });
+      const env = gitAuthEnv(providers, ctx.provider);
+      await run('git', ['fetch', '-q', '--prune', 'origin'], { cwd: ctx.dir, log: () => {}, extraEnv: env })
+        .catch(e => { throw fail(502, `Không fetch được repo: ${e.message}`); });
+      if (gitOut(ctx.dir, 'rev-parse', '--verify', '-q', `refs/remotes/origin/${ctx.branch}`) === null) {
+        throw Object.assign(fail(409, `Repo không có nhánh ${ctx.branch} — chọn nhánh tích hợp của dự án`), { branches: remoteBranches(ctx) });
+      }
     }
     const local = gitOut(ctx.dir, 'rev-parse', '--verify', '-q', `refs/heads/${ctx.branch}`) !== null;
     if (!local && hasOrigin) await g('branch', ctx.branch, `origin/${ctx.branch}`);
@@ -86,6 +93,9 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
       .catch(() => { throw fail(409, `Nhánh ${ctx.branch} trên máy đã lệch khỏi origin — cần xử lý tay trong ${ctx.dir}`); });
     synced.set(project.id, now());
   }
+
+  const remoteBranches = ctx => (gitOut(ctx.dir, 'for-each-ref', '--format=%(refname:lstrip=3)', 'refs/remotes/origin') || '')
+    .split('\n').filter(b => b && b !== 'HEAD');
 
   async function open(project, { force = false } = {}) {
     const ctx = await locate(project);
@@ -140,6 +150,19 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
 
   return {
     state,
+
+    /** Use another branch of the repo for this project's rules (must exist on origin). */
+    setBranch: (project, branch) => exclusive(project, async () => {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,100}$/.test(branch || '') || branch.includes('..')) throw fail(400, 'Tên nhánh không hợp lệ');
+      const ctx = await locate(project);
+      const hasOrigin = (gitOut(ctx.dir, 'remote') || '').split('\n').includes('origin');
+      const ok = hasOrigin ? remoteBranches(ctx).includes(branch) : gitOut(ctx.dir, 'rev-parse', '--verify', '-q', `refs/heads/${branch}`) !== null;
+      if (!ok) throw fail(400, `Repo không có nhánh ${branch}`);
+      fs.mkdirSync(path.dirname(branchFile), { recursive: true });
+      fs.writeFileSync(branchFile, JSON.stringify({ ...branches(), [project.id]: branch }, null, 2));
+      synced.delete(project.id);
+      return { branch };
+    }),
 
     /** Give an existing project its AI team: generic starter + an AI Manager draft from the real code. */
     adopt: (project, user, { note = '' } = {}) => exclusive(project, async () => {

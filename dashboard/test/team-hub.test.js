@@ -250,3 +250,18 @@ it('the runner commits catalog skill files together with the approved rules', as
   expect(git(o.bare, 'show', 'develop:.claude/skills/jpa-safety/SKILL.md')).toContain('jpa-safety');
   expect(fs.existsSync(path.join(o.tmp, 'evil'))).toBe(false);
 });
+
+it('a missing branch lists the repo branches; choosing one is remembered', async () => {
+  const o = origin({ team: true });
+  const hub = createTeamHub({ setup: fakeSetup(), providers, root: o.root });
+  const p = { ...project(o.bare), defaultBranch: 'development' };
+  const e = await hub.state(p).catch(x => x);
+  expect(e.status).toBe(409);
+  expect(e.branches.sort()).toEqual(['develop', 'main']);
+  await expect(hub.setBranch(p, 'nope')).rejects.toThrow(/không có nhánh/);
+  await expect(hub.setBranch(p, '../x')).rejects.toThrow(/không hợp lệ/);
+  expect(await hub.setBranch(p, 'develop')).toEqual({ branch: 'develop' });
+  const s = await hub.state(p);
+  expect(s.branch).toBe('develop');
+  expect(s.adopted).toBe(true);
+});
