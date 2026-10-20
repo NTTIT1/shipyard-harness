@@ -9,6 +9,7 @@ import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Tabs from './ui/Tabs.jsx';
 import MemoryPanel from './MemoryPanel.jsx';
+import TeamPanel from './TeamPanel.jsx';
 import DeleteProjectButton from './DeleteProjectButton.jsx';
 import NewProjectWizard from './NewProjectWizard.jsx';
 import StepModels from './StepModels.jsx';
@@ -844,7 +845,8 @@ export default function ProjectsView({ user, onOpenRun }) {
                 { id: 'members', label: 'Thành viên' },
                 { id: 'gates', label: 'Cổng duyệt' },
                 { id: 'runs', label: 'Tính năng' },
-                { id: 'memory', label: 'Bộ nhớ' }
+                { id: 'memory', label: 'Bộ nhớ' },
+                { id: 'team', label: 'Đội AI' }
               ]}
             />
 
@@ -853,6 +855,7 @@ export default function ProjectsView({ user, onOpenRun }) {
             {tab === 'gates' && <GatePolicy key={project.id} pid={project.id} canManage={canManage} />}
             {tab === 'runs' && <Runs key={project.id} pid={project.id} onOpenRun={onOpenRun} />}
             {tab === 'memory' && <MemoryPanel key={project.id} projectId={project.id} canManage={canManage} />}
+            {tab === 'team' && <TeamPanel key={project.id} pid={project.id} onOpenRun={onOpenRun} />}
           </div>
         ) : (
           <div className="modern-empty-state" style={{ minHeight: 280 }}>
