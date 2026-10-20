@@ -122,3 +122,19 @@ export function teamFiles(ctx, stack) {
   for (const [rel, text] of Object.entries(starterRules(ctx, stack))) files[`.shipyard/${rel}`] = text;
   return files;
 }
+
+/** Generic starter for a project that already has code (P5 "adopt"): the AI Manager rewrites it from the real repo. */
+export function adoptFiles({ name, branch = 'development' }) {
+  const banner = '> Bản khởi đầu chung do Shipyard sinh khi gắn đội AI cho dự án có sẵn. AI Manager sẽ đọc code thật và soạn lại cùng người duyệt.\n';
+  const rules = {
+    'rules/project.md': `# Luật chung — ${name}\n\n${banner}\n## Git\n- Nhánh tích hợp: \`${branch}\`. Mỗi tính năng một nhánh, vào \`${branch}\` qua pull request.\n- Không commit \`.env\`, khoá hay mật khẩu.\n\n## Chất lượng\n- Build và test của dự án phải xanh trước khi mở pull request.\n- Tính năng mới đi kèm test cho hành vi chính.\n`,
+    'rules/dev.md': `# Luật cho AI Dev\n\n${banner}\n- Theo đúng cấu trúc thư mục, thư viện và cách đặt tên đang có trong code.\n- Không làm ngoài phạm vi spec/plan đã duyệt.\n`,
+    'rules/test.md': `# Luật cho AI Tester\n\n${banner}\n- Mỗi tiêu chí nghiệm thu (AC) có ít nhất một ca kiểm thử.\n`,
+    'rules/review.md': `# Luật cho AI Review\n\n${banner}\n- Kiểm tra theo rules/project.md và rules/dev.md; nêu rõ dòng nào vi phạm luật nào.\n`,
+    'rules/devops.md': `# Luật cho AI DevOps\n\n${banner}\n- Cấu hình qua biến môi trường, không hard-code.\n`,
+    'human/README.md': starterRules({ name, options: {} }, { commands: () => ({ build: '' }), id: '', languageLabel: '', label: '' })['human/README.md'],
+  };
+  const files = { '.shipyard/team.json': teamJson() };
+  for (const [rel, text] of Object.entries(rules)) files[`.shipyard/${rel}`] = text;
+  return files;
+}

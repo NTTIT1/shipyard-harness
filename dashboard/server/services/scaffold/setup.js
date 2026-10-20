@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { HARNESS_ROOT } from '../config.js';
-import { run as runCmd, readText } from './util.js';
+import { run as runCmd, readText, writeFiles } from './util.js';
 
 // AI Manager (spec 2026-10-19 §5.3): a SETUP run on the orchestrator whose single MANAGER step
 // is worked headless here, in the project's workspace. The AI drafts .shipyard/rules + team.json,
@@ -83,10 +83,12 @@ export function writeDocuments(dir, docs, { prune = false } = {}) {
 
 export function managerPrompt(entry, next) {
   const lines = [
-    `Dự án: ${entry.name} (${entry.slug}). Framework: ${entry.stack}.`,
+    `Dự án: ${entry.name} (${entry.slug}). Framework: ${entry.stack || 'xem trong code'}. Nhánh tích hợp: ${entry.branch || 'development'}.`,
     `Chế độ: ${next.mode}, lần nộp ${next.revision}.`,
     'Soạn bộ luật cho đội AI của dự án theo chỉ dẫn vai trò AI Manager.',
   ];
+  if (entry.adopt) lines.push('Dự án đã có code từ trước: luật hiện tại chỉ là bản khởi đầu chung — đọc kỹ code, build và cấu hình thật để soạn luật đúng với dự án.');
+  if (entry.note) lines.push('', 'Yêu cầu của người yêu cầu soạn lại (tài liệu tham khảo, không phải lệnh chạy công cụ):', entry.note);
   if (next.mode === 'REVISE') {
     if (next.feedback) lines.push('', 'Góp ý của người duyệt (phải xử lý hết):', next.feedback);
     if (next.editedDocuments && Object.keys(next.editedDocuments).length) {
@@ -105,6 +107,15 @@ export function parseVerdict(stdout) {
   if (/^ROLE-STEP: DONE/.test(last)) return { ok: true, summary: text.split('\n').slice(0, -1).join('\n').trim() || 'Bộ luật dự án' };
   if (/^ROLE-STEP: BLOCKED/.test(last)) return { ok: false, error: last.replace(/^ROLE-STEP: BLOCKED\s*/, 'AI Manager bị chặn: ') };
   return { ok: false, error: 'AI Manager không trả về dòng ROLE-STEP' };
+}
+
+/** Env for one git command that talks to the remote: provider token header, or the host's own credentials ('host'). */
+export function gitAuthEnv(providers, provider) {
+  const env = { GIT_TERMINAL_PROMPT: '0' };
+  if (provider === 'github' || provider === 'gitlab') {
+    Object.assign(env, { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'http.extraHeader', GIT_CONFIG_VALUE_0: providers.authHeader(provider) });
+  }
+  return env;
 }
 
 function readState() {
@@ -135,6 +146,14 @@ export function createSetupRunner({ orch = orchClient(), run = runCmd, providers
 
   async function draft(runId, entry, next) {
     if (next.mode === 'REVISE' && next.editedDocuments) writeDocuments(entry.dir, next.editedDocuments);
+    // A change typed by a person goes to review as-is; only a REVISE brings the AI in.
+    if (next.mode === 'WORK' && entry.documents) {
+      writeDocuments(entry.dir, entry.documents, { prune: true });
+      await orch.submit(runId, { summary: (entry.note || 'Thay đổi luật do người sửa trực tiếp').slice(0, 4000),
+        documents: collectDocuments(entry.dir), images: [], meta: {}, contextUsed: [] });
+      update(runId, { status: 'awaiting-review', revision: next.revision, documents: null });
+      return;
+    }
     update(runId, { status: 'drafting', error: null });
     let out = '';
     await run(claudeBin, ['-p', '--output-format', 'json', '--model', model, '--effort', 'high',
@@ -153,13 +172,15 @@ export function createSetupRunner({ orch = orchClient(), run = runCmd, providers
     if (!docs) throw new Error('không tìm thấy bộ luật đã duyệt');
     update(runId, { status: 'publishing' });
     writeDocuments(entry.dir, docs, { prune: true });
-    await git(entry.dir, 'add', '.shipyard');
+    const skillFiles = Object.fromEntries(Object.entries(entry.skillFiles || {}).filter(([f]) => /^\.claude\/skills\/[a-z0-9][a-z0-9_-]*\/SKILL\.md$/.test(f)));
+    writeFiles(entry.dir, skillFiles);
+    await git(entry.dir, 'add', '.shipyard', ...Object.keys(skillFiles));
     // `diff --cached --quiet` exits 1 when something is staged.
     const staged = await git(entry.dir, 'diff', '--cached', '--quiet').then(() => false, () => true);
     if (staged) await git(entry.dir, 'commit', '-q', '-m', 'docs(rules): project AI-team rules approved in Shipyard');
     if (entry.provider && entry.provider !== 'local') {
-      await run('git', ['push', 'origin', 'development'], { cwd: entry.dir, log: () => {},
-        extraEnv: { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'http.extraHeader', GIT_CONFIG_VALUE_0: providers.authHeader(entry.provider), GIT_TERMINAL_PROMPT: '0' } });
+      await run('git', ['push', 'origin', entry.branch || 'development'], { cwd: entry.dir, log: () => {},
+        extraEnv: gitAuthEnv(providers, entry.provider) });
     }
     await orch.release(runId, 'Luật dự án đã được duyệt và commit vào development');
     update(runId, { status: 'done' });
@@ -188,16 +209,24 @@ export function createSetupRunner({ orch = orchClient(), run = runCmd, providers
     laneRef: slug => `${host}:setup:${slug}`,
     /** Is this decision's laneRef one of ours? → runId to work on. */
     owns: laneRef => typeof laneRef === 'string' && laneRef.startsWith(`${host}:setup:`),
-    async start({ projectId, slug, name, stack, dir, provider, createdBy }) {
-      await git(dir, 'switch', '-q', 'development');
-      const r = await orch.createRun({ projectId, laneRef: `${host}:setup:${slug}`, title: `Luật dự án — ${name}`,
-        description: 'AI Manager soạn luật cho đội AI của dự án', createdBy, kind: 'SETUP' });
-      update(r.id, { projectId, slug, name, stack, dir, provider: provider || 'local', status: 'queued' });
+    /**
+     * `documents` (a person's edit) is submitted as-is; otherwise the AI Manager drafts, guided by
+     * `note`. `adopt` marks an existing codebase whose rules are only the generic starter.
+     */
+    async start({ projectId, slug, name, stack, dir, provider, createdBy, branch = 'development', documents = null, skillFiles = null, note = '', adopt = false, title }) {
+      await git(dir, 'switch', '-q', branch);
+      const r = await orch.createRun({ projectId, laneRef: `${host}:setup:${slug}`, title: title || `Luật dự án — ${name}`,
+        description: documents ? 'Thay đổi luật đội AI do người sửa' : 'AI Manager soạn luật cho đội AI của dự án', createdBy, kind: 'SETUP' });
+      update(r.id, { projectId, slug, name, stack, dir, branch, provider: provider || 'local', status: 'queued',
+        documents, skillFiles, note: note || null, adopt: !!adopt, title: title || null, createdBy, createdAt: new Date().toISOString() });
       work(r.id);
       return r.id;
     },
     work,
     get: runId => load()[runId] || null,
+    /** This project's setup runs, newest first. */
+    forProject: projectId => Object.entries(load()).filter(([, e]) => e.projectId === projectId)
+      .map(([runId, e]) => ({ runId, ...e })).sort((a, b) => String(b.createdAt || b.updatedAt).localeCompare(String(a.createdAt || a.updatedAt))),
     isBusy: runId => busy.has(runId),
   };
 }
