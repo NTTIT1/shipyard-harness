@@ -114,8 +114,8 @@ public class HumanService {
     public Map<String, String> gatePolicy(String userId, String projectId) {
         requireMember(projectId, userId);
         Map<String, String> out = new LinkedHashMap<>();
-        for (Step s : Step.values()) out.put(s.name(), GateMode.REQUIRED.name());
-        policies.findByProjectId(projectId).forEach(p -> out.put(p.step.name(), p.mode.name()));
+        for (Step s : com.shipyard.platform.orchestrator.domain.RunKind.FEATURE.steps()) out.put(s.name(), GateMode.REQUIRED.name());
+        policies.findByProjectId(projectId).forEach(p -> { if (out.containsKey(p.step.name())) out.put(p.step.name(), p.mode.name()); });
         return out;
     }
 
@@ -132,7 +132,9 @@ public class HumanService {
             } catch (RuntimeException ex) {
                 throw new BadRequestException("Unknown gate mode: " + e.getValue());
             }
-            parsed.add(new GatePolicy(projectId, Step.parse(e.getKey()), mode));
+            Step step = Step.parse(e.getKey());
+            if (step == Step.MANAGER) throw new BadRequestException("Project rules (MANAGER) always need a human approval");
+            parsed.add(new GatePolicy(projectId, step, mode));
         }
         policies.saveAll(parsed);
         policies.flush();

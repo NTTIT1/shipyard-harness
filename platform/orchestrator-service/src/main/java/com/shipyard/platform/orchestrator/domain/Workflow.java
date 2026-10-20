@@ -16,14 +16,19 @@ public final class Workflow {
     private Workflow() {}
 
     public static EnumMap<Step, RunStep> newSteps(String runId) {
+        return newSteps(runId, RunKind.FEATURE);
+    }
+
+    public static EnumMap<Step, RunStep> newSteps(String runId, RunKind kind) {
         EnumMap<Step, RunStep> steps = new EnumMap<>(Step.class);
-        for (Step s : Step.values()) steps.put(s, new RunStep(runId, s));
+        for (Step s : kind.steps()) steps.put(s, new RunStep(runId, s));
         return steps;
     }
 
+    /** Activates the run's first step (PM for a feature, MANAGER for a setup run). */
     public static void start(Run run, Map<Step, RunStep> steps) {
         run.status = RunStatus.RUNNING;
-        activate(run, steps, Step.PM);
+        activate(run, steps, steps.keySet().iterator().next());
     }
 
     /** Marks the active step as submitted; returns the new revision number. */
@@ -120,7 +125,7 @@ public final class Workflow {
     }
 
     private static void activateNext(Run run, Map<Step, RunStep> steps, Step after) {
-        for (Step s : Step.values()) {
+        for (Step s : steps.keySet()) {
             if (s.ordinal() <= after.ordinal()) continue;
             if (s == Step.DESIGN && Boolean.FALSE.equals(run.hasUi)) {
                 steps.get(s).status = StepStatus.SKIPPED;
@@ -136,6 +141,7 @@ public final class Workflow {
 
     private static void sendBack(Run run, Map<Step, RunStep> steps, Step from, Decision d) {
         Step target = d.sendBackTo();
+        if (target != null && !steps.containsKey(target)) throw new BadRequestException("Step " + target + " is not part of this run");
         if (target == null || target.ordinal() >= from.ordinal()) {
             throw new BadRequestException("sendBackTo must be a step before " + from);
         }
@@ -146,7 +152,7 @@ public final class Workflow {
             throw new BadRequestException("Edits cannot accompany SEND_BACK");
         }
         requireFeedback(d);
-        for (Step s : Step.values()) {
+        for (Step s : steps.keySet()) {
             if (s.ordinal() > target.ordinal() && s.ordinal() <= from.ordinal()) {
                 RunStep rs = steps.get(s);
                 rs.status = StepStatus.PENDING;

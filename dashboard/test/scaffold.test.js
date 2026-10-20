@@ -24,7 +24,7 @@ describe('validateRequest', () => {
     const s = validateRequest(req({ options: { db: 'mysql', evil: 'rm -rf /' } }), ALL);
     expect(s).toEqual({ name: 'Cửa hàng', slug: 'shop-api', description: '', stack: 'java-spring',
       options: { build: 'maven', javaVersion: '21', groupId: 'com.example', db: 'mysql', auth: 'none', docker: true },
-      git: { provider: 'local' } });
+      git: { provider: 'local' }, aiTeam: true, brief: '' });
   });
   it('rejects bad slugs, unknown stacks, choices and text patterns', () => {
     for (const slug of ['Shop', 'a', '1shop', 'shop_api', 'shop-', 'x'.repeat(41)]) {
@@ -165,7 +165,7 @@ describe('job runner', () => {
   const tools = () => ALL;
   // Real git, every other tool faked: the FastAPI template is generated in-process, so the flow runs offline.
   const run = (cmd, args, opts) => (cmd === 'git' ? realRun(cmd, args, opts) : (opts.log(`(fake) ${cmd} ${args.join(' ')}`), Promise.resolve()));
-  const spec = slug => validateRequest({ name: 'Py', slug, stack: 'python-fastapi', options: { db: 'sqlite' } }, ALL);
+  const spec = slug => validateRequest({ name: 'Py', slug, stack: 'python-fastapi', options: { db: 'sqlite' }, aiTeam: false }, ALL);
   const user = { id: 'u1', email: 'dev@acme.io' };
   beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'scaffold-')); });
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
@@ -264,7 +264,7 @@ describe('routes', () => {
   it('serves the catalog and starts a validated job with the session token', async () => {
     const s = await serve({ id: 'admin1', role: 'SYS_ADMIN' }, fakeRunner);
     const c = await (await fetch(`${s.base}/api/scaffold/catalog`)).json();
-    expect(c.stages.map(x => x.id)).toEqual(['generate', 'overlay', 'verify', 'git', 'remote', 'register']);
+    expect(c.stages.map(x => x.id)).toEqual(['generate', 'overlay', 'verify', 'git', 'remote', 'register', 'team']);
     const bad = await fetch(`${s.base}/api/scaffold/jobs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: 'X' }) });
     expect(bad.status).toBe(400);
     const ok = await fetch(`${s.base}/api/scaffold/jobs`, { method: 'POST',

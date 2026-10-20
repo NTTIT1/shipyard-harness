@@ -4,9 +4,13 @@ import com.shipyard.platform.common.exception.BadRequestException;
 
 import java.util.Locale;
 
-/** Pipeline steps in order; each is approved by one human project role. */
+/**
+ * Pipeline steps in order; each is approved by one human project role. MANAGER (the project's
+ * AI-team rules) is the only step of a SETUP run and never part of a FEATURE run.
+ */
 public enum Step {
-    PM("PM"), BA("BA"), ARCH("TECH_LEAD"), DESIGN("DESIGNER"), DEV("DEVELOPER"), TEST("TESTER");
+    PM("PM"), BA("BA"), ARCH("TECH_LEAD"), DESIGN("DESIGNER"), DEV("DEVELOPER"), TEST("TESTER"),
+    MANAGER("TECH_LEAD");
 
     private final String requiredRole;
 

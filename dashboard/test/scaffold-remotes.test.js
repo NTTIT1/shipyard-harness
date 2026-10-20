@@ -149,7 +149,7 @@ describe('job with a remote', () => {
   let root, bare;
   const fakeRun = (cmd, args, opts) => (cmd === 'git' ? realRun(cmd, args, opts) : (opts.log(`(fake) ${cmd}`), Promise.resolve()));
   const spec = (slug, git = { provider: 'github', owner: 'octo', visibility: 'private' }) =>
-    validateRequest({ name: 'Py', slug, stack: 'python-fastapi', options: { db: 'none' }, git }, ALL);
+    validateRequest({ name: 'Py', slug, stack: 'python-fastapi', options: { db: 'none' }, git, aiTeam: false }, ALL);
   const user = { id: 'u1', email: 'dev@acme.io' };
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'scr-'));

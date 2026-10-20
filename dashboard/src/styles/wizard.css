@@ -57,3 +57,8 @@
 .wz-vis legend { width: 100%; margin-bottom: 6px; padding: 0 }
 .wz-link { display: inline-flex; align-items: center; gap: 4px; overflow-wrap: anywhere }
 .wz-git .linklike { display: inline-flex; align-items: center; gap: 4px }
+.wz-setup { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--accent-soft); font-size: 13px }
+.wz-setup.error { background: var(--danger-soft) } .wz-setup.error svg { color: var(--danger) }
+.wz-setup.done svg, .wz-setup.awaiting-review svg { color: var(--ok) }
+.wz-fields textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text); font: inherit; font-size: 13px; resize: vertical }
+.wz-fields textarea:focus { outline: none; border-color: var(--accent) }

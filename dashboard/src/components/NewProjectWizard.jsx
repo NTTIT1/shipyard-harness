@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, CheckCircle2, Circle, Loader2, Rocket, RotateCcw, Trash2, XCircle, StopCircle, AlertTriangle, ExternalLink, KeyRound } from 'lucide-react';
 import Modal from './Modal.jsx';
 import Badge from './ui/Badge.jsx';
-import { scaffold, slugify, findStack, defaultOptions, wizardSteps, stepProblem, summary, PROVIDER_LABEL } from '../lib/scaffold.js';
+import { scaffold, slugify, findStack, defaultOptions, wizardSteps, stepProblem, summary, PROVIDER_LABEL, SETUP_STATUS } from '../lib/scaffold.js';
 import '../styles/wizard.css';
 
 const JOB_KEY = 'shipyard.scaffoldJob';
@@ -54,7 +54,27 @@ function JobView({ job, stages }) {
           <div><b>{job.status === 'cancelled' ? 'Đã huỷ' : 'Lỗi'}:</b> {job.error}</div>
         </div>
       )}
+      {job.setupRunId && <SetupStatus runId={job.setupRunId} />}
       <pre ref={logRef} className="wz-log" aria-label="Nhật ký" tabIndex={0}>{job.log.join('\n')}</pre>
+    </div>
+  );
+}
+
+function SetupStatus({ runId }) {
+  const [s, setS] = useState(null);
+  useEffect(() => {
+    let stop = false, t;
+    const tick = () => scaffold.setup(runId).then(v => { if (stop) return; setS(v); if (!['done', 'cancelled', 'awaiting-review', 'error'].includes(v.status)) t = setTimeout(tick, 3000); }, () => {});
+    tick();
+    return () => { stop = true; clearTimeout(t); };
+  }, [runId]);
+  if (!s) return null;
+  const busy = s.status === 'queued' || s.status === 'drafting' || s.status === 'publishing';
+  return (
+    <div className={`wz-setup ${s.status}`} role="status">
+      {busy ? <Loader2 size={16} className="wz-spin" aria-hidden="true" /> : s.status === 'error' ? <AlertTriangle size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
+      <span><b>Đội AI:</b> {SETUP_STATUS[s.status] || s.status}{s.error ? ` — ${s.error}` : ''}</span>
+      {s.status === 'error' && <button type="button" className="btn btn-sm btn-secondary" onClick={() => scaffold.retrySetup(runId).then(() => setS({ ...s, status: 'drafting', error: null }))}>Thử lại</button>}
     </div>
   );
 }
@@ -152,7 +172,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
   const [err, setErr] = useState('');
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({ name: '', slug: '', slugTouched: false, description: '', language: '', stack: '', options: {},
-    git: { provider: 'local', owner: '', ownerLabel: '', visibility: 'private' } });
+    git: { provider: 'local', owner: '', ownerLabel: '', visibility: 'private' }, aiTeam: true, brief: '' });
   const [job, setJob] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -182,7 +202,8 @@ export default function NewProjectWizard({ onClose, onCreated }) {
     setBusy(true); setErr('');
     try {
       const j = await scaffold.start({ name: form.name.trim(), slug: form.slug, description: form.description.trim(), stack: form.stack,
-        options: form.options, git: { provider: form.git.provider, owner: form.git.owner, visibility: form.git.visibility } });
+        options: form.options, git: { provider: form.git.provider, owner: form.git.owner, visibility: form.git.visibility },
+        aiTeam: form.aiTeam, brief: form.aiTeam ? form.brief : '' });
       remember(j.id);
       setJob({ ...j, log: j.log || [] });
     } catch (e) { setErr(e.message); }
@@ -318,6 +339,24 @@ export default function NewProjectWizard({ onClose, onCreated }) {
               <GitStep git={form.git} slug={form.slug} providers={catalog.providers}
                 onChange={g => set({ git: { ...form.git, ...g } })}
                 onProviders={p => setCatalog(c => ({ ...c, providers: p }))} />
+            )}
+
+            {cur === 'team' && (
+              <div className="wz-fields wz-git">
+                <label className="wz-check">
+                  <input type="checkbox" checked={form.aiTeam} onChange={e => set({ aiTeam: e.target.checked })} />
+                  <span>Giao <b>AI Manager</b> soạn bộ luật cho đội AI ngay sau khi tạo (bạn duyệt trước khi dùng)</span>
+                </label>
+                {form.aiTeam && (
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="wz-brief">Tài liệu cho AI hiểu dự án (không bắt buộc)</label>
+                    <textarea id="wz-brief" rows={9} maxLength={20000} value={form.brief} onChange={e => set({ brief: e.target.value })}
+                      placeholder={'Ví dụ: nghiệp vụ chính, chuẩn code của công ty, quy tắc đặt tên bảng, cách đặt tên nhánh, thư viện bắt buộc…'} />
+                    <span className="faint">Lưu vào <code>.shipyard/human/brief.md</code>. AI Manager đọc như tài liệu tham khảo để soạn luật; {form.brief.length.toLocaleString('vi-VN')}/20.000 ký tự.</span>
+                  </div>
+                )}
+                <p className="faint">Mỗi AI (Dev, Tester, Review…) chỉ nhận đúng luật của vai trò mình. Luật được đọc từ nhánh development, nên AI không tự sửa được.</p>
+              </div>
             )}
 
             {cur === 'review' && stack && (

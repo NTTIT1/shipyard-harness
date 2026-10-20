@@ -22,7 +22,7 @@ describe('slugify', () => {
 
 describe('wizard steps', () => {
   it('drops the database step for frontend stacks', () => {
-    expect(wizardSteps(findStack(catalog, 'java-spring')).map(s => s.id)).toEqual(['info', 'language', 'stack', 'db', 'options', 'git', 'review']);
+    expect(wizardSteps(findStack(catalog, 'java-spring')).map(s => s.id)).toEqual(['info', 'language', 'stack', 'db', 'options', 'git', 'team', 'review']);
     expect(wizardSteps(findStack(catalog, 'ts-react-vite')).map(s => s.id)).not.toContain('db');
   });
   it('blocks each step until it is valid', () => {
@@ -41,5 +41,13 @@ describe('wizard steps', () => {
     expect(rows).toContainEqual(['Database', 'PostgreSQL']);
     expect(rows).toContainEqual(['Docker', 'Có']);
     expect(rows).toContainEqual(['Framework', 'Spring Boot']);
+  });
+});
+
+describe('runSteps', () => {
+  it('shows only MANAGER for a project-rules run', async () => {
+    const { runSteps, STEPS } = await import('../src/lib/review.js');
+    expect(runSteps([{ step: 'MANAGER' }])).toEqual(['MANAGER']);
+    expect(runSteps([{ step: 'PM' }])).toBe(STEPS);
   });
 });

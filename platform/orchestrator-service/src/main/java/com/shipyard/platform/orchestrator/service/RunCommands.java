@@ -38,7 +38,17 @@ public class RunCommands {
     }
 
     public RunSummary createRun(CreateRunRequest req) {
+        RunKind kind = RunKind.parse(req.kind());
+        List<Run> setups = runs.findByProjectIdAndKind(req.projectId(), RunKind.SETUP);
+        if (kind == RunKind.SETUP && setups.stream().anyMatch(r -> r.status != RunStatus.DONE && r.status != RunStatus.CANCELLED)) {
+            throw new ConflictException("Project rules are already being drafted (an open SETUP run exists)");
+        }
+        // A project that has an AI team (it had a SETUP run) needs approved rules before any feature.
+        if (kind == RunKind.FEATURE && !setups.isEmpty() && setups.stream().noneMatch(r -> r.status == RunStatus.DONE)) {
+            throw new ConflictException("Project rules are not approved yet: approve the AI Manager step first");
+        }
         Run run = new Run();
+        run.kind = kind;
         run.id = Ids.newId("run");
         run.projectId = req.projectId();
         run.laneRef = req.laneRef();
@@ -46,7 +56,7 @@ public class RunCommands {
         run.description = req.description() == null ? "" : req.description();
         run.createdBy = req.createdBy();
         run.gateOverrides = normalizeGates(req.gateOverrides());
-        EnumMap<Step, RunStep> st = Workflow.newSteps(run.id);
+        EnumMap<Step, RunStep> st = Workflow.newSteps(run.id, kind);
         Workflow.start(run, st);
         runs.save(run);
         steps.saveAll(st.values());
@@ -84,8 +94,9 @@ public class RunCommands {
         a = approvals.save(a);
 
         String override = run.gateOverrides == null ? null : run.gateOverrides.get(step.name());
-        boolean auto = override != null ? GateMode.valueOf(override) == GateMode.AUTO
-                : policies.findById(new GatePolicy.Key(run.projectId, step)).map(p -> p.mode == GateMode.AUTO).orElse(false);
+        // Rules written by the AI Manager are never auto-approved.
+        boolean auto = step != Step.MANAGER && (override != null ? GateMode.valueOf(override) == GateMode.AUTO
+                : policies.findById(new GatePolicy.Key(run.projectId, step)).map(p -> p.mode == GateMode.AUTO).orElse(false));
         if (auto) {
             applyDecision(run, st, a, rev, new Decision(DecisionAction.APPROVE, null, null, null, null), AUTO, AUTO);
         }
@@ -187,6 +198,7 @@ public class RunCommands {
         Map<String, String> out = new LinkedHashMap<>();
         for (Map.Entry<String, String> e : in.entrySet()) {
             Step step = Step.parse(e.getKey());
+            if (step == Step.MANAGER) throw new BadRequestException("Project rules (MANAGER) always need a human approval");
             String mode = e.getValue() == null ? "" : e.getValue().trim().toUpperCase(java.util.Locale.ROOT);
             if (!mode.equals("REQUIRED") && !mode.equals("AUTO")) {
                 throw new BadRequestException("gateOverrides." + step + " must be REQUIRED or AUTO");
