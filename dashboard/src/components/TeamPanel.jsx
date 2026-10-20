@@ -81,7 +81,7 @@ export default function TeamPanel({ pid, onOpenRun }) {
         <span className="tm-where">Nhánh <code>{s.branch}</code> · <span className="mono faint" title="Thư mục làm việc trên máy chủ">{s.dir}</span></span>
         {setup && (
           <span className="tm-run">
-            <Badge tone={OPEN_TONE[setup.status] || 'neutral'}>{SETUP_STATUS[setup.status] || setup.status}</Badge>
+            <Badge tone={OPEN_TONE[setup.status] || 'neutral'}>{(SETUP_STATUS[setup.status] || setup.status).replace('development', s.branch)}</Badge>
             {setup.title && <span className="faint">{setup.title}</span>}
             {setup.status === 'awaiting-review' && onOpenRun && <Button size="sm" variant="primary" onClick={() => onOpenRun(setup.runId)}>Xem & duyệt</Button>}
             {setup.status === 'error' && s.canManage && (
