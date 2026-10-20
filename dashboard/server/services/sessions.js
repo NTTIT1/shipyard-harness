@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { spawnSync } from 'child_process';
 import { query as sdkQuery } from '@anthropic-ai/claude-agent-sdk';
 import { HARNESS_ROOT, LANES_ROOT } from './config.js';
 import { readProviders } from './providers.js';
@@ -16,7 +17,14 @@ let deps = {
   setNeedsAction: () => {},
   claudeBin: process.env.CLAUDE_BIN || path.join(process.env.HOME || '', '.local/bin/claude'),
   laneContext: readLaneContext,
+  teamRules: readTeamRules,
 };
+
+/** bin/team_rules.py output for a lane checkout ('' when the project has no AI team or on error). */
+export function readTeamRules(cwd, step, branch = process.env.INTEGRATION_BRANCH || 'development') {
+  const r = spawnSync('python3', [path.join(HARNESS_ROOT, 'bin', 'team_rules.py'), cwd, step, branch], { encoding: 'utf8', timeout: 20000 });
+  return r.status === 0 ? (r.stdout || '').trim() : '';
+}
 export function configureSessions(d) { deps = { ...deps, ...d }; }
 
 const root = () => process.env.HARNESS_ROOT || HARNESS_ROOT;
@@ -127,6 +135,9 @@ export function startSession(n, { model, effort, prompt, resume }) {
   };
   if (effort) options.effort = effort;
   if (resume) options.resume = resume;
+  // Project AI-team rules for the developer role, same as run-step.sh gives sub-steps.
+  const rules = deps.teamRules(options.cwd, 'main');
+  if (rules) options.extraArgs = { 'append-system-prompt': rules };
   const q = deps.query({ prompt: input, options });
   live.set(n, { q, input, pending: null });
   try { if (prompt) emit(n, { kind: 'user', text: prompt }); } catch { /* never strand the lane */ }

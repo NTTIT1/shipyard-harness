@@ -95,6 +95,9 @@ else
 fi
 
 cd "$(lane_dir "$N")"
+# Project AI-team rules for this step's role (.shipyard/team.json on the integration branch).
+TEAM_RULES="$(python3 "$CODE_ROOT/bin/team_rules.py" "$PWD" "$STEP" "${INTEGRATION_BRANCH:-development}" 2>/dev/null || true)"
+[ -n "$TEAM_RULES" ] && ARGS+=(--append-system-prompt "$TEAM_RULES")
 ERRF="$(mktemp)"; trap 'rm -f "$ERRF"' EXIT
 set +e
 RAW="$("${CLAUDE_BIN:-claude}" "${ARGS[@]}" "$(cat "$PROMPT_FILE")" 2>"$ERRF" </dev/null)"; RC=$?

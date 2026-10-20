@@ -181,5 +181,18 @@ A="$(cat "$HARNESS_ROOT/claude.args")"
 assert_contains "$A" $'--model\nclaude-haiku-5-5' "per-feature model config beats per-lane default"
 assert_contains "$A" $'--effort\nmedium' "per-feature effort config used"
 
-finish
+# Project AI-team rules: injected for the step's role, read from the integration branch.
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" >/dev/null
+assert_eq "0" "$(grep -c -- "--append-system-prompt" "$HARNESS_ROOT/claude.args")" "no rules flag when the project has no .shipyard/team.json"
+L2="$LANES_ROOT/lane2"
+git -C "$L2" init -q -b development
+mkdir -p "$L2/.shipyard/rules"
+echo '{"roles":{"REVIEW":{"reads":["rules/review.md"]}}}' > "$L2/.shipyard/team.json"
+echo 'CHECK SQL INJECTION FIRST' > "$L2/.shipyard/rules/review.md"
+git -C "$L2" add -A && git -C "$L2" -c user.name=t -c user.email=t@x -c commit.gpgsign=false commit -qm rules
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" >/dev/null
+A="$(cat "$HARNESS_ROOT/claude.args")"
+assert_contains "$A" "--append-system-prompt" "rules flag passed for a project with an AI team"
+assert_contains "$A" "CHECK SQL INJECTION FIRST" "the REVIEW role's rule file reaches the senior gate"
 
+finish
