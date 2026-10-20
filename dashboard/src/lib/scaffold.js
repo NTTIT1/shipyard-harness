@@ -16,7 +16,11 @@ export const scaffold = {
   start: body => call('POST', '/api/scaffold/jobs', body),
   job: id => call('GET', `/api/scaffold/jobs/${id}`),
   cancel: id => call('POST', `/api/scaffold/jobs/${id}/cancel`),
-  retryRegister: id => call('POST', `/api/scaffold/jobs/${id}/register`),
+  retry: id => call('POST', `/api/scaffold/jobs/${id}/retry`),
+  providers: () => call('GET', '/api/scaffold/git-providers'),
+  saveProvider: (id, body) => call('PUT', `/api/scaffold/git-providers/${id}`, body),
+  removeProvider: id => call('DELETE', `/api/scaffold/git-providers/${id}`),
+  owners: id => call('GET', `/api/scaffold/git-providers/${id}/owners`),
   discard: id => call('DELETE', `/api/scaffold/jobs/${id}`),
 };
 
@@ -64,6 +68,10 @@ export function stepProblem(step, form, stack) {
     case 'stack':
       if (!stack) return 'Chọn framework';
       return stack.available ? '' : `Máy chủ thiếu: ${stack.missing.map(m => m.tool).join(', ')}`;
+    case 'git':
+      if (form.git.provider === 'local') return '';
+      if (!form.git.owner) return form.git.provider === 'github' ? 'Chọn tài khoản hoặc tổ chức GitHub' : 'Chọn group GitLab';
+      return '';
     case 'options':
       for (const o of stack?.options || []) {
         if (o.type === 'text' && !new RegExp(o.pattern).test(String(form.options[o.id] ?? ''))) return `${o.label}: ${o.help || 'không hợp lệ'}`;
@@ -84,6 +92,14 @@ export function summary(form, stack) {
   if (form.description) rows.push(['Mô tả', form.description]);
   rows.push(['Ngôn ngữ', stack.languageLabel], ['Framework', stack.label]);
   for (const o of stack.options) rows.push([o.label, choiceLabel(o, form.options[o.id])]);
-  rows.push(['Kho Git', 'Chỉ trên máy (nhánh main + development)']);
+  rows.push(['Kho Git', gitLabel(form.git)]);
   return rows;
+}
+
+export const PROVIDER_LABEL = { local: 'Chỉ trên máy', github: 'GitHub', gitlab: 'GitLab' };
+
+export function gitLabel(git) {
+  if (!git || git.provider === 'local') return 'Chỉ trên máy (nhánh main + development)';
+  const where = git.ownerLabel || git.owner;
+  return `${PROVIDER_LABEL[git.provider]} · ${where} · ${git.visibility === 'public' ? 'công khai' : 'riêng tư'} (push main + development, có CI)`;
 }

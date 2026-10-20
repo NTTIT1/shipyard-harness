@@ -50,3 +50,10 @@
   .wz-steps li.on .wz-step-label { display: inline }
   .wz-log { height: 220px }
 }
+.wz-git { max-width: none }
+.wz-token { display: flex; flex-direction: column; gap: 10px; max-width: 560px; padding: 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius) }
+.wz-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center }
+.wz-vis { margin: 0; padding: 0; border: 0 }
+.wz-vis legend { width: 100%; margin-bottom: 6px; padding: 0 }
+.wz-link { display: inline-flex; align-items: center; gap: 4px; overflow-wrap: anywhere }
+.wz-git .linklike { display: inline-flex; align-items: center; gap: 4px }

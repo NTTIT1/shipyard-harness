@@ -9,6 +9,7 @@
 /config/secrets.env
 /config/local.env
 /config/providers.json
+/config/git-providers.json
 /config/models.json
 /config/leak-terms.txt
 # per-project profiles are local to each install; only the template ships

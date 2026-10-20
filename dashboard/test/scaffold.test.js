@@ -23,7 +23,8 @@ describe('validateRequest', () => {
   it('fills option defaults and keeps only catalog keys', () => {
     const s = validateRequest(req({ options: { db: 'mysql', evil: 'rm -rf /' } }), ALL);
     expect(s).toEqual({ name: 'Cửa hàng', slug: 'shop-api', description: '', stack: 'java-spring',
-      options: { build: 'maven', javaVersion: '21', groupId: 'com.example', db: 'mysql', auth: 'none', docker: true } });
+      options: { build: 'maven', javaVersion: '21', groupId: 'com.example', db: 'mysql', auth: 'none', docker: true },
+      git: { provider: 'local' } });
   });
   it('rejects bad slugs, unknown stacks, choices and text patterns', () => {
     for (const slug of ['Shop', 'a', '1shop', 'shop_api', 'shop-', 'x'.repeat(41)]) {
@@ -206,7 +207,7 @@ describe('job runner', () => {
     expect(f).toMatchObject({ status: 'failed', stage: 'verify', errorTail: '1 failed' });
     expect(f.stages).toEqual({ generate: 'done', overlay: 'done', verify: 'failed', git: 'pending', register: 'pending' });
     expect(fs.existsSync(path.join(root, 'bad-app'))).toBe(true);
-    expect(r.discard(j.id)).toEqual({ ok: true });
+    expect(r.discard(j.id)).toEqual({ ok: true, remoteKept: null });
     expect(fs.existsSync(path.join(root, 'bad-app'))).toBe(false);
   });
 
@@ -216,9 +217,9 @@ describe('job runner', () => {
     const j = r.start(spec('reg-app'), user, 't');
     await r.wait(j.id);
     expect(r.get(j.id)).toMatchObject({ status: 'failed', stage: 'register' });
-    const ok = await r.retryRegister(j.id, 'fresh');
+    const ok = await r.retry(j.id, 'fresh');
     expect(ok).toMatchObject({ status: 'done', project: { id: 'proj_9' }, error: null });
-    await expect(r.retryRegister(j.id, 'x')).rejects.toThrow(/đăng ký/);
+    await expect(r.retry(j.id, 'x')).rejects.toThrow(/đăng ký/);
     expect(() => r.discard(j.id)).toThrow(/đã được tạo/);
   });
 
@@ -246,7 +247,7 @@ describe('routes', () => {
     const app = express();
     app.use(express.json());
     app.use((req, _res, next) => { req.user = user; next(); });
-    app.use(scaffoldRouter({ authEnabled: true, runner, tools: () => ALL }));
+    app.use(scaffoldRouter({ authEnabled: true, runner, tools: () => ALL, providers: { list: () => ({}) } }));
     const srv = app.listen(0);
     await new Promise(r => srv.once('listening', r));
     const base = `http://127.0.0.1:${srv.address().port}`;
@@ -263,7 +264,7 @@ describe('routes', () => {
   it('serves the catalog and starts a validated job with the session token', async () => {
     const s = await serve({ id: 'admin1', role: 'SYS_ADMIN' }, fakeRunner);
     const c = await (await fetch(`${s.base}/api/scaffold/catalog`)).json();
-    expect(c.stages.map(x => x.id)).toEqual(['generate', 'overlay', 'verify', 'git', 'register']);
+    expect(c.stages.map(x => x.id)).toEqual(['generate', 'overlay', 'verify', 'git', 'remote', 'register']);
     const bad = await fetch(`${s.base}/api/scaffold/jobs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: 'X' }) });
     expect(bad.status).toBe(400);
     const ok = await fetch(`${s.base}/api/scaffold/jobs`, { method: 'POST',
