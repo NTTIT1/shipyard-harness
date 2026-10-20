@@ -37,7 +37,7 @@ export const STEPS = [
   { id: 'ba', label: 'BA (AI)' },
   { id: 'arch', label: 'Kiến trúc sư (AI)' },
   { id: 'design', label: 'Designer (AI)', warn: 'cần Chrome để chụp mockup' },
-  { id: 'test', label: 'Tester (AI)' },
+  { id: 'test', label: 'Tester (AI)', openhands: true },  // may run in the OpenHands sandbox
   { id: 'plan-critic', label: 'Phản biện plan' },
   { id: 'impl-worker', label: 'Code song song', warn: 'cần sửa file + chạy test' },
   { id: 'code-review', label: 'Code review' },
@@ -259,7 +259,7 @@ export function validateModels(models) {
     const meta = STEPS.find(s => s.id === step);
     if (!meta) { errs.push(`${step}: bước không tồn tại`); continue; }
     const [prov, model] = split(value);
-    if (meta.engine && prov === 'openhands') {
+    if ((meta.engine || meta.openhands) && prov === 'openhands') {
       const [gp, ...rest] = model.split('/');
       const gm = rest.join('/');
       const p = providers[gp];
@@ -268,7 +268,7 @@ export function validateModels(models) {
       else if (!(p.models || []).includes(gm)) errs.push(`${step}: model ${gm} không có trong danh sách của ${gp}`);
       continue;
     }
-    if (prov === 'openhands') { errs.push(`${step}: OpenHands chỉ dùng cho bước DEV`); continue; }
+    if (prov === 'openhands') { errs.push(`${step}: OpenHands chỉ dùng cho bước DEV và TEST`); continue; }
     if (prov === 'claude') {
       if (!CLAUDE_MODELS.some(m => m.id === model)) errs.push(`${step}: model Claude ${model} không hợp lệ`);
       continue;

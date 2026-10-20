@@ -37,5 +37,22 @@ python3 "$REPO/tests/fixtures/mock_llm.py" $PORT "$TMPH/llm.log" nocommit & MOCK
 out="$(run)"; rc=$?
 assert_eq "2" "$rc" "finished without a commit exits 2"
 assert_contains "$out" "ROLE-STEP: BLOCKED OpenHands finished without committing anything" "claims are checked against git"
+kill $MOCK; wait $MOCK 2>/dev/null
+
+# TEST step in the sandbox: qc-plan.md only; a tester that commits code is refused
+echo '{"defaults":{"dev":"openhands:anthropic/claude-sonnet-5-5","test":"openhands:anthropic/claude-sonnet-5-5"}}' > "$TMPH/config/models.json"
+bash "$REPO/bin/state.sh" 1 init >/dev/null; bash "$REPO/bin/state.sh" 1 set spec_dir=specs/f feature_title="Tính năng X" >/dev/null
+runt() { GATEWAY_PORT=$PORT OPENHANDS_MAX_ITERATIONS=10 OPENHANDS_TIMEOUT=900 bash "$REPO/bin/run-step.sh" 1 test "$TMPH/prompt.md" 2>"$TMPH/err"; }
+python3 "$REPO/tests/fixtures/mock_llm.py" $PORT "$TMPH/llm.log" qcplan & MOCK=$!; sleep 1
+out="$(runt)"; rc=$?
+assert_eq "0" "$rc" "TEST run exits 0"
+assert_contains "$out" "ROLE-STEP: DONE qc-plan.md (OpenHands)" "tester verdict"
+assert_contains "$(cat "$LANE/specs/f/qc-plan.md")" "Kết quả tự động" "qc-plan.md written in the spec dir"
+assert_contains "$(cat "$TMPH/run/lane1/usage.jsonl")" '"step": "test"' "usage recorded for the test step"
+kill $MOCK; wait $MOCK 2>/dev/null
+python3 "$REPO/tests/fixtures/mock_llm.py" $PORT "$TMPH/llm.log" badtester & MOCK=$!; sleep 1
+out="$(runt)"; rc=$?
+assert_eq "2" "$rc" "tester that commits => exit 2"
+assert_contains "$out" "the tester committed" "testers never change code"
 assert_eq "0" "$(docker ps -a --filter name=shipyard-oh-lane1 --format '{{.Names}}' | wc -l)" "no sandbox container left behind"
 finish

@@ -46,7 +46,12 @@ PROVIDER="${MODEL%%:*}"; MID="${MODEL#*:}"
 # anything else means the lane's main Claude session implements DEV itself (ship-feature Stage 1).
 if [ "$STEP" = "dev" ]; then
   [ "$PROVIDER" = "openhands" ] || die "dev engine for lane $N is the main session ($MODEL) — implement in the session, not via run-step"
-  exec bash "$CODE_ROOT/bin/openhands-step.sh" "$N" "$PROMPT_FILE" "$MID"
+  exec bash "$CODE_ROOT/bin/openhands-step.sh" "$N" "$PROMPT_FILE" "$MID" dev
+fi
+# TEST (qc-plan + automated checks) may also run in the OpenHands sandbox; browser QC (qc-local)
+# always stays a Claude Code step.
+if [ "$STEP" = "test" ] && [ "$PROVIDER" = "openhands" ]; then
+  exec bash "$CODE_ROOT/bin/openhands-step.sh" "$N" "$PROMPT_FILE" "$MID" test
 fi
 ID="$STEP-$(date +%s)-$$"
 record() {

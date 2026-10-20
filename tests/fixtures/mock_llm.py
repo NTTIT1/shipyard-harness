@@ -24,7 +24,13 @@ class H(BaseHTTPRequestHandler):
             call = {"id": "call_2", "type": "function", "function": {"name": "finish",
                     "arguments": json.dumps({"message": "Implemented hello.txt and committed it. Tests: n/a."})}}
         else:
-            cmd = 'echo "hello from openhands" > hello.txt && git add hello.txt && git commit -qm "feat: add hello" && git log --oneline -1'
+            mode = sys.argv[3] if len(sys.argv) > 3 else ""
+            if mode == "qcplan":   # a well-behaved tester: writes the plan, touches nothing else
+                cmd = 'mkdir -p specs/f && printf "# QC plan\\n- S1 (AC-1): chờ QC trình duyệt\\n## Kết quả tự động\\n- n/a\\n" > specs/f/qc-plan.md'
+            elif mode == "badtester":   # a tester that "fixes" code itself — must be refused
+                cmd = 'echo "patched" > app.txt && git add app.txt && git commit -qm "fix: tester patched code"'
+            else:
+                cmd = 'echo "hello from openhands" > hello.txt && git add hello.txt && git commit -qm "feat: add hello" && git log --oneline -1'
             call = {"id": "call_1", "type": "function", "function": {"name": "terminal",
                     "arguments": json.dumps({"command": cmd, "summary": "create and commit hello.txt", "security_risk": "LOW"})}}
         self._send(200, {"id": "cmpl-1", "object": "chat.completion", "created": int(time.time()), "model": req.get("model"),

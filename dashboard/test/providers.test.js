@@ -180,7 +180,10 @@ describe('Anthropic provider + OpenHands DEV engine', () => {
     expect(P.validateModels({ dev: 'openhands:anthropic/claude-nope' })).toEqual(['dev: model claude-nope không có trong danh sách của anthropic']);
     expect(P.validateModels({ dev: 'openhands:mistral/large' })).toEqual(['dev: nhà cung cấp mistral chưa cấu hình']);
     expect(P.validateModels({ dev: 'openhands:bad' })).toEqual(['dev: dạng đúng là openhands:<nhà cung cấp>/<model>']);
-    expect(P.validateModels({ 'code-review': 'openhands:anthropic/claude-sonnet-5-5' })).toEqual(['code-review: OpenHands chỉ dùng cho bước DEV']);
+    expect(P.validateModels({ 'code-review': 'openhands:anthropic/claude-sonnet-5-5' })).toEqual(['code-review: OpenHands chỉ dùng cho bước DEV và TEST']);
+    expect(P.STEPS.find(s => s.id === 'test')?.openhands).toBe(true);
+    expect(P.validateModels({ test: 'openhands:anthropic/claude-sonnet-5-5' })).toEqual([]);
+    expect(P.validateModels({ test: 'openhands:anthropic/claude-nope' })).toEqual(['test: model claude-nope không có trong danh sách của anthropic']);
     expect(P.usesGateway({ dev: 'openhands:anthropic/claude-sonnet-5-5' })).toBe(true);
   });
 });

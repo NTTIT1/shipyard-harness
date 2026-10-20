@@ -34,12 +34,23 @@ mkdir -p "$LANE/specs/f"; echo "# tasks: T1" > "$LANE/specs/f/tasks.md"
 st 1 init >/dev/null; st 1 set spec_dir=specs/f feature_title="Tính năng X" >/dev/null
 out="$(OPENHANDS_MOCK=1 bash "$REPO/bin/run-step.sh" 1 dev "$TMPH/prompt.md" 2>/dev/null)"; rc=$?
 assert_eq "0" "$rc" "mock run exits 0"
-assert_contains "$out" "ROLE-STEP: DONE OpenHands (mock) on feat/x" "mock verdict"
+assert_contains "$out" "ROLE-STEP: DONE OpenHands dev (mock) on feat/x" "mock verdict"
 task="$(cat "$(ls -d "$TMPH"/run/lane1/openhands/dev-* | tail -1)/task.md")"
 assert_contains "$task" "# DEV: Tính năng X" "task titled with the feature"
 assert_contains "$task" "# tasks: T1" "approved tasks.md attached"
 assert_contains "$task" "never switch branches" "rules of the road included"
 assert_eq "start,end" "$(st 1 get steps | python3 -c 'import json,sys; print(",".join(s["event"] for s in json.load(sys.stdin) if s["step"]=="dev"))')" "step start/end recorded"
+
+# TEST routes to OpenHands only when its model is openhands:*; claude models keep tester-agent
+echo '{"defaults": {"test": "openhands:anthropic/claude-sonnet-5-5"}}' > "$TMPH/config/models.json"
+out="$(OPENHANDS_MOCK=1 bash "$REPO/bin/run-step.sh" 1 test "$TMPH/prompt.md" 2>/dev/null)"; rc=$?
+assert_eq "0" "$rc" "test step in the sandbox (mock) exits 0"
+assert_contains "$out" "ROLE-STEP: DONE OpenHands test (mock)" "test routed to OpenHands"
+task="$(cat "$(ls -d "$TMPH"/run/lane1/openhands/test-* | tail -1)/task.md")"
+assert_contains "$task" "you are the TESTER" "tester instructions"
+assert_contains "$task" "NEVER edit application code or tests" "tester never fixes code"
+out="$(bash "$REPO/bin/openhands-step.sh" 1 "$TMPH/prompt.md" anthropic/x qa 2>&1)"; rc=$?
+assert_eq "1" "$rc" "only dev|test steps"
 
 # invalid alias and unconfigured provider are refused before any container starts
 out="$(bash "$REPO/bin/openhands-step.sh" 1 "$TMPH/prompt.md" 'bad alias' 2>&1)"; rc=$?
