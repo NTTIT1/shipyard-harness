@@ -32,39 +32,22 @@ case "$STEP" in
   ba) AGENT="ba-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   arch) AGENT="architect-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   design) AGENT="designer-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
-  dev)
-    if [ -f "$CODE_ROOT/bin/openhands-step.sh" ]; then
-      exec bash "$CODE_ROOT/bin/openhands-step.sh" "$N" "$PROMPT_FILE"
-    else
-      AGENT="impl-worker"; VERDICT_RE='^ROLE-STEP: '
-    fi
-    ;;
+  dev) AGENT=""; VERDICT_RE='^ROLE-STEP: ' ;;  # engine chosen below from the configured model
   test) AGENT="tester-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   *) usage ;;
 esac
 
 STATE_FILE="$(lane_state_file "$N")"
 # Effort: state effort.<step> -> feature config -> lane config -> config/models.json effort.<step> -> none (Claude models only).
-RESOLVED="$(python3 - "$STATE_FILE" "$HARNESS_ROOT/config/models.json" "$STEP" "$N" <<'PY'
-import json, sys
-state, cfg, step, lane = sys.argv[1:5]
-def load(p):
-    try: return json.load(open(p))
-    except Exception: return {}
-s, c = load(state), load(cfg)
-feats = c.get("features") or {}
-fcfg = {}
-for k in (s.get("run_id"), f"lane{lane}:{s.get('spec_dir')}" if s.get("spec_dir") else None, s.get("spec_dir"), f"lane{lane}:{s.get('feature_title')}" if s.get("feature_title") else None, s.get("feature_title")):
-    if k and isinstance(feats.get(k), dict):
-        fcfg = feats[k]; break
-lcfg = (c.get("lanes") or {}).get(str(lane)) or {}
-model = (s.get("models") or {}).get(step) or (fcfg.get("models") or fcfg).get(step) or (lcfg.get("models") or lcfg).get(step) or (c.get("defaults") or {}).get(step) or "claude:claude-opus-5-5"
-effort = (s.get("effort") or {}).get(step) or (fcfg.get("effort") or {}).get(step) or (lcfg.get("effort") or {}).get(step) or (c.get("effort") or {}).get(step) or ""
-print(model + "\t" + (effort if effort in ("low", "medium", "high", "xhigh", "max") else ""))
-PY
-)"
+RESOLVED="$(python3 "$CODE_ROOT/bin/step_model.py" "$STATE_FILE" "$HARNESS_ROOT/config/models.json" "$STEP" "$N")"
 MODEL="${RESOLVED%%$'\t'*}"; EFFORT="${RESOLVED#*$'\t'}"
 PROVIDER="${MODEL%%:*}"; MID="${MODEL#*:}"
+# DEV implementation engine: "openhands:<gateway model>" runs OpenHands in a sandbox container;
+# anything else means the lane's main Claude session implements DEV itself (ship-feature Stage 1).
+if [ "$STEP" = "dev" ]; then
+  [ "$PROVIDER" = "openhands" ] || die "dev engine for lane $N is the main session ($MODEL) — implement in the session, not via run-step"
+  exec bash "$CODE_ROOT/bin/openhands-step.sh" "$N" "$PROMPT_FILE" "$MID"
+fi
 ID="$STEP-$(date +%s)-$$"
 record() {
   bash "$CODE_ROOT/bin/state.sh" "$N" append steps "$1" >/dev/null 2>&1 \

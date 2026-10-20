@@ -155,3 +155,32 @@ describe('per-lane model defaults & per-feature models', () => {
 });
 
 
+
+describe('Anthropic provider + OpenHands DEV engine', () => {
+  it('lists Claude API models with x-api-key and renders them on the gateway', async () => {
+    P.writeProviders({ anthropic: { api_key: 'sk-ant-api-test-9999' } });
+    let seen;
+    const fake = async (url, opts) => { seen = { url, headers: opts.headers }; return { ok: true, json: async () => ({ data: [{ id: 'claude-sonnet-5-5' }, { id: 'claude-opus-5-5' }] }) }; };
+    expect(await P.listModels('anthropic', fake)).toEqual(['claude-opus-5-5', 'claude-sonnet-5-5']);
+    expect(seen.url).toMatch(/^https:\/\/api\.anthropic\.com\/v1\/models/);
+    expect(seen.headers['x-api-key']).toBe('sk-ant-api-test-9999');
+    expect(seen.headers['anthropic-version']).toBeTruthy();
+    expect(seen.headers.Authorization).toBeUndefined();
+    P.setProviderModels('anthropic', ['claude-sonnet-5-5']);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gw-'));
+    const { yaml, env } = P.renderGateway(dir);
+    expect(yaml).toContain('model_name: "anthropic/claude-sonnet-5-5"');
+    expect(yaml).toContain('model: "anthropic/claude-sonnet-5-5"');
+    expect(env).toContain('KEY_ANTHROPIC=sk-ant-api-test-9999');
+  });
+  it('DEV accepts the session (claude:*) or openhands:<configured provider>/<listed model> only', () => {
+    expect(P.STEPS.find(s => s.id === 'dev')?.engine).toBe(true);
+    expect(P.validateModels({ dev: 'claude:claude-opus-5-5' })).toEqual([]);
+    expect(P.validateModels({ dev: 'openhands:anthropic/claude-sonnet-5-5' })).toEqual([]);
+    expect(P.validateModels({ dev: 'openhands:anthropic/claude-nope' })).toEqual(['dev: model claude-nope không có trong danh sách của anthropic']);
+    expect(P.validateModels({ dev: 'openhands:mistral/large' })).toEqual(['dev: nhà cung cấp mistral chưa cấu hình']);
+    expect(P.validateModels({ dev: 'openhands:bad' })).toEqual(['dev: dạng đúng là openhands:<nhà cung cấp>/<model>']);
+    expect(P.validateModels({ 'code-review': 'openhands:anthropic/claude-sonnet-5-5' })).toEqual(['code-review: OpenHands chỉ dùng cho bước DEV']);
+    expect(P.usesGateway({ dev: 'openhands:anthropic/claude-sonnet-5-5' })).toBe(true);
+  });
+});

@@ -8,6 +8,9 @@ import { normalizeEfforts } from './usage.js';
 // LiteLLM model prefix; models are listed explicitly (from "Kiểm tra") rather
 // than wildcard-routed so a typo fails at assign time, not mid-pipeline.
 export const CATALOG = {
+  // Claude through the Anthropic API (API key from console.anthropic.com) — used by OpenHands for
+  // DEV; Claude Code roles keep running on the machine's own Claude login.
+  anthropic:  { label: 'Anthropic (Claude API)', litellm: 'anthropic', listUrl: 'https://api.anthropic.com/v1/models', auth: 'x-api-key' },
   openai:     { label: 'OpenAI',         litellm: 'openai',      listUrl: 'https://api.openai.com/v1/models', auth: 'bearer' },
   gemini:     { label: 'Google Gemini',  litellm: 'gemini',      listUrl: 'https://generativelanguage.googleapis.com/v1beta/models', auth: 'query-key' },
   openrouter: { label: 'OpenRouter',     litellm: 'openrouter',  listUrl: 'https://openrouter.ai/api/v1/models', auth: 'bearer' },
@@ -27,6 +30,9 @@ export const CLAUDE_MODELS = [
 
 export const STEPS = [
   { id: 'main', label: 'Phiên chính', claudeOnly: true },
+  // DEV implementation engine: claude:* = the main session codes (default); openhands:<provider>/<model>
+  // = OpenHands in a sandbox through the gateway (bin/openhands-step.sh).
+  { id: 'dev', label: 'DEV — viết code', engine: true },
   { id: 'pm', label: 'PM (AI)' },
   { id: 'ba', label: 'BA (AI)' },
   { id: 'arch', label: 'Kiến trúc sư (AI)' },
@@ -253,6 +259,16 @@ export function validateModels(models) {
     const meta = STEPS.find(s => s.id === step);
     if (!meta) { errs.push(`${step}: bước không tồn tại`); continue; }
     const [prov, model] = split(value);
+    if (meta.engine && prov === 'openhands') {
+      const [gp, ...rest] = model.split('/');
+      const gm = rest.join('/');
+      const p = providers[gp];
+      if (!gp || !gm) errs.push(`${step}: dạng đúng là openhands:<nhà cung cấp>/<model>`);
+      else if (!isConfigured(gp, p)) errs.push(`${step}: nhà cung cấp ${gp} chưa cấu hình`);
+      else if (!(p.models || []).includes(gm)) errs.push(`${step}: model ${gm} không có trong danh sách của ${gp}`);
+      continue;
+    }
+    if (prov === 'openhands') { errs.push(`${step}: OpenHands chỉ dùng cho bước DEV`); continue; }
     if (prov === 'claude') {
       if (!CLAUDE_MODELS.some(m => m.id === model)) errs.push(`${step}: model Claude ${model} không hợp lệ`);
       continue;
@@ -319,6 +335,10 @@ export async function listModels(id, fetchImpl = fetch) {
     if (p.api_key) headers.Authorization = `Bearer ${p.api_key}`;
   } else if (cat.auth === 'query-key') {
     url = `${cat.listUrl}?key=${encodeURIComponent(p.api_key || '')}`;
+  } else if (cat.auth === 'x-api-key') {
+    url = `${cat.listUrl}?limit=1000`;
+    headers['x-api-key'] = p.api_key || '';
+    headers['anthropic-version'] = '2023-06-01';
   } else {
     url = cat.listUrl;
     headers.Authorization = `Bearer ${p.api_key || ''}`;
