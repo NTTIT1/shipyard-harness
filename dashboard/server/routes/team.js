@@ -26,7 +26,7 @@ export function platformProjectLookup(gatewayUrl = PLATFORM_URL, fetchImpl = fet
 
 // "Đội AI" tab of a project (spec 2026-10-19 §5, P5).
 export function teamRouter({ authEnabled = AUTH_ENABLED, providers = createProviderStore(), setup = defaultSetupRunner({ providers }),
-  hub = createTeamHub({ setup, providers }), lookup = platformProjectLookup() } = {}) {
+  skillCatalog = [], hub = createTeamHub({ setup, providers, skillCatalog }), lookup = platformProjectLookup() } = {}) {
   const router = Router();
   const fail = (res, e) => res.status(e.status || 500).json({ ok: false, error: e.message });
 
