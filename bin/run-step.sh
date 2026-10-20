@@ -32,6 +32,13 @@ case "$STEP" in
   ba) AGENT="ba-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   arch) AGENT="architect-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   design) AGENT="designer-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
+  dev)
+    if [ -f "$CODE_ROOT/bin/openhands-step.sh" ]; then
+      exec bash "$CODE_ROOT/bin/openhands-step.sh" "$N" "$PROMPT_FILE"
+    else
+      AGENT="impl-worker"; VERDICT_RE='^ROLE-STEP: '
+    fi
+    ;;
   test) AGENT="tester-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   *) usage ;;
 esac
