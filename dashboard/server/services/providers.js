@@ -10,7 +10,7 @@ import { normalizeEfforts } from './usage.js';
 export const CATALOG = {
   // Claude through the Anthropic API (API key from console.anthropic.com) — used by OpenHands for
   // DEV; Claude Code roles keep running on the machine's own Claude login.
-  anthropic:  { label: 'Anthropic (Claude API)', litellm: 'anthropic', listUrl: 'https://api.anthropic.com/v1/models', auth: 'x-api-key' },
+  anthropic:  { label: 'Anthropic (Claude API)', litellm: 'anthropic', listUrl: 'https://api.anthropic.com/v1/models', auth: 'x-api-key', workspace: true },
   openai:     { label: 'OpenAI',         litellm: 'openai',      listUrl: 'https://api.openai.com/v1/models', auth: 'bearer' },
   gemini:     { label: 'Google Gemini',  litellm: 'gemini',      listUrl: 'https://generativelanguage.googleapis.com/v1beta/models', auth: 'query-key' },
   openrouter: { label: 'OpenRouter',     litellm: 'openrouter',  listUrl: 'https://openrouter.ai/api/v1/models', auth: 'bearer' },
@@ -94,11 +94,16 @@ export function writeProviders(patch) {
     if (!CATALOG[id] && !CUSTOM_RE.test(id)) throw new Error(`unknown provider ${id}`);
     if (p.remove) { delete doc.providers[id]; continue; }
     assertOneLine(p.api_key, 'api_key'); assertOneLine(p.base_url, 'base_url'); assertOneLine(p.label, 'label');
+    // Keys not scoped to a workspace (e.g. sk-ant-usr…) must name one on every call.
+    if (p.workspace_id !== undefined && p.workspace_id !== '' && !/^wrkspc_[A-Za-z0-9]{6,64}$/.test(String(p.workspace_id).trim())) {
+      throw new Error('Workspace ID có dạng wrkspc_…');
+    }
     const cur = doc.providers[id] || {};
     const next = { ...cur };
     if (p.api_key) next.api_key = p.api_key;
     if (p.base_url !== undefined) next.base_url = p.base_url;
     if (p.label !== undefined) next.label = p.label;
+    if (p.workspace_id !== undefined) next.workspace_id = String(p.workspace_id).trim();
     doc.providers[id] = next;
   }
   if (!doc.gateway_key) doc.gateway_key = 'sk-gw-' + crypto.randomBytes(24).toString('hex');
@@ -130,6 +135,7 @@ export function publicProviders() {
       label: p?.label || cat.label || id,
       configured: isConfigured(id, p),
       key_hint: p?.api_key ? '…' + p.api_key.slice(-4) : '',
+      workspace: !!cat.workspace, workspace_id: p?.workspace_id || '',
       base_url: p?.base_url || '',
       models: p?.models || [],
       custom: !CATALOG[id],
@@ -309,6 +315,7 @@ export function renderGateway(dir) {
       lines.push(`      model: ${q(`${prefix}/${m}`)}`);
       if (p.api_key) lines.push(`      api_key: ${q(`os.environ/${envName(id)}`)}`);
       if (base) lines.push(`      api_base: ${q(base)}`);
+      if (p.workspace_id) lines.push('      extra_headers:', `        anthropic-workspace-id: ${q(p.workspace_id)}`);
     }
   }
   if (lines.length === 1) lines[0] = 'model_list: []';
@@ -339,12 +346,18 @@ export async function listModels(id, fetchImpl = fetch) {
     url = `${cat.listUrl}?limit=1000`;
     headers['x-api-key'] = p.api_key || '';
     headers['anthropic-version'] = '2023-06-01';
+    if (p.workspace_id) headers['anthropic-workspace-id'] = p.workspace_id;
   } else {
     url = cat.listUrl;
     headers.Authorization = `Bearer ${p.api_key || ''}`;
   }
   const r = await fetchImpl(url, { headers, signal: AbortSignal.timeout(15000) });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  if (!r.ok) {
+    // Surface the provider's own reason (e.g. "not scoped to a workspace") instead of a bare status.
+    let why = '';
+    try { why = (await r.json())?.error?.message || ''; } catch { /* not JSON */ }
+    throw new Error(`HTTP ${r.status}${why ? ` — ${why}` : ''}`);
+  }
   const j = await r.json();
   let ids;
   if (cat?.keyless) ids = (j.models || []).map(m => m.name);

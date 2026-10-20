@@ -187,3 +187,21 @@ describe('Anthropic provider + OpenHands DEV engine', () => {
     expect(P.usesGateway({ dev: 'openhands:anthropic/claude-sonnet-5-5' })).toBe(true);
   });
 });
+
+describe('Anthropic keys that are not scoped to a workspace', () => {
+  it('stores a workspace id, sends it on Kiểm tra and through the gateway', async () => {
+    expect(() => P.writeProviders({ anthropic: { workspace_id: 'bad id' } })).toThrow(/wrkspc_/);
+    P.writeProviders({ anthropic: { api_key: 'sk-ant-usr-test-1111', workspace_id: 'wrkspc_01ABCdef' } });
+    expect(P.publicProviders().anthropic).toMatchObject({ workspace: true, workspace_id: 'wrkspc_01ABCdef' });
+    let headers;
+    await P.listModels('anthropic', async (_u, o) => { headers = o.headers; return { ok: true, json: async () => ({ data: [{ id: 'claude-sonnet-5-5' }] }) }; });
+    expect(headers['anthropic-workspace-id']).toBe('wrkspc_01ABCdef');
+    P.setProviderModels('anthropic', ['claude-sonnet-5-5']);
+    const { yaml } = P.renderGateway(fs.mkdtempSync(path.join(os.tmpdir(), 'gw-')));
+    expect(yaml).toContain('extra_headers:\n        anthropic-workspace-id: "wrkspc_01ABCdef"');
+  });
+  it('a provider error keeps its own message', async () => {
+    const fake = async () => ({ ok: false, status: 400, json: async () => ({ error: { message: 'not scoped to a workspace' } }) });
+    await expect(P.listModels('anthropic', fake)).rejects.toThrow('HTTP 400 — not scoped to a workspace');
+  });
+});

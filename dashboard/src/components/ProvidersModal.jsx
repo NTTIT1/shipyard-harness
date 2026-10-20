@@ -115,6 +115,11 @@ export default function ProvidersModal({ lanes = [], onClose }) {
                 <input className="prov-in" placeholder={info.catalog[id]?.defaultUrl || 'https://…/v1'}
                   defaultValue={p.base_url} onChange={e => edit(id, 'base_url', e.target.value)} />
               )}
+              {p.workspace && (
+                <input className="prov-in" placeholder="Workspace ID (wrkspc_…) — nếu key không gắn workspace"
+                  aria-label={`Workspace ID — ${p.label}`}
+                  defaultValue={p.workspace_id} onChange={e => edit(id, 'workspace_id', e.target.value)} />
+              )}
               {!p.keyless && (
                 <input className="prov-in" type="password" autoComplete="off"
                   placeholder={p.key_hint ? `đã lưu ${p.key_hint} — nhập để thay` : 'API key'}
