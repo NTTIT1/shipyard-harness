@@ -38,6 +38,7 @@ export default function TopHeader({
     if (view === 'costs') return 'Báo cáo tổng hợp';
     if (view === 'users') return 'Quản lý người dùng';
     if (view === 'docs') return 'Tài liệu dự án';
+    if (view === 'studio') return 'Ý tưởng sản phẩm';
     if (view === 'lanes') return 'Công việc (Lanes)';
     if (view === 'projects') {
       if (projectSubTab === 'gates') return 'Quy trình & duyệt';

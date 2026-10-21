@@ -151,6 +151,8 @@ export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeToo
           writeFiles(j.dir, teamFiles(ctx, stack));
         }
         if (j.spec.brief) writeFiles(j.dir, { '.shipyard/human/brief.md': `# Mô tả từ người tạo dự án\n\n${j.spec.brief}\n` });
+        // Documents approved in the product studio (brief, architecture, UI design + mockups).
+        if (j.spec.docs) writeFiles(j.dir, j.spec.docs);
         if (j.architecture) {
           writeFiles(j.dir, {
             'docs/architecture.md': j.architecture,

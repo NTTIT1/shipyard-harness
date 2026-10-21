@@ -34,7 +34,7 @@ const STAGE_ICON = {
 };
 const STAGE_STATE = { pending: 'chưa chạy', running: 'đang chạy', done: 'xong', failed: 'lỗi', waiting: 'chờ người duyệt' };
 
-export function JobView({ job, stages }) {
+export function JobView({ job, stages, showLog = true }) {
   const logRef = useRef(null);
   useEffect(() => { const el = logRef.current; if (el) el.scrollTop = el.scrollHeight; }, [job.log.length]);
   return (
@@ -62,7 +62,7 @@ export function JobView({ job, stages }) {
       )}
       {job.blueprintRunId && <BlueprintStatus runId={job.blueprintRunId} />}
       {job.setupRunId && <SetupStatus runId={job.setupRunId} />}
-      <pre ref={logRef} className="wz-log" aria-label="Nhật ký" tabIndex={0}>{job.log.join('\n')}</pre>
+      {showLog && <pre ref={logRef} className="wz-log" aria-label="Nhật ký" tabIndex={0}>{job.log.join('\n')}</pre>}
     </div>
   );
 }

@@ -37,6 +37,7 @@ import TopHeader from './components/TopHeader.jsx';
 const ReviewView = lazy(() => import('./components/ReviewView.jsx'));
 const NewProjectWizard = lazy(() => import('./components/NewProjectWizard.jsx'));
 const CostsView = lazy(() => import('./components/CostsView.jsx'));
+const StudioView = lazy(() => import('./components/StudioView.jsx'));
 const DocsView = lazy(() => import('./components/DocsView.jsx'));
 
 export default function App({ user, onLogout }) {
@@ -270,6 +271,8 @@ export default function App({ user, onLogout }) {
         )}
         {view === 'users' && <UsersView user={user} onLogout={onLogout} />}
         {view === 'costs' && <Suspense fallback={<ViewLoading />}><CostsView /></Suspense>}
+        {view === 'studio' && <Suspense fallback={<ViewLoading />}><StudioView
+          onOpenProject={async pid => { await loadProjects(); setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }} /></Suspense>}
         {view === 'docs' && <Suspense fallback={<ViewLoading />}><DocsView key={docsRun} initialRunId={docsRun} onOpenRun={runId => openReview({ runId })} /></Suspense>}
         {view === 'lanes' && (<>
         {!selectedLaneData ? (

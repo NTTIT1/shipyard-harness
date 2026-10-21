@@ -117,6 +117,16 @@ export default function Sidebar({
               <span className="sb-nav-label">Tổng quan điều hành</span>
             </button>
 
+            {isAdmin(user) && (
+              <button
+                type="button"
+                className={`sb-nav-item${view === 'studio' ? ' active' : ''}`}
+                onClick={() => handleNav('studio')}>
+                <Sparkles size={16} className="sb-nav-icon" />
+                <span className="sb-nav-label">Ý tưởng sản phẩm (chat)</span>
+              </button>
+            )}
+
             <button
               type="button"
               className={`sb-nav-item${view === 'inbox' || view === 'review' ? ' active' : ''}`}
