@@ -70,3 +70,14 @@ export function harnessConfig() {
     },
   };
 }
+
+/**
+ * Multi-project lanes: what config/lanes/lane<N>.env binds lane N to (written by lane-add.sh
+ * --profile). Unbound lanes → null (they work on the install's main project).
+ */
+export function laneBinding(n) {
+  const b = loadEnvFile(path.join(HARNESS_ROOT, 'config', 'lanes', `lane${n}.env`));
+  if (!b.PROFILE) return null;
+  const integ2 = loadEnvFile(path.join(HARNESS_ROOT, 'profiles', b.PROFILE, 'integrations.env'));
+  return { profile: b.PROFILE, sourceRepo: b.SOURCE_REPO || '', projectId: integ2.PLATFORM_PROJECT_ID || '' };
+}

@@ -12,6 +12,7 @@
 /config/git-providers.json
 /config/models.json
 /config/leak-terms.txt
+/config/lanes/
 # per-project profiles are local to each install; only the template ships
 /profiles/*
 !/profiles/_template/

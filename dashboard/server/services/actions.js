@@ -4,6 +4,48 @@ import path from 'path';
 import { BIN, HARNESS_ROOT } from './config.js';
 import { archiveFeatureState } from './proof.js';
 import { applyCreds } from './creds.js';
+import { writeLaneProfile, projectParts } from './scaffold/laneprofile.js';
+import { WORKSPACES_ROOT } from './scaffold/jobs.js';
+
+const SLUG_RE = /^[a-z][a-z0-9-]{2,39}$/;
+const PROJECT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * Multi-project lanes: what a new lane for a Shipyard-generated project needs — its harness profile
+ * (generated from .shipyard/project.json) and the lane-add.sh binding flags.
+ */
+export function laneAddArgs(project, { root = WORKSPACES_ROOT, harnessRoot = HARNESS_ROOT } = {}) {
+  const slug = String(project?.slug || '');
+  if (!SLUG_RE.test(slug)) throw new Error('slug dự án không hợp lệ');
+  const projectId = String(project?.projectId || '');
+  if (projectId && !PROJECT_ID_RE.test(projectId)) throw new Error('mã dự án không hợp lệ');
+  const dir = path.join(root, slug);
+  if (!fs.existsSync(path.join(dir, '.git'))) throw new Error(`Không thấy repo của dự án tại ${dir}`);
+  const profile = writeLaneProfile(harnessRoot, dir, { projectId, name: project.name });
+  const origin = spawnSync('git', ['-C', dir, 'remote', 'get-url', 'origin'], { encoding: 'utf8' }).stdout.trim();
+  return ['--profile', profile, '--source', dir, ...(origin ? ['--origin', origin] : [])];
+}
+
+/** Projects Shipyard generated on this machine (lanes can be added for them). */
+export function laneProjects({ root = WORKSPACES_ROOT } = {}) {
+  if (!fs.existsSync(root)) return [];
+  const out = [];
+  for (const slug of fs.readdirSync(root).sort()) {
+    if (!SLUG_RE.test(slug)) continue;
+    const dir = path.join(root, slug);
+    if (!fs.existsSync(path.join(dir, '.shipyard', 'project.json'))) continue;
+    try {
+      const { meta, backend, frontend } = projectParts(dir);
+      const db = backend?.options?.db || 'none';
+      const supported = !['mysql', 'mongodb'].includes(db);
+      out.push({ slug, name: meta.name, stack: [backend?.stack, frontend?.stack].filter(Boolean).join(' + '), supported,
+        reason: supported ? '' : `database ${db} chưa chạy được trên lane` });
+    } catch (e) {
+      out.push({ slug, name: slug, stack: '', supported: false, reason: e.message });
+    }
+  }
+  return out;
+}
 
 function script(name) { return path.join(BIN, name); }
 
@@ -82,7 +124,9 @@ export function runAction(lane, action, params) {
       if (email) env.LANE_DEV_QC_EMAIL = email;
       if (password) env.LANE_DEV_QC_PASSWORD = password;
     }
-    spawnBg(['bash', script('lane-add.sh')], env);
+    // A Shipyard-generated project: generate its profile and bind the new lane to it.
+    const bind = (params || {}).project ? laneAddArgs(params.project) : [];
+    spawnBg(['bash', script('lane-add.sh'), ...bind], env);
   } else if (action === 'repopulate') {
     const { env, preCmds, notes } = applyCreds(lane, params || {});
     const res = runSync([...preCmds,

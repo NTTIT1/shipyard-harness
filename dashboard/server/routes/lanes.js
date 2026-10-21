@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { lanesPayload } from '../services/state.js';
-import { runAction } from '../services/actions.js';
+import { runAction, laneProjects } from '../services/actions.js';
 import { brief } from '../services/sessions.js';
 import { aggregate, readAllUsage, readSettings } from '../services/usage.js';
 
@@ -45,6 +45,11 @@ router.post('/api/lane/:n(\\d)/:action', (req, res) => {
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
+});
+
+// Shipyard-generated projects a lane can be added for (multi-project lanes).
+router.get('/api/lanes/projects', (_req, res) => {
+  try { res.json(laneProjects()); } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 router.post('/api/lanes/add', (req, res) => {

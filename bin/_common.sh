@@ -13,6 +13,19 @@ HARNESS_ROOT="${HARNESS_ROOT:-$(cd "$_HARNESS_BIN/.." && pwd)}"
 # shellcheck disable=SC1091
 source "$HARNESS_ROOT/config/lanes.env"
 
+# Multi-project lanes: a lane bound to another project carries its own topology
+# (PROFILE, SOURCE_REPO, ORIGIN_URL, DB_PREFIX) in config/lanes/lane<N>.env,
+# written by `lane-add.sh --profile …`. The lane is HARNESS_LANE, else the
+# calling script's first argument when it is a lane number (scripts take N
+# first). Unbound lanes keep the install-wide project from config/local.env.
+_HARNESS_LANE_N="${HARNESS_LANE:-}"
+if [ -z "$_HARNESS_LANE_N" ] && [[ "${1:-}" =~ ^[1-9]$ ]]; then _HARNESS_LANE_N="$1"; fi
+if [ -n "$_HARNESS_LANE_N" ] && [ -f "$HARNESS_ROOT/config/lanes/lane$_HARNESS_LANE_N.env" ]; then
+  # shellcheck disable=SC1090
+  source "$HARNESS_ROOT/config/lanes/lane$_HARNESS_LANE_N.env"
+  PROFILE_DIR="$HARNESS_ROOT/profiles/$PROFILE"
+fi
+
 # Active profile: stack-shape config in profiles/<PROFILE>/profile.env, with
 # harness defaults below so a missing key never breaks an existing lane.
 # The real PROFILE comes from config/lanes.env (sourced above); this fallback is

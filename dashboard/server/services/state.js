@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { LANES_ROOT, STATE_DIR, FE_BASE_PORT, API_BASE_PORT, DEAD_SEC } from './config.js';
-import { harnessConfig } from './config.js';
+import { harnessConfig, laneBinding } from './config.js';
 import { git } from './git.js';
 import { portUp } from './ports.js';
 
@@ -126,8 +126,11 @@ async function readLane(n) {
   lane.stage_age_sec = stageAge;
 
   const cfg = harnessConfig();
-  if (!lane.run_project_id && cfg.platform_project_id) {
-    lane.run_project_id = cfg.platform_project_id;
+  // A lane bound to another project (multi-project lanes) belongs to that project.
+  const bound = laneBinding(lane.lane);
+  if (bound) lane.bound_profile = bound.profile;
+  if (!lane.run_project_id && (bound?.projectId || cfg.platform_project_id)) {
+    lane.run_project_id = bound?.projectId || cfg.platform_project_id;
   }
 
   return lane;

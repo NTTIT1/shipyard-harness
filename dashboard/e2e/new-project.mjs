@@ -26,6 +26,7 @@ const slug = await p.inputValue('#wz-slug');
 ok(/^wizard-thu-\d+$/.test(slug), `slug derived from the name (${slug})`);
 await shot(p, 'wz1-info');
 await next.click();
+await next.click(); // need: no AI advice
 await next.click(); // project kind: one app (default)
 await m.getByText('TypeScript', { exact: true }).click(); await next.click();
 await m.getByText('React + Vite', { exact: true }).click();
@@ -34,6 +35,11 @@ await next.click();
 ok(await m.getByText('Database', { exact: true }).count() === 0, 'React + Vite skips the database step');
 await next.click(); // options
 await next.click(); // git
+await next.click(); // architecture: create now
+await next.click(); // workflow: default
+const aiTeam = m.getByRole('checkbox', { name: /AI Manager/ });
+if (await aiTeam.isChecked()) await aiTeam.uncheck();   // no real Claude for a throwaway project
+await next.click(); // AI team → review
 await shot(p, 'wz3-review');
 ok(await m.getByText('React + Vite').count() > 0, 'review lists the stack');
 await m.getByRole('button', { name: 'Tạo dự án' }).click();

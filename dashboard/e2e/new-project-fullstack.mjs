@@ -27,6 +27,7 @@ try {
   await p.fill('#wz-name', name);
   slug = await p.inputValue('#wz-slug');
   await next.click();
+  await next.click();                                                              // need: no AI advice
   await m.getByText('Fullstack: backend + frontend', { exact: true }).click();
   await shot(p, 'fs1-kind');
   await next.click();
@@ -40,6 +41,8 @@ try {
   ok(await m.locator('input[name=frontend]:checked').count() === 1, 'React + Vite preselected');
   await shot(p, 'fs2-frontend');
   await next.click();                                                               // git (local)
+  await next.click();                                                               // architecture: create now
+  await next.click();                                                               // workflow: default
   await next.click();                                                               // AI team
   // Skip the AI Manager for a throwaway project (it would draft rules with real Claude).
   const aiTeam = m.getByRole('checkbox', { name: /AI Manager/ });

@@ -87,3 +87,7 @@
   .st-mock { height: 380px }
 }
 @media (pointer: coarse) { .st-tab, .st-item { min-height: 44px } }
+.st-roadmap li { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap }
+.st-roadmap li > div { flex: 1; min-width: 220px }
+.st-lanes { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.6 }
+.st-note { margin: 0; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--accent-soft); font-size: 13px }

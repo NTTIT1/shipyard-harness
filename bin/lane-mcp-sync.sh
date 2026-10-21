@@ -44,7 +44,13 @@ lane_dir = os.environ["LANE_DIR"]
 cfg = json.load(open(os.path.expanduser("~/.claude.json")))
 servers = (cfg.get("projects", {}).get(src_repo, {}) or {}).get("mcpServers") or {}
 if not servers:
-    sys.exit(f"no mcpServers found for source project {src_repo} in ~/.claude.json")
+    # A project Shipyard generated has no MCP registration of its own: give its lanes the harness's
+    # standard browser servers. Their Chromium profiles start empty (nothing is copied from another
+    # project, so no foreign logins leak in).
+    pw = lambda name: {"command": "npx", "args": ["-y", "@playwright/mcp@0.0.83", "--user-data-dir",
+                       f"{src_repo}/.playwright-mcp/profiles/{name}", "--output-dir", f"{src_repo}/.playwright-mcp/proof"]}
+    servers = {"playwright": pw("playwright"), "playwright-qa-local": pw("qa-local"), "playwright-qa-dev": pw("qa-dev")}
+    print(f"harness: no mcpServers registered for {src_repo} — using the default browser servers", file=sys.stderr)
 
 def relocate(v):
     if isinstance(v, str):

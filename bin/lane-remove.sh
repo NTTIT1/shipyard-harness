@@ -20,4 +20,5 @@ done
 [ -d "$DIR" ] && rm -rf "$DIR"
 rm -rf "$HARNESS_ROOT/state/lane$N" "$HARNESS_ROOT/state/lane$N.json" "$HARNESS_ROOT/state/lane$N.pr-cursor"
 rm -rf "$(lane_run_dir "$N")" "$(lane_log_dir "$N")"
+rm -f "$HARNESS_ROOT/config/lanes/lane$N.env"   # a multi-project binding goes with the lane
 echo "harness: lane $N removed (clone, DBs, state, logs)."

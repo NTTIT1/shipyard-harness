@@ -39,3 +39,19 @@ export function speaker(msg, stages) {
 
 /** Should the view keep polling? (an AI is answering, or the project is being generated) */
 export const isLive = s => !!s && (s.busy || s.job?.status === 'running');
+
+/** The requirement a roadmap feature is assigned to a lane with (the lane's PM/Plan start from it). */
+export function featureRequirement(feature, project) {
+  return [
+    `Tính năng "${feature.title}" của dự án ${project.name} (lộ trình đã duyệt trong Shipyard):`,
+    feature.text,
+    '',
+    'Làm theo tài liệu đã duyệt trong repo: docs/product-brief.md, docs/architecture.md (module, dữ liệu, API, cấu trúc thư mục) và docs/design/ nếu có.',
+  ].join('\n');
+}
+
+const FREE = ['idle', 'down', '', undefined];
+/** Lanes bound to this project that can take a feature now. */
+export const freeLanesOf = (lanes, projectId) => (lanes || [])
+  .filter(l => l.run_project_id === projectId && l.bound_profile && !l.session_running && FREE.includes(l.status));
+export const lanesOf = (lanes, projectId) => (lanes || []).filter(l => l.run_project_id === projectId && l.bound_profile);

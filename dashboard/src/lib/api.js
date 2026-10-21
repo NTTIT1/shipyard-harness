@@ -59,6 +59,13 @@ export async function deleteProof(n, body) {
   }));
 }
 
+/** Shipyard-generated projects a new lane can be bound to (multi-project lanes). */
+export async function fetchLaneProjects() {
+  const r = await authFetch('/api/lanes/projects');
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
 export async function postAction(n, action, body) {
   const opts = { method: 'POST' };
   if (body) {
