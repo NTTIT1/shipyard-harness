@@ -55,6 +55,7 @@ describe('runSteps', () => {
   it('shows only MANAGER for a project-rules run', async () => {
     const { runSteps, STEPS } = await import('../src/lib/review.js');
     expect(runSteps([{ step: 'MANAGER' }])).toEqual(['MANAGER']);
-    expect(runSteps([{ step: 'PM' }])).toBe(STEPS);
+    expect(runSteps([])).toBe(STEPS);
+    expect(runSteps([{ step: 'PM' }])).toEqual(['PM']);
   });
 });

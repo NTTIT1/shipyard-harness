@@ -21,6 +21,8 @@ public class Run {
     public String createdBy;
     /** Step name -> REQUIRED|AUTO chosen for this feature; wins over the project gate policy. */
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.Map<String, String> gateOverrides;
+    /** Step order frozen at creation (feature runs); steps left out are SKIPPED with reason "workflow". */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.List<String> workflow;
     @Version public long version;
     public Instant createdAt = Instant.now();
     public Instant updatedAt = Instant.now();

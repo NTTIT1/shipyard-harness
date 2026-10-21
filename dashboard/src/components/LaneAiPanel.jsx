@@ -118,7 +118,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
   const saveForFeature = async (resumeBlocked = false) => {
     setBusy(true); setMsg({ ok: '', err: '' });
     try {
-      const { impl_agents, effort, ...stepModels } = featModels;
+      const { impl_agents, effort, gates: _gates, ...stepModels } = featModels;
       if (featKey === currentFeatKey) {
         await saveLaneModels(n, stepModels, effort, { impl_agents, featureKey: featKey });
       } else {

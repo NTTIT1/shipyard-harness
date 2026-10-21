@@ -22,12 +22,14 @@ public class RunCommands {
     private final StepRevisionRepository revisions;
     private final ApprovalRequestRepository approvals;
     private final GatePolicyRepository policies;
+    private final WorkflowPolicy workflows;
     private final OutboxWriter outbox;
     private final RunQueries queries;
 
     public RunCommands(RunRepository runs, RunStepRepository steps, StepRevisionRepository revisions,
-                       ApprovalRequestRepository approvals, GatePolicyRepository policies,
+                       ApprovalRequestRepository approvals, GatePolicyRepository policies, WorkflowPolicy workflows,
                        OutboxWriter outbox, RunQueries queries) {
+        this.workflows = workflows;
         this.runs = runs;
         this.steps = steps;
         this.revisions = revisions;
@@ -57,6 +59,18 @@ public class RunCommands {
         run.createdBy = req.createdBy();
         run.gateOverrides = normalizeGates(req.gateOverrides());
         EnumMap<Step, RunStep> st = Workflow.newSteps(run.id, kind);
+        if (kind == RunKind.FEATURE) {
+            // The project's workflow, with this feature's choices (gateOverrides) on top.
+            List<Step> order = new ArrayList<>();
+            Set<Step> skipped = EnumSet.noneOf(Step.class);
+            for (WorkflowStep w : workflows.of(run.projectId)) {
+                Step s = Step.parse(w.step());
+                order.add(s);
+                String mode = run.gateOverrides != null && run.gateOverrides.containsKey(s.name()) ? run.gateOverrides.get(s.name()) : w.mode();
+                if (GateMode.SKIP.name().equals(mode)) skipped.add(s);
+            }
+            Workflow.plan(run, st, order, skipped);
+        }
         Workflow.start(run, st);
         runs.save(run);
         steps.saveAll(st.values());
@@ -200,9 +214,10 @@ public class RunCommands {
             Step step = Step.parse(e.getKey());
             if (step == Step.MANAGER) throw new BadRequestException("Project rules (MANAGER) always need a human approval");
             String mode = e.getValue() == null ? "" : e.getValue().trim().toUpperCase(java.util.Locale.ROOT);
-            if (!mode.equals("REQUIRED") && !mode.equals("AUTO")) {
-                throw new BadRequestException("gateOverrides." + step + " must be REQUIRED or AUTO");
+            if (!mode.equals("REQUIRED") && !mode.equals("AUTO") && !mode.equals("SKIP")) {
+                throw new BadRequestException("gateOverrides." + step + " must be REQUIRED, AUTO or SKIP");
             }
+            if (step == Step.DEV && mode.equals("SKIP")) throw new BadRequestException("DEV cannot be skipped");
             out.put(step.name(), mode);
         }
         return out;

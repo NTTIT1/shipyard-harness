@@ -5,7 +5,7 @@ import Badge from '../ui/Badge.jsx';
 import StepModels from '../StepModels.jsx';
 import { platform } from '../../lib/platform.js';
 import { fetchProviders, saveFeatureModels } from '../../lib/api.js';
-import { STEPS, STEP_LABEL } from '../../lib/review.js';
+import { STEP_LABEL, runProgress } from '../../lib/review.js';
 
 export default function ProjectRunsTab({ pid, onOpenRun }) {
   const [runs, setRuns] = useState([]);
@@ -51,7 +51,7 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
     setSaving(true);
     setMsg('');
     try {
-      const { impl_agents, effort, ...stepModels } = featForm || {};
+      const { impl_agents, effort, gates: _gates, ...stepModels } = featForm || {};
       await saveFeatureModels({
         key,
         models: stepModels,
@@ -170,10 +170,7 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
               {runs.map(r => {
                 const customCfg = featureModels[r.id] || featureModels[r.title];
                 const isOpen = editingKey === r.id;
-                const stepIdx = STEPS.indexOf(r.currentStep);
-                const runProg = r.status === 'DONE' || r.status === 'APPROVED'
-                  ? 100
-                  : (stepIdx >= 0 ? Math.round(((stepIdx + 1) / STEPS.length) * 100) : null);
+                const runProg = runProgress(r);
                 return (
                   <div key={r.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div className="run-item-card">

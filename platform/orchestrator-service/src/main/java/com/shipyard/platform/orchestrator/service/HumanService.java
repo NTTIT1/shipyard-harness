@@ -27,11 +27,13 @@ public class HumanService {
     private final GatePolicyRepository policies;
     private final RunCommands commands;
     private final RunQueries queries;
+    private final WorkflowPolicy workflows;
     private final EntityManager em;
 
     public HumanService(ProjectDirectory directory, RunRepository runs, StepRevisionRepository revisions,
                         ApprovalRequestRepository approvals, GatePolicyRepository policies,
-                        RunCommands commands, RunQueries queries, EntityManager em) {
+                        RunCommands commands, RunQueries queries, WorkflowPolicy workflows, EntityManager em) {
+        this.workflows = workflows;
         this.directory = directory;
         this.runs = runs;
         this.revisions = revisions;
@@ -68,7 +70,8 @@ public class HumanService {
     @Transactional(readOnly = true)
     public RunView runView(String userId, String runId) {
         Run run = memberRun(userId, runId);
-        List<StepView> steps = queries.loadSteps(runId).values().stream()
+        EnumMap<Step, RunStep> loaded = queries.loadSteps(runId);
+        List<StepView> steps = Workflow.order(run, loaded).stream().map(loaded::get)
                 .map(s -> new StepView(s.step.name(), s.status.name(), s.currentRevision, s.skipReason)).toList();
         Map<String, ApprovalRequest> byRevision = approvals.findByRunIdOrderByCreatedAtAsc(runId).stream()
                 .collect(Collectors.toMap(a -> a.revisionId, Function.identity()));
@@ -114,31 +117,32 @@ public class HumanService {
     public Map<String, String> gatePolicy(String userId, String projectId) {
         requireMember(projectId, userId);
         Map<String, String> out = new LinkedHashMap<>();
-        for (Step s : com.shipyard.platform.orchestrator.domain.RunKind.FEATURE.steps()) out.put(s.name(), GateMode.REQUIRED.name());
-        policies.findByProjectId(projectId).forEach(p -> { if (out.containsKey(p.step.name())) out.put(p.step.name(), p.mode.name()); });
+        workflows.of(projectId).forEach(w -> out.put(w.step(), w.mode()));
         return out;
     }
 
     public Map<String, String> updateGatePolicy(String userId, String projectId, Map<String, String> body) {
+        requireManager(projectId, userId);
+        workflows.setModes(projectId, body);
+        return gatePolicy(userId, projectId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<WorkflowStep> workflow(String userId, String projectId) {
+        requireMember(projectId, userId);
+        return workflows.of(projectId);
+    }
+
+    public List<WorkflowStep> updateWorkflow(String userId, String projectId, List<WorkflowStep> body) {
+        requireManager(projectId, userId);
+        return workflows.save(projectId, body);
+    }
+
+    private void requireManager(String projectId, String userId) {
         List<String> roles = requireMember(projectId, userId);
         if (!roles.contains("OWNER") && !roles.contains("MAINTAINER")) {
-            throw new ForbiddenException("Only OWNER or MAINTAINER can change gate policy");
+            throw new ForbiddenException("Only OWNER or MAINTAINER can change the workflow");
         }
-        List<GatePolicy> parsed = new ArrayList<>();
-        for (Map.Entry<String, String> e : body.entrySet()) {
-            GateMode mode;
-            try {
-                mode = GateMode.valueOf(e.getValue().trim().toUpperCase(Locale.ROOT));
-            } catch (RuntimeException ex) {
-                throw new BadRequestException("Unknown gate mode: " + e.getValue());
-            }
-            Step step = Step.parse(e.getKey());
-            if (step == Step.MANAGER) throw new BadRequestException("Project rules (MANAGER) always need a human approval");
-            parsed.add(new GatePolicy(projectId, step, mode));
-        }
-        policies.saveAll(parsed);
-        policies.flush();
-        return gatePolicy(userId, projectId);
     }
 
     @Transactional(readOnly = true)

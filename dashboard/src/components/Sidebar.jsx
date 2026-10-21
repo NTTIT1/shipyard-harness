@@ -176,7 +176,7 @@ export default function Sidebar({
               className={`sb-nav-item${view === 'projects' && projectSubTab === 'gates' ? ' active' : ''}`}
               onClick={() => handleNav('projects', 'gates')}>
               <SlidersHorizontal size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Kiểm soát quy trình (Gates)</span>
+              <span className="sb-nav-label">Quy trình &amp; duyệt</span>
             </button>
 
             <button

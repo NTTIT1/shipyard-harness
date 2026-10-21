@@ -7,7 +7,9 @@ import com.shipyard.platform.orchestrator.entity.RunStep;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.shipyard.platform.orchestrator.domain.Step.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -209,5 +211,91 @@ class WorkflowTest {
         assertThat(RunKind.parse(null)).isEqualTo(RunKind.FEATURE);
         assertThat(RunKind.parse("setup")).isEqualTo(RunKind.SETUP);
         assertThatThrownBy(() -> RunKind.parse("deploy")).isInstanceOf(BadRequestException.class);
+    }
+
+    /** A fresh feature run with a custom workflow (order + left-out steps). */
+    Map<Step, RunStep> custom(Run r, List<Step> order, Set<Step> skipped) {
+        r.id = "run_c";
+        Map<Step, RunStep> st = Workflow.newSteps(r.id);
+        Workflow.plan(r, st, order, skipped);
+        Workflow.start(r, st);
+        return st;
+    }
+
+    @Test
+    void workflowCanLeaveStepsOutAndStillGuardsDev() {
+        Run r = new Run();
+        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, DEV, TEST), Set.of(PM, BA, DESIGN));
+        assertThat(r.currentStep).isEqualTo(ARCH);
+        assertThat(st.get(PM).status).isEqualTo(StepStatus.SKIPPED);
+        assertThat(st.get(PM).skipReason).isEqualTo(Workflow.SKIP_WORKFLOW);
+        r.hasUi = true;
+        Workflow.submit(r, st, ARCH);
+        Workflow.decide(r, st, ARCH, approve());
+        assertThat(r.currentStep).as("DESIGN left out even though has_ui=true").isEqualTo(DEV);
+        Workflow.submit(r, st, DEV);
+        Workflow.decide(r, st, DEV, approve());
+        assertThat(r.currentStep).isEqualTo(TEST);
+    }
+
+    @Test
+    void devWaitsForArchitectureApprovalWhateverTheOrder() {
+        Run r = new Run();
+        Map<Step, RunStep> st = custom(r, List.of(ARCH, DESIGN, PM, BA, DEV, TEST), Set.of(BA, TEST));
+        assertThat(r.currentStep).isEqualTo(ARCH);
+        assertThatThrownBy(() -> Workflow.activate(r, st, DEV)).isInstanceOf(ConflictException.class).hasMessageContaining("ARCH");
+        r.hasUi = false;
+        Workflow.submit(r, st, ARCH);
+        Workflow.decide(r, st, ARCH, approve());
+        assertThat(st.get(DESIGN).skipReason).isEqualTo("has_ui=false");
+        assertThat(r.currentStep).isEqualTo(PM);
+        Workflow.submit(r, st, PM);
+        Workflow.decide(r, st, PM, approve());
+        assertThat(r.currentStep).isEqualTo(DEV);
+        Workflow.submit(r, st, DEV);
+        Workflow.decide(r, st, DEV, approve());
+        assertThat(r.status).as("TEST left out → release right after DEV").isEqualTo(RunStatus.RELEASING);
+    }
+
+    @Test
+    void sendBackFollowsTheWorkflowOrderAndKeepsLeftOutSteps() {
+        Run r = new Run();
+        Map<Step, RunStep> st = custom(r, List.of(ARCH, PM, BA, DESIGN, DEV, TEST), Set.of(BA));
+        r.hasUi = false;
+        for (Step s : new Step[]{ARCH, PM, DEV}) { Workflow.submit(r, st, s); Workflow.decide(r, st, s, approve()); }
+        Workflow.submit(r, st, TEST);
+        assertThatThrownBy(() -> Workflow.decide(r, st, TEST, new Decision(DecisionAction.SEND_BACK, "x", null, BA, null)))
+                .isInstanceOf(BadRequestException.class).hasMessageContaining("skipped");
+        Workflow.decide(r, st, TEST, new Decision(DecisionAction.SEND_BACK, "sai kiến trúc", null, ARCH, null));
+        assertThat(r.currentStep).isEqualTo(ARCH);
+        assertThat(st.get(PM).status).isEqualTo(StepStatus.PENDING);
+        assertThat(st.get(BA).status).isEqualTo(StepStatus.SKIPPED);
+        assertThat(st.get(BA).skipReason).isEqualTo(Workflow.SKIP_WORKFLOW);
+    }
+
+    @Test
+    void workflowValidation() {
+        Run r = new Run();
+        assertThatThrownBy(() -> custom(r, List.of(PM, BA, ARCH, DESIGN, DEV, TEST), Set.of(DEV)))
+                .isInstanceOf(BadRequestException.class).hasMessageContaining("DEV");
+        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, DEV, DESIGN, TEST)))
+                .isInstanceOf(BadRequestException.class).hasMessageContaining("DESIGN must come before DEV");
+        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, DESIGN, TEST, DEV)))
+                .isInstanceOf(BadRequestException.class).hasMessageContaining("TEST");
+        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, DEV, TEST)))
+                .isInstanceOf(BadRequestException.class);
+        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, PM, ARCH, DESIGN, DEV, TEST)))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void reopenKeepsALeftOutTestSkipped() {
+        Run r = new Run();
+        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, DEV, TEST), Set.of(PM, BA, ARCH, DESIGN, TEST));
+        assertThat(r.currentStep).isEqualTo(DEV);
+        Workflow.submit(r, st, DEV);
+        Workflow.decide(r, st, DEV, approve());
+        Workflow.reopenDev(r, st, "lỗi");
+        assertThat(st.get(TEST).status).isEqualTo(StepStatus.SKIPPED);
     }
 }

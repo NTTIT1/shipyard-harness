@@ -89,7 +89,7 @@ export function FeatureRow({ f, settings, provInfo, onSaved }) {
   };
   const saveModels = async () => {
     try {
-      const { impl_agents, effort, ...stepModels } = fModels;
+      const { impl_agents, effort, gates: _gates, ...stepModels } = fModels;
       await saveFeatureModels({ key: f.key, models: stepModels, effort, impl_agents, lane: f.lane });
       setMMsg('Đã lưu cấu hình model cho tính năng này.');
       onSaved();

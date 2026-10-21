@@ -15,7 +15,8 @@ export function buildPrompt({ requirement, spec_dir }) {
 
 const GATE_STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
 
-// Per-feature approval choices ({STEP: REQUIRED|AUTO}); '' = follow the project's gate policy.
+// Per-feature (or per-lane default) workflow choices ({STEP: REQUIRED|AUTO|SKIP}); '' = follow the
+// project's workflow. DEV can never be left out.
 export function normalizeGates(gates) {
   const out = {};
   for (const [k, v] of Object.entries(gates || {})) {
@@ -23,7 +24,8 @@ export function normalizeGates(gates) {
     const mode = String(v || '').toUpperCase();
     if (!GATE_STEPS.includes(step)) throw new HttpError(400, `bước duyệt không hợp lệ: ${k}`);
     if (!mode) continue;
-    if (mode !== 'REQUIRED' && mode !== 'AUTO') throw new HttpError(400, `${step}: chế độ duyệt phải là REQUIRED hoặc AUTO`);
+    if (!['REQUIRED', 'AUTO', 'SKIP'].includes(mode)) throw new HttpError(400, `${step}: chế độ phải là REQUIRED, AUTO hoặc SKIP`);
+    if (step === 'DEV' && mode === 'SKIP') throw new HttpError(400, 'không thể bỏ bước Lập trình (DEV)');
     out[step] = mode;
   }
   return out;
@@ -42,7 +44,7 @@ export async function assignLane(n, body, d) {
   const impl = parseInt(body.impl_agents ?? laneDef.impl_agents, 10);
   const implAgents = impl > 0 && impl <= 9 ? impl : 1;
 
-  const gates = normalizeGates(body.gates);
+  const gates = normalizeGates(body.gates !== undefined ? body.gates : laneDef.gates);
   let effort;
   try {
     const rawEffort = body.effort !== undefined ? body.effort : (laneDef.effort || {});

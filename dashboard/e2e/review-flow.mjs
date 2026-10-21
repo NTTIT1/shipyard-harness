@@ -82,8 +82,8 @@ await page.getByRole('tab', { name: 'Thành viên' }).waitFor();
 await page.getByLabel('Email thành viên mới').fill('khong-ton-tai@x.io');
 await page.getByRole('button', { name: 'Thêm thành viên' }).click();
 ok(await page.getByRole('alert').textContent().then(t => t.includes('Không tìm thấy')), 'unknown member email shows a clear message');
-await page.getByRole('tab', { name: 'Cổng duyệt' }).click();
-await page.getByText('Tự động duyệt').first().waitFor();
+await page.getByRole('tab', { name: 'Quy trình & duyệt' }).click();
+await page.getByText('Lưu quy trình').first().waitFor();
 await page.screenshot({ path: `${OUT}/05-gates.png`, fullPage: true });
 await page.getByRole('tab', { name: 'Bộ nhớ' }).click();
 await page.waitForTimeout(6000); // outbox → context-service

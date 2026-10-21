@@ -5,8 +5,12 @@ import com.shipyard.platform.common.exception.ConflictException;
 import com.shipyard.platform.orchestrator.entity.Run;
 import com.shipyard.platform.orchestrator.entity.RunStep;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The role pipeline's state machine. Pure: mutates the given entities only, no I/O,
@@ -25,10 +29,64 @@ public final class Workflow {
         return steps;
     }
 
-    /** Activates the run's first step (PM for a feature, MANAGER for a setup run). */
+    /** skipReason of a step the project's (or this feature's) workflow left out; it stays skipped for the whole run. */
+    public static final String SKIP_WORKFLOW = "workflow";
+
+    /** Steps that hand documents to DEV; they may be reordered among themselves but always come before DEV. */
+    private static final Set<Step> BEFORE_DEV = EnumSet.of(Step.PM, Step.BA, Step.ARCH, Step.DESIGN);
+
+    /**
+     * Freezes a feature run's workflow: the step order and the steps left out. DEV is the one step that
+     * can never be left out (a run without code has nothing to release).
+     */
+    public static void plan(Run run, Map<Step, RunStep> steps, List<Step> order, Set<Step> skipped) {
+        validateOrder(order);
+        if (skipped.contains(Step.DEV)) throw new BadRequestException("DEV cannot be skipped");
+        run.workflow = order.stream().map(Step::name).toList();
+        for (Step s : skipped) {
+            RunStep rs = steps.get(s);
+            if (rs == null) continue;
+            rs.status = StepStatus.SKIPPED;
+            rs.skipReason = SKIP_WORKFLOW;
+        }
+    }
+
+    /**
+     * A feature workflow lists every feature step once; PM/BA/ARCH/DESIGN in any order, then DEV, then TEST.
+     */
+    public static void validateOrder(List<Step> order) {
+        Set<Step> all = RunKind.FEATURE.steps();
+        if (order == null || order.size() != all.size() || !EnumSet.copyOf(order).equals(all)) {
+            throw new BadRequestException("Workflow must list each of " + all + " exactly once");
+        }
+        int dev = order.indexOf(Step.DEV);
+        for (Step s : BEFORE_DEV) {
+            if (order.indexOf(s) > dev) throw new BadRequestException(s + " must come before DEV");
+        }
+        if (order.indexOf(Step.TEST) < dev) throw new BadRequestException("TEST must come after DEV");
+    }
+
+    /** The run's step order: the frozen workflow, else (old runs, SETUP) the natural step order. */
+    public static List<Step> order(Run run, Map<Step, RunStep> steps) {
+        if (run.workflow == null || run.workflow.isEmpty()) return new ArrayList<>(new EnumMap<>(steps).keySet());
+        List<Step> out = new ArrayList<>();
+        for (String name : run.workflow) {
+            Step s = Step.parse(name);
+            if (steps.containsKey(s)) out.add(s);
+        }
+        for (Step s : steps.keySet()) if (!out.contains(s)) out.add(s);
+        return out;
+    }
+
+    /** Activates the run's first step that is not left out (PM by default, MANAGER for a setup run). */
     public static void start(Run run, Map<Step, RunStep> steps) {
         run.status = RunStatus.RUNNING;
-        activate(run, steps, steps.keySet().iterator().next());
+        for (Step s : order(run, steps)) {
+            if (steps.get(s).status == StepStatus.SKIPPED) continue;
+            activate(run, steps, s);
+            return;
+        }
+        throw new BadRequestException("Workflow has no step to run");
     }
 
     /** Marks the active step as submitted; returns the new revision number. */
@@ -73,18 +131,20 @@ public final class Workflow {
         }
     }
 
-    /** Moves {@code step} to AI_WORKING; DEV is refused until every gate before it is satisfied. */
+    /**
+     * Moves {@code step} to AI_WORKING; DEV is refused until every step before it in the workflow is
+     * approved (or left out by the workflow / skipped for has_ui=false).
+     */
     public static void activate(Run run, Map<Step, RunStep> steps, Step step) {
         if (step == Step.DEV) {
-            for (Step before : new Step[]{Step.PM, Step.BA, Step.ARCH}) {
-                if (steps.get(before).status != StepStatus.APPROVED) {
-                    throw new ConflictException("DEV cannot start: " + before + " is not approved");
-                }
+            for (Step before : order(run, steps)) {
+                if (before == Step.DEV) break;
+                RunStep b = steps.get(before);
+                boolean ok = b.status == StepStatus.APPROVED
+                        || (b.status == StepStatus.SKIPPED && (SKIP_WORKFLOW.equals(b.skipReason)
+                            || (before == Step.DESIGN && Boolean.FALSE.equals(run.hasUi))));
+                if (!ok) throw new ConflictException("DEV cannot start: " + before + " is not approved");
             }
-            RunStep design = steps.get(Step.DESIGN);
-            boolean designOk = design.status == StepStatus.APPROVED
-                    || (design.status == StepStatus.SKIPPED && Boolean.FALSE.equals(run.hasUi));
-            if (!designOk) throw new ConflictException("DEV cannot start: DESIGN is not approved");
         }
         steps.get(step).status = StepStatus.AI_WORKING;
         run.currentStep = step;
@@ -99,7 +159,7 @@ public final class Workflow {
         RunStep dev = steps.get(Step.DEV);
         dev.status = StepStatus.AI_WORKING;
         dev.pendingFeedback = "Post-merge QC failed: " + (reason == null ? "" : reason.trim());
-        steps.get(Step.TEST).status = StepStatus.PENDING;
+        if (!leftOut(steps.get(Step.TEST))) steps.get(Step.TEST).status = StepStatus.PENDING;
         run.currentStep = Step.DEV;
         run.status = RunStatus.RUNNING;
     }
@@ -124,9 +184,14 @@ public final class Workflow {
         return revise ? NextMode.REVISE : NextMode.WORK;
     }
 
+    private static boolean leftOut(RunStep s) {
+        return s.status == StepStatus.SKIPPED && SKIP_WORKFLOW.equals(s.skipReason);
+    }
+
     private static void activateNext(Run run, Map<Step, RunStep> steps, Step after) {
-        for (Step s : steps.keySet()) {
-            if (s.ordinal() <= after.ordinal()) continue;
+        List<Step> order = order(run, steps);
+        for (Step s : order.subList(order.indexOf(after) + 1, order.size())) {
+            if (leftOut(steps.get(s))) continue;
             if (s == Step.DESIGN && Boolean.FALSE.equals(run.hasUi)) {
                 steps.get(s).status = StepStatus.SKIPPED;
                 steps.get(s).skipReason = "has_ui=false";
@@ -142,7 +207,8 @@ public final class Workflow {
     private static void sendBack(Run run, Map<Step, RunStep> steps, Step from, Decision d) {
         Step target = d.sendBackTo();
         if (target != null && !steps.containsKey(target)) throw new BadRequestException("Step " + target + " is not part of this run");
-        if (target == null || target.ordinal() >= from.ordinal()) {
+        List<Step> order = order(run, steps);
+        if (target == null || order.indexOf(target) >= order.indexOf(from)) {
             throw new BadRequestException("sendBackTo must be a step before " + from);
         }
         if (steps.get(target).status == StepStatus.SKIPPED) {
@@ -152,14 +218,13 @@ public final class Workflow {
             throw new BadRequestException("Edits cannot accompany SEND_BACK");
         }
         requireFeedback(d);
-        for (Step s : steps.keySet()) {
-            if (s.ordinal() > target.ordinal() && s.ordinal() <= from.ordinal()) {
-                RunStep rs = steps.get(s);
-                rs.status = StepStatus.PENDING;
-                rs.skipReason = null;
-                rs.pendingFeedback = null;
-                rs.pendingEdits = null;
-            }
+        for (Step s : order.subList(order.indexOf(target) + 1, order.indexOf(from) + 1)) {
+            RunStep rs = steps.get(s);
+            if (leftOut(rs)) continue;
+            rs.status = StepStatus.PENDING;
+            rs.skipReason = null;
+            rs.pendingFeedback = null;
+            rs.pendingEdits = null;
         }
         RunStep t = steps.get(target);
         t.status = StepStatus.AI_WORKING;

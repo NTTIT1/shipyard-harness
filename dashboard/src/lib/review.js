@@ -3,9 +3,54 @@ export const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
 export const STEP_LABEL = { PM: 'PM — Yêu cầu', BA: 'BA — Nghiệp vụ', ARCH: 'Kiến trúc', DESIGN: 'Thiết kế UI', DEV: 'Lập trình', TEST: 'Kiểm thử',
   MANAGER: 'Luật dự án (AI Manager)' };
 
-/** Steps shown for a run: a project-rules (SETUP) run has only MANAGER. */
+/**
+ * Steps shown for a run, in the run's own workflow order (the server lists them in order; steps the
+ * workflow left out are hidden). A project-rules (SETUP) run has only MANAGER.
+ */
 export function runSteps(steps) {
-  return (steps || []).some(s => s.step === 'MANAGER') ? ['MANAGER'] : STEPS;
+  if ((steps || []).some(s => s.step === 'MANAGER')) return ['MANAGER'];
+  if (!steps?.length) return STEPS;
+  return steps.filter(s => !leftOut(s)).map(s => s.step);
+}
+
+/** A step the project's (or the feature's) workflow left out — not the same as DESIGN skipped for has_ui=false. */
+export const leftOut = s => s?.status === 'SKIPPED' && s?.skipReason === 'workflow';
+
+/** Progress of a run (0–100) from its frozen workflow; null when unknown. */
+export function runProgress(run) {
+  if (run.status === 'DONE' || run.status === 'RELEASING') return 100;
+  const order = run.workflow?.length ? run.workflow : STEPS;
+  const i = order.indexOf(run.currentStep);
+  return i >= 0 ? Math.round(((i + 1) / order.length) * 100) : null;
+}
+
+export const GATE_MODES = [
+  { id: 'REQUIRED', label: 'Cần người duyệt' },
+  { id: 'AUTO', label: 'Tự duyệt' },
+  { id: 'SKIP', label: 'Bỏ bước' },
+];
+
+/** Steps that may be reordered (they feed DEV); DEV then TEST always close the workflow. */
+export const MOVABLE = ['PM', 'BA', 'ARCH', 'DESIGN'];
+
+/** Moves a step one place up/down inside the movable head of the workflow; returns a new list. */
+export function moveStep(workflow, step, dir) {
+  const i = workflow.findIndex(w => w.step === step), j = i + dir;
+  if (i < 0 || !MOVABLE.includes(step) || j < 0 || j >= workflow.length || !MOVABLE.includes(workflow[j].step)) return workflow;
+  const out = [...workflow];
+  [out[i], out[j]] = [out[j], out[i]];
+  return out;
+}
+
+/** '' when the workflow is valid, else a Vietnamese message (mirrors the orchestrator's rules). */
+export function workflowProblem(workflow) {
+  const order = (workflow || []).map(w => w.step);
+  if (order.length !== STEPS.length || STEPS.some(s => !order.includes(s))) return 'Quy trình phải có đủ 6 bước.';
+  const dev = order.indexOf('DEV');
+  if (MOVABLE.some(s => order.indexOf(s) > dev)) return 'Các bước tài liệu phải đứng trước Lập trình.';
+  if (order.indexOf('TEST') < dev) return 'Kiểm thử phải đứng sau Lập trình.';
+  if (workflow.find(w => w.step === 'DEV').mode === 'SKIP') return 'Không thể bỏ bước Lập trình.';
+  return '';
 }
 export const ROLE_LABEL = { PM: 'PM', BA: 'BA', TECH_LEAD: 'Tech Lead', DESIGNER: 'Designer', DEVELOPER: 'Developer', TESTER: 'Tester',
   OWNER: 'Owner', MAINTAINER: 'Maintainer', VIEWER: 'Viewer', OWNER_FALLBACK: 'Owner (duyệt thay)', AUTO: 'Tự động' };
@@ -13,8 +58,9 @@ export const ACTION_LABEL = { APPROVE: 'Duyệt', REQUEST_CHANGES: 'Yêu cầu s
 export const STATUS_LABEL = { PENDING: 'chờ', AI_WORKING: 'AI đang làm', AWAITING_REVIEW: 'chờ duyệt', APPROVED: 'đã duyệt', SKIPPED: 'bỏ qua' };
 
 export function sendBackTargets(currentStep, steps) {
-  const i = STEPS.indexOf(currentStep);
-  return STEPS.slice(0, Math.max(0, i)).filter(s => (steps.find(x => x.step === s) || {}).status !== 'SKIPPED');
+  const order = steps?.length ? steps.map(s => s.step) : STEPS;
+  const i = order.indexOf(currentStep);
+  return order.slice(0, Math.max(0, i)).filter(s => (steps.find(x => x.step === s) || {}).status !== 'SKIPPED');
 }
 
 /** '' when valid, else a Vietnamese message. */

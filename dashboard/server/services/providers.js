@@ -151,11 +151,23 @@ function normalizeEntry(d = {}, eff = {}, fallback = null) {
   for (const s of STEPS) out[s.id] = d[s.id] || (fallback ? fallback[s.id] : DEFAULT_MODEL);
   const defaultImpl = fallback ? fallback.impl_agents : 1;
   out.impl_agents = Number.isInteger(d.impl_agents) && d.impl_agents > 0 ? d.impl_agents : defaultImpl;
+  // Lane-level workflow choices ({STEP: REQUIRED|AUTO|SKIP}); only lanes carry them, the global default has none.
+  if (fallback) out.gates = cleanGates(d.gates);
   try {
     const normEff = normalizeEfforts(eff, STEPS.map(s => s.id));
     out.effort = fallback ? { ...(fallback.effort || {}), ...normEff } : normEff;
   } catch {
     out.effort = fallback ? { ...(fallback.effort || {}) } : {};
+  }
+  return out;
+}
+
+const GATE_STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
+function cleanGates(g) {
+  const out = {};
+  for (const [k, v] of Object.entries(g && typeof g === 'object' ? g : {})) {
+    const step = String(k).toUpperCase(), mode = String(v || '').toUpperCase();
+    if (GATE_STEPS.includes(step) && ['REQUIRED', 'AUTO', 'SKIP'].includes(mode) && !(step === 'DEV' && mode === 'SKIP')) out[step] = mode;
   }
   return out;
 }
@@ -211,7 +223,9 @@ export function writeLaneModelDefaults(n, config) {
     if (errs.length) throw new Error(errs.join('; '));
     const effort = normalizeEfforts(config.effort, STEPS.map(s => s.id));
     const impl = parseInt(config.impl_agents, 10);
-    lanes[key] = { ...stepMap, impl_agents: impl > 0 && impl <= 9 ? impl : (base.impl_agents || 1), effort };
+    lanes[key] = { ...stepMap, impl_agents: impl > 0 && impl <= 9 ? impl : (base.impl_agents || 1), effort,
+      // Screens that edit only models leave the lane's workflow choices alone.
+      gates: cleanGates(config.gates !== undefined ? config.gates : (lanes[key] || {}).gates) };
   }
   const doc = { ...prev, lanes };
   fs.mkdirSync(path.dirname(modelsPath()), { recursive: true });

@@ -29,6 +29,8 @@ export const platform = {
   lookupUser: email => data(call('GET', `auth/users/lookup?${q({ email })}`)),
   gatePolicy: pid => data(call('GET', `projects/${pid}/gate-policy`)),
   setGatePolicy: (pid, policy) => data(call('PUT', `projects/${pid}/gate-policy`, policy)),
+  workflow: pid => data(call('GET', `projects/${pid}/workflow`)),
+  setWorkflow: (pid, steps) => data(call('PUT', `projects/${pid}/workflow`, steps)),
   projectRuns: pid => data(call('GET', `projects/${pid}/runs`)),
   memory: (pid, { q: text, kind } = {}) => data(call('GET', `projects/${pid}/memory?${q({ q: text, kind })}`)),
   adminUsers: () => data(call('GET', 'auth/admin/users')),

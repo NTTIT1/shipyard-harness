@@ -283,7 +283,7 @@ export default function ProjectsView({
             onChange={setTab}
             items={[
               { id: 'members', label: 'Thành viên & Vai trò' },
-              { id: 'gates', label: 'Cổng duyệt (Gates)' },
+              { id: 'gates', label: 'Quy trình & duyệt' },
               { id: 'team', label: 'Kỹ năng AI & Khung dự án' },
               { id: 'runs', label: 'Tính năng & Model AI' },
               { id: 'memory', label: 'Bộ nhớ dự án' }

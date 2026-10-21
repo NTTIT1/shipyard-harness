@@ -45,6 +45,14 @@ describe('assignLane', () => {
     expect(JSON.parse(g[2])).toEqual({ PM: 'AUTO', TEST: 'REQUIRED' });
   });
 
+  it('lets a feature leave steps out, but never DEV', async () => {
+    const { calls, d } = deps();
+    await A.assignLane(2, { requirement: 'x', gates: { PM: 'skip', BA: 'SKIP', ARCH: 'REQUIRED' } }, d);
+    const g = calls.state.find(c => c[0] === 'set-json' && c[1] === 'gate_overrides');
+    expect(JSON.parse(g[2])).toEqual({ PM: 'SKIP', BA: 'SKIP', ARCH: 'REQUIRED' });
+    await expect(A.assignLane(2, { requirement: 'x', gates: { DEV: 'SKIP' } }, deps().d)).rejects.toThrow(/Lập trình/);
+  });
+
   it('rejects unknown gate steps or modes', async () => {
     await expect(A.assignLane(2, { requirement: 'x', gates: { PM: 'MAYBE' } }, deps().d)).rejects.toThrow(/PM/);
     await expect(A.assignLane(2, { requirement: 'x', gates: { NOPE: 'AUTO' } }, deps().d)).rejects.toThrow(/NOPE/);

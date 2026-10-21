@@ -53,6 +53,19 @@ public class UserRunController {
         return ApiResponse.ok(human.updateGatePolicy(userId, projectId, body));
     }
 
+    @GetMapping("/projects/{projectId}/workflow")
+    public ApiResponse<List<WorkflowStep>> workflow(@RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,
+                                                    @PathVariable String projectId) {
+        return ApiResponse.ok(human.workflow(userId, projectId));
+    }
+
+    @PutMapping("/projects/{projectId}/workflow")
+    public ApiResponse<List<WorkflowStep>> updateWorkflow(@RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,
+                                                          @PathVariable String projectId,
+                                                          @RequestBody List<WorkflowStep> body) {
+        return ApiResponse.ok(human.updateWorkflow(userId, projectId, body));
+    }
+
     @GetMapping("/projects/{projectId}/runs")
     public ApiResponse<List<RunSummary>> runs(@RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,
                                               @PathVariable String projectId) {

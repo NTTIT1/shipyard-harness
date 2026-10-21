@@ -14,6 +14,8 @@ public class GatePolicy {
     @Id public String projectId;
     @Id @Enumerated(EnumType.STRING) public Step step;
     @Enumerated(EnumType.STRING) public GateMode mode;
+    /** Place of the step in the project's workflow (null = natural order). */
+    public Integer position;
 
     public GatePolicy() {}
 

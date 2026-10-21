@@ -21,7 +21,10 @@ public final class Dtos {
 
     public record RunSummary(String id, String projectId, String laneRef, String title, String status,
                              String currentStep, Boolean hasUi, String createdBy, Map<String, String> gateOverrides,
-                             Instant createdAt, Instant updatedAt, String kind) {}
+                             Instant createdAt, Instant updatedAt, String kind, List<String> workflow) {}
+
+    /** One step of a project's workflow: mode REQUIRED | AUTO | SKIP. */
+    public record WorkflowStep(String step, String mode) {}
 
     public record ImageRef(String path, String caption) {}
 

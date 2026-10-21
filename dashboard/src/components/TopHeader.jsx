@@ -40,7 +40,7 @@ export default function TopHeader({
     if (view === 'docs') return 'Tài liệu dự án';
     if (view === 'lanes') return 'Công việc (Lanes)';
     if (view === 'projects') {
-      if (projectSubTab === 'gates') return 'Kiểm soát dự án (Gates)';
+      if (projectSubTab === 'gates') return 'Quy trình & duyệt';
       if (projectSubTab === 'team') return 'Kỹ năng AI & Khung dự án';
       if (projectSubTab === 'runs') return 'Hành trình sản phẩm & Model';
       if (projectSubTab === 'memory') return 'Yêu cầu & Bộ nhớ';

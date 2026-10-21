@@ -137,6 +137,15 @@ describe('per-lane model defaults & per-feature models', () => {
     expect(P.readAllLaneDefaults()['2']).toBeUndefined();
   });
 
+  it('keeps a lane\'s workflow choices, and screens that only edit models leave them alone', () => {
+    P.writeLaneModelDefaults(3, { main: 'claude:claude-opus-5-5', gates: { PM: 'SKIP', ARCH: 'required', DEV: 'SKIP', NOPE: 'AUTO' } });
+    expect(P.readAllLaneDefaults()['3'].gates).toEqual({ PM: 'SKIP', ARCH: 'REQUIRED' });
+    P.writeLaneModelDefaults(3, { main: 'claude:claude-sonnet-5-5' });
+    expect(P.readAllLaneDefaults()['3'].gates).toEqual({ PM: 'SKIP', ARCH: 'REQUIRED' });
+    expect(P.readModelDefaults().gates).toBeUndefined();
+    P.writeLaneModelDefaults(3, null);
+  });
+
   it('stores and retrieves per-feature model configs', () => {
     P.writeFeatureModels('feat-auth', { models: { 'code-review': 'openai:gpt-x' }, impl_agents: 4, effort: { 'code-review': 'max' } });
     const feats = P.readFeatureModels();

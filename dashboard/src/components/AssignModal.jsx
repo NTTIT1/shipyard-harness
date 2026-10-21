@@ -27,6 +27,7 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
       setInfo(d);
       const laneModels = (d.lane_defaults || {})[String(lane)] || d.defaults;
       setModels(laneModels);
+      setGates(laneModels.gates || {});
     }).catch(e => setError(e.message));
   }, []);
 
@@ -35,6 +36,7 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
     if (info) {
       const laneModels = (info.lane_defaults || {})[String(lane)] || info.defaults;
       setModels(laneModels);
+      setGates(laneModels.gates || {});
     }
     fetchSpecs(lane).then(d => { setSpecs(d.specs); setSpec(d.specs[0] || ''); }).catch(() => setSpecs([]));
   }, [lane, info]);
@@ -44,9 +46,9 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
     try {
       if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
       if (saveAsLaneDef && models) {
-        await saveLaneModelDefaults(lane, models);
+        await saveLaneModelDefaults(lane, { ...models, gates });
       }
-      const { impl_agents, effort, ...stepModels } = models;
+      const { impl_agents, effort, gates: _gates, ...stepModels } = models;
       await assignLane(lane, {
         ...(mode === 'new' ? { requirement: text } : { spec_dir: spec }),
         models: stepModels, impl_agents, gates, effort,
@@ -94,19 +96,21 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
             </label>
           </div>
           {info && models && <StepModels info={info} value={models} onChange={setModels} />}
-          <div className="m-l" style={{ marginTop: 14 }}>Duyệt cho tính năng này</div>
+          <div className="m-l" style={{ marginTop: 14 }}>Quy trình cho tính năng này</div>
           <div className="gate-grid">
             {STEPS.map(s => (
               <label key={s}>{STEP_LABEL[s]}
                 <select className="msel" value={gates[s] || ''} onChange={e => setGates(g => ({ ...g, [s]: e.target.value }))}>
                   <option value="">Theo dự án</option>
-                  <option value="REQUIRED">Bắt buộc duyệt</option>
-                  <option value="AUTO">Tự động</option>
+                  <option value="REQUIRED">Cần người duyệt</option>
+                  <option value="AUTO">Tự duyệt</option>
+                  {s !== 'DEV' && <option value="SKIP">Bỏ bước</option>}
                 </select>
               </label>
             ))}
           </div>
-          <p className="m-hint">Áp dụng khi dự án chạy quy trình role (PM → BA → Kiến trúc → Thiết kế → Lập trình → Kiểm thử). Bước “Tự động” không dừng chờ người duyệt nhưng vẫn được lưu lịch sử và bộ nhớ.</p>
+          <p className="m-hint">“Theo dự án” dùng quy trình đặt ở tab <b>Quy trình &amp; duyệt</b> của dự án. Chọn khác để đổi riêng cho tính năng này;
+            tick “Lưu làm mặc định riêng cho Lane {lane}” để lane này lần sau tự chọn như vậy. Lập trình chỉ bắt đầu khi mọi bước trước đã được duyệt.</p>
         </>
       )}
       {error && <p className="m-err">{error}</p>}

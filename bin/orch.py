@@ -135,7 +135,7 @@ def text_arg(value, path):
 
 
 def _gate_overrides(lane):
-    """Per-feature gate choices the dashboard stored at assignment ({STEP: REQUIRED|AUTO}); None = project policy."""
+    """Per-feature workflow choices the dashboard stored at assignment ({STEP: REQUIRED|AUTO|SKIP}); None = project workflow."""
     raw = lane.get('gate_overrides')
     try:
         g = json.loads(raw) if raw else None
@@ -160,7 +160,8 @@ def cmd_create(lane, a):
         'projectId': project, 'laneRef': f'{socket.gethostname()}:lane{lane.n}', 'title': a.title,
         'description': text_arg(a.description, a.description_file),
         'gateOverrides': _gate_overrides(lane), 'createdBy': a.created_by or lane.get('assigned_by') or 'harness'})
-    lane.set(run_id=run['id'], run_project_id=project, stage='role-pm', status='running')
+    first = (run.get('currentStep') or 'PM').lower()   # the project's workflow may start elsewhere (e.g. ARCH)
+    lane.set(run_id=run['id'], run_project_id=project, stage=f'role-{first}', status='running')
     return run['id']
 
 

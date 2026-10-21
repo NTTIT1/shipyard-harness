@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, STEP_LABEL } from '../src/lib/review.js';
+import { validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, STEP_LABEL, runSteps, runProgress, moveStep, workflowProblem } from '../src/lib/review.js';
 
 const steps = [
   { step: 'PM', status: 'APPROVED' }, { step: 'BA', status: 'APPROVED' }, { step: 'ARCH', status: 'APPROVED' },
@@ -80,5 +80,38 @@ describe('review screen helpers', () => {
     expect(safeImageSrc('/proof/2/x/qc/1.png')).toBe('/proof/2/x/qc/1.png');
     expect(safeImageSrc('https://evil.example/a.png')).toBe('');
     expect(safeImageSrc('javascript:alert(1)')).toBe('');
+  });
+});
+
+describe('configurable workflow', () => {
+  const custom = [
+    { step: 'ARCH', status: 'APPROVED' }, { step: 'PM', status: 'SKIPPED', skipReason: 'workflow' },
+    { step: 'BA', status: 'APPROVED' }, { step: 'DESIGN', status: 'SKIPPED', skipReason: 'has_ui=false' },
+    { step: 'DEV', status: 'AWAITING_REVIEW' }, { step: 'TEST', status: 'SKIPPED', skipReason: 'workflow' },
+  ];
+  it('shows the run in its own order and hides left-out steps (not has_ui skips)', () => {
+    expect(runSteps(custom)).toEqual(['ARCH', 'BA', 'DESIGN', 'DEV']);
+    expect(runSteps([{ step: 'MANAGER', status: 'AI_WORKING' }])).toEqual(['MANAGER']);
+  });
+  it('sends back along the run order', () => {
+    expect(sendBackTargets('DEV', custom)).toEqual(['ARCH', 'BA']);
+  });
+  it('measures progress on the frozen workflow', () => {
+    expect(runProgress({ status: 'RUNNING', currentStep: 'ARCH', workflow: ['ARCH', 'DEV'] })).toBe(50);
+    expect(runProgress({ status: 'RUNNING', currentStep: 'PM' })).toBe(17);
+    expect(runProgress({ status: 'DONE' })).toBe(100);
+  });
+  const wf = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'].map(step => ({ step, mode: 'REQUIRED' }));
+  it('moves only document steps, and only among themselves', () => {
+    expect(moveStep(wf, 'ARCH', -1).map(w => w.step)).toEqual(['PM', 'ARCH', 'BA', 'DESIGN', 'DEV', 'TEST']);
+    expect(moveStep(wf, 'DESIGN', 1)).toBe(wf);
+    expect(moveStep(wf, 'DEV', -1)).toBe(wf);
+    expect(moveStep(wf, 'PM', -1)).toBe(wf);
+  });
+  it('validates like the orchestrator', () => {
+    expect(workflowProblem(wf)).toBe('');
+    expect(workflowProblem(wf.map(w => (w.step === 'DEV' ? { ...w, mode: 'SKIP' } : w)))).toMatch(/Lập trình/);
+    expect(workflowProblem([...wf.slice(0, 3), wf[4], wf[3], wf[5]])).toMatch(/trước Lập trình/);
+    expect(workflowProblem(wf.slice(1))).toMatch(/6 bước/);
   });
 });

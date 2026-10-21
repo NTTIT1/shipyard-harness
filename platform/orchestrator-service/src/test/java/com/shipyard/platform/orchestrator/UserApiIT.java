@@ -184,4 +184,54 @@ class UserApiIT extends OrchestratorIT {
         assertThat(user("usr_owner", HttpMethod.PUT, "/api/v1/projects/" + P + "/gate-policy", Map.of("BA", "MAYBE"))
                 .getStatusCode().value()).isEqualTo(400);
     }
+
+    @Test
+    void projectWorkflowReordersAndLeavesStepsOutForNewRuns() {
+        String url = "/api/v1/projects/" + P + "/workflow";
+        List<Map<String, Object>> wf = data(user("usr_ba", HttpMethod.GET, url, null));
+        assertThat(wf).extracting(m -> m.get("step")).containsExactly("PM", "BA", "ARCH", "DESIGN", "DEV", "TEST");
+        List<Map<String, String>> body = List.of(
+                Map.of("step", "ARCH", "mode", "REQUIRED"), Map.of("step", "PM", "mode", "AUTO"),
+                Map.of("step", "BA", "mode", "SKIP"), Map.of("step", "DESIGN", "mode", "SKIP"),
+                Map.of("step", "DEV", "mode", "REQUIRED"), Map.of("step", "TEST", "mode", "REQUIRED"));
+        assertThat(user("usr_ba", HttpMethod.PUT, url, body).getStatusCode().value()).isEqualTo(403);
+        assertThat(user("usr_owner", HttpMethod.PUT, url, body).getStatusCode().value()).isEqualTo(200);
+        wf = data(user("usr_ba", HttpMethod.GET, url, null));
+        assertThat(wf).extracting(m -> m.get("step")).containsExactly("ARCH", "PM", "BA", "DESIGN", "DEV", "TEST");
+        assertThat(wf.get(2)).containsEntry("mode", "SKIP");
+        // the legacy gate-policy API keeps the order
+        user("usr_owner", HttpMethod.PUT, "/api/v1/projects/" + P + "/gate-policy", Map.of("TEST", "AUTO"));
+        wf = data(user("usr_ba", HttpMethod.GET, url, null));
+        assertThat(wf.get(0)).containsEntry("step", "ARCH");
+        assertThat(wf.get(5)).containsEntry("mode", "AUTO");
+
+        ResponseEntity<Map> r = internal(HttpMethod.POST, "/internal/v1/runs", Map.of(
+                "projectId", P, "laneRef", "host:lane3", "title", "Kho", "description", "", "createdBy", "usr_owner"));
+        Map<String, Object> run = data(r);
+        assertThat(run.get("currentStep")).isEqualTo("ARCH");
+        assertThat((List<String>) run.get("workflow")).containsExactly("ARCH", "PM", "BA", "DESIGN", "DEV", "TEST");
+        Map<String, Object> view = data(user("usr_ba", HttpMethod.GET, "/api/v1/runs/" + run.get("id"), null));
+        List<Map<String, Object>> steps = (List<Map<String, Object>>) view.get("steps");
+        assertThat(steps).extracting(m -> m.get("step")).containsExactly("ARCH", "PM", "BA", "DESIGN", "DEV", "TEST");
+        assertThat(steps.get(2)).containsEntry("status", "SKIPPED").containsEntry("skipReason", "workflow");
+
+        // a feature (lane) may still bring back a left-out step, or leave another one out
+        r = internal(HttpMethod.POST, "/internal/v1/runs", Map.of("projectId", P, "laneRef", "host:lane4", "title", "K2",
+                "description", "", "createdBy", "usr_owner", "gateOverrides", Map.of("BA", "REQUIRED", "ARCH", "SKIP")));
+        assertThat(((Map<String, Object>) data(r)).get("currentStep")).isEqualTo("PM");
+        assertThat(internal(HttpMethod.POST, "/internal/v1/runs", Map.of("projectId", P, "laneRef", "host:lane5", "title", "K3",
+                "description", "", "createdBy", "usr_owner", "gateOverrides", Map.of("DEV", "SKIP"))).getStatusCode().value()).isEqualTo(400);
+    }
+
+    @Test
+    void workflowRejectsBadOrdersAndSkippingDev() {
+        String url = "/api/v1/projects/" + P + "/workflow";
+        List<Map<String, String>> devLast = List.of(
+                Map.of("step", "PM", "mode", "REQUIRED"), Map.of("step", "BA", "mode", "REQUIRED"),
+                Map.of("step", "ARCH", "mode", "REQUIRED"), Map.of("step", "DESIGN", "mode", "REQUIRED"),
+                Map.of("step", "TEST", "mode", "REQUIRED"), Map.of("step", "DEV", "mode", "REQUIRED"));
+        assertThat(user("usr_owner", HttpMethod.PUT, url, devLast).getStatusCode().value()).isEqualTo(400);
+        assertThat(user("usr_owner", HttpMethod.PUT, "/api/v1/projects/" + P + "/gate-policy", Map.of("DEV", "SKIP"))
+                .getStatusCode().value()).isEqualTo(400);
+    }
 }

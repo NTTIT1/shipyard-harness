@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -67,6 +68,7 @@ public class RunQueries {
         return new RunSummary(r.id, r.projectId, r.laneRef, r.title, r.status.name(),
                 r.currentStep == null ? null : r.currentStep.name(), r.hasUi, r.createdBy,
                 r.gateOverrides == null ? Map.of() : r.gateOverrides, r.createdAt, r.updatedAt,
-                (r.kind == null ? com.shipyard.platform.orchestrator.domain.RunKind.FEATURE : r.kind).name());
+                (r.kind == null ? com.shipyard.platform.orchestrator.domain.RunKind.FEATURE : r.kind).name(),
+                r.workflow == null ? List.of() : r.workflow);
     }
 }

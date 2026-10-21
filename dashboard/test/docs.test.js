@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { finalRevisions, finalDocuments, mdDownloadName } from '../src/lib/docs.js';
 
 const view = {
-  steps: [{ step: 'PM', status: 'APPROVED' }, { step: 'BA', status: 'AWAITING_REVIEW' }, { step: 'DESIGN', status: 'SKIPPED' }],
+  steps: [{ step: 'PM', status: 'APPROVED' }, { step: 'BA', status: 'AWAITING_REVIEW' }, { step: 'ARCH', status: 'PENDING' },
+    { step: 'DESIGN', status: 'SKIPPED' }, { step: 'DEV', status: 'PENDING' }, { step: 'TEST', status: 'PENDING' }],
   revisions: [
     { id: 'r1', step: 'PM', revisionNo: 1, approvalStatus: 'CHANGES_REQUESTED' },
     { id: 'r2', step: 'PM', revisionNo: 2, approvalStatus: 'APPROVED', decidedBy: 'u1' },
@@ -17,6 +18,11 @@ describe('finalRevisions', () => {
     expect(f.find(x => x.step === 'BA')).toMatchObject({ revision: { id: 'r3' }, approved: false, count: 1 });
     expect(f.find(x => x.step === 'DESIGN')).toMatchObject({ revision: null, status: 'SKIPPED' });
     expect(f.map(x => x.step)).toEqual(['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST']);
+  });
+  it('follows the run\'s workflow order and leaves out steps the workflow skipped', () => {
+    const f = finalRevisions({ steps: [{ step: 'ARCH', status: 'APPROVED' }, { step: 'PM', status: 'SKIPPED', skipReason: 'workflow' },
+      { step: 'DEV', status: 'PENDING' }], revisions: [] });
+    expect(f.map(x => x.step)).toEqual(['ARCH', 'DEV']);
   });
 });
 

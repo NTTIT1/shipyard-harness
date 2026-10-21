@@ -17,7 +17,7 @@ function ChangeModels({ lane, onDone }) {
   const save = async () => {
     setError('');
     try {
-      const { impl_agents, effort, ...models } = value;
+      const { impl_agents, effort, gates: _gates, ...models } = value;
       await saveLaneModels(lane.lane, models, effort);
       await sendChat(lane.lane, 'continue — models for the failed step were changed on the dashboard; re-run that step');
       onDone();
