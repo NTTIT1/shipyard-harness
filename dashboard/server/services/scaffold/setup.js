@@ -98,6 +98,20 @@ export function managerPrompt(entry, next) {
   return lines.join('\n');
 }
 
+/**
+ * The `claude -p --output-format json` result in a run log. The log also echoes the command line (the
+ * prompt, whose lines may start with "{"), so take the LAST line that parses as a claude result.
+ */
+export function resultLine(out) {
+  const lines = String(out).trim().split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = lines[i].trim();
+    if (!l.startsWith('{')) continue;
+    try { const j = JSON.parse(l); if (j && typeof j === 'object' && ('result' in j || 'is_error' in j)) return l; } catch { /* not it */ }
+  }
+  return String(out);
+}
+
 export function parseVerdict(stdout) {
   let j;
   try { j = JSON.parse(stdout); } catch { return { ok: false, error: 'kết quả claude không đọc được' }; }
@@ -160,7 +174,7 @@ export function createSetupRunner({ orch = orchClient(), run = runCmd, providers
       '--permission-mode', 'acceptEdits', '--disallowedTools', 'Bash,WebFetch,WebSearch',
       '--append-system-prompt', agentPrompt(), managerPrompt(entry, next)],
     { cwd: entry.dir, timeoutMs: 30 * 60_000, log: l => { out += `${l}\n`; } });
-    const v = parseVerdict(out.trim().split('\n').find(l => l.startsWith('{')) || out);
+    const v = parseVerdict(resultLine(out));
     if (!v.ok) throw new Error(v.error);
     const documents = collectDocuments(entry.dir);
     await orch.submit(runId, { summary: v.summary.slice(0, 4000), documents, images: [], meta: {}, contextUsed: [] });

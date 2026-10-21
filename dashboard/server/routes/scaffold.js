@@ -6,6 +6,7 @@ import { probeTools } from '../services/scaffold/util.js';
 import { createProviderStore } from '../services/scaffold/remotes.js';
 import { defaultSetupRunner } from '../services/scaffold/setup.js';
 import { defaultBlueprintRunner } from '../services/scaffold/blueprint.js';
+import { createAdvisor } from '../services/scaffold/advise.js';
 
 /** Creates the project on the platform as the calling user (who becomes OWNER). */
 export function platformRegistrar(gatewayUrl = PLATFORM_URL, fetchImpl = fetch) {
@@ -28,6 +29,27 @@ export function platformRegistrar(gatewayUrl = PLATFORM_URL, fetchImpl = fetch) 
   };
 }
 
+/** Sets the new project's feature workflow as the calling user (the OWNER). */
+export function platformWorkflowSetter(gatewayUrl = PLATFORM_URL, fetchImpl = fetch) {
+  return async (projectId, workflow, token) => {
+    let r;
+    try {
+      r = await fetchImpl(`${gatewayUrl}/api/v1/projects/${encodeURIComponent(projectId)}/workflow`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(workflow),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch {
+      throw new Error('Không kết nối được Shipyard Platform');
+    }
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) throw new Error('Phiên đăng nhập đã hết hạn — đăng nhập lại rồi bấm "Thử lại"');
+    if (!r.ok || j.success === false) throw new Error(`Không lưu được quy trình: ${j.message || `HTTP ${r.status}`}`);
+    return j.data;
+  };
+}
+
 /** Toolchain probing spawns a few processes; remember the answer for a minute. */
 export function cachedProbe(probe = probeTools, ttlMs = 60_000, now = Date.now) {
   let at = 0, value = null;
@@ -39,9 +61,10 @@ export function cachedProbe(probe = probeTools, ttlMs = 60_000, now = Date.now) 
 
 // Project wizard (spec 2026-10-19 §3–4). It runs toolchains on this host, so P1 limits it to SYS_ADMIN.
 export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cachedProbe(), providers = createProviderStore(),
-  setup = defaultSetupRunner({ providers }), blueprint = defaultBlueprintRunner() } = {}) {
+  setup = defaultSetupRunner({ providers }), blueprint = defaultBlueprintRunner(), advise = createAdvisor({ tools }) } = {}) {
   const router = Router();
-  const jobs = runner || createJobRunner({ registerProject: platformRegistrar(), tools, remotes: providers, setup, blueprint });
+  const jobs = runner || createJobRunner({ registerProject: platformRegistrar(), setWorkflow: platformWorkflowSetter(), tools,
+    remotes: providers, setup, blueprint });
   // An approved architecture scaffolds the project through the job runner (same job, or rebuilt).
   blueprint.setBuilder?.((entry, architecture) => jobs.build(entry.snapshot, architecture));
   const admin = (req, res, next) => {
@@ -60,6 +83,10 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
 
   router.get('/api/scaffold/catalog', admin, (_req, res) => {
     try { res.json({ ...publicCatalog(tools()), stages: STAGES.filter(s => s.id !== 'reserve' && s.id !== 'blueprint'), root: jobs.root, providers: providers.list() }); } catch (e) { fail(res, e); }
+  });
+  // AI advisor: requirements → a recommended stack / workflow the wizard pre-fills (takes ~1 min).
+  router.post('/api/scaffold/advise', admin, async (req, res) => {
+    try { res.json(await advise(req.body?.requirements)); } catch (e) { fail(res, e); }
   });
   router.post('/api/scaffold/jobs', admin, (req, res) => {
     try {

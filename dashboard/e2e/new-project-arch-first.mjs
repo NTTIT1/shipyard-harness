@@ -38,6 +38,7 @@ try {
   await p.fill('#wz-name', name);
   slug = await p.inputValue('#wz-slug');
   await next.click();
+  await next.click();                                                              // need: no AI advice this time
   await m.getByText('Một ứng dụng', { exact: true }).click(); await next.click();
   await m.getByText('TypeScript', { exact: true }).click(); await next.click();
   await m.getByText('React + Vite', { exact: true }).click(); await next.click();
@@ -49,6 +50,7 @@ try {
   await p.fill('#wz-req', 'Ứng dụng web quản lý kho nhỏ: danh mục hàng, nhập kho, xuất kho, báo cáo tồn theo tháng.');
   await shot(p, 'af1-arch-step');
   await next.click();
+  await next.click();                                                              // workflow: default (full)
   const aiTeam = m.getByRole('checkbox', { name: /AI Manager/ });
   if (await aiTeam.isChecked()) await aiTeam.uncheck();
   await next.click();                                                              // review

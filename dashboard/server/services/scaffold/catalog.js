@@ -97,6 +97,7 @@ export function validateRequest(body, tools, stacks = STACKS) {
   const brief = String(b.brief || '').trim();
   if (brief.length > 20000) throw bad('Tài liệu cho AI tối đa 20.000 ký tự (tải thêm file sau)');
   const roleSkills = validateRoleSkills(b.roleSkills);
+  const workflow = b.workflow == null ? null : validateWorkflow(b.workflow);
   // Architecture first: an AI architect drafts architecture.md from these requirements and a human
   // approves it before anything is generated.
   const archFirst = b.archFirst === true;
@@ -106,12 +107,13 @@ export function validateRequest(body, tools, stacks = STACKS) {
   return {
     name, slug, description, kind, stack: stack.id, options, ...(frontend ? { frontend } : {}),
     git: validateGit(b.git), aiTeam: b.aiTeam !== false, brief, ...(archFirst ? { archFirst, requirements } : {}),
+    ...(workflow ? { workflow } : {}),
     ...(roleSkills ? { roleSkills } : {}),
   };
 }
 
 /** Every option is a listed choice, a boolean, or text matching its pattern (never free-form to a shell). */
-function validateOptions(stack, given = {}) {
+export function validateOptions(stack, given = {}) {
   const options = {};
   for (const o of stack.options) {
     const v = (given || {})[o.id] ?? o.default;
@@ -128,6 +130,21 @@ function validateOptions(stack, given = {}) {
   }
   if (stack.noDatabase) options.db = 'none';
   return options;
+}
+
+const WF_STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
+const WF_DOCS = ['PM', 'BA', 'ARCH', 'DESIGN'];
+/** The project's feature workflow chosen in the wizard (same rules as the orchestrator). */
+export function validateWorkflow(w) {
+  if (!Array.isArray(w) || w.length !== WF_STEPS.length) throw bad('Quy trình phải có đủ 6 bước');
+  const out = w.map(x => ({ step: String(x?.step || '').toUpperCase(), mode: String(x?.mode || '').toUpperCase() }));
+  const order = out.map(x => x.step);
+  if (WF_STEPS.some(st => !order.includes(st))) throw bad('Quy trình phải có đủ 6 bước');
+  if (out.some(x => !['REQUIRED', 'AUTO', 'SKIP'].includes(x.mode))) throw bad('Chế độ bước phải là REQUIRED, AUTO hoặc SKIP');
+  const dev = order.indexOf('DEV');
+  if (WF_DOCS.some(st => order.indexOf(st) > dev) || order.indexOf('TEST') < dev) throw bad('Quy trình: các bước tài liệu trước Code, Test sau Code');
+  if (out[dev].mode === 'SKIP') throw bad('Không thể bỏ bước Code');
+  return out;
 }
 
 /** local | github (owner = user/org login) | gitlab (owner = namespace id); private unless asked. */

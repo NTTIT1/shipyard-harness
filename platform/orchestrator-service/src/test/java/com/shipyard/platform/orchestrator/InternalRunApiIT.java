@@ -185,4 +185,29 @@ class InternalRunApiIT extends OrchestratorIT {
         Map<String, Object> view = data(user("usr_owner", HttpMethod.GET, "/api/v1/runs/" + id, null));
         assertThat((Map<String, String>) ((Map) view.get("run")).get("gateOverrides")).containsEntry("DESIGN", "AUTO");
     }
+
+    @Test
+    void autoApprovesOnlyGreenSubmissions() {
+        allAuto();
+        String id = createRun();
+        for (Step s : new Step[]{Step.PM, Step.BA}) submit(id, s, null);
+        submit(id, Step.ARCH, false);
+        Map<String, Object> dev = payload(Step.DEV, null);
+        dev.put("meta", Map.of("branch", "feat/x", "ci", "fail"));
+        Map<String, Object> r = data(internal(HttpMethod.POST, "/internal/v1/runs/" + id + "/steps/DEV/submit", dev));
+        assertThat(r.get("autoApproved")).as("red CI waits for a human").isEqualTo(false);
+        assertThat(next(id).get("mode")).isEqualTo("WAIT");
+    }
+
+    @Test
+    void autoApprovesAPassingTestButNotAFailingOne() {
+        allAuto();
+        String id = createRun();
+        for (Step s : new Step[]{Step.PM, Step.BA}) submit(id, s, null);
+        submit(id, Step.ARCH, false);
+        submit(id, Step.DEV, null);
+        Map<String, Object> test = payload(Step.TEST, null);
+        test.put("meta", Map.of("result", "FAIL"));
+        assertThat(((Map) data(internal(HttpMethod.POST, "/internal/v1/runs/" + id + "/steps/TEST/submit", test))).get("autoApproved")).isEqualTo(false);
+    }
 }

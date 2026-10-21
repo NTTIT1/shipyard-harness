@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, STEP_LABEL, runSteps, runProgress, moveStep, workflowProblem } from '../src/lib/review.js';
+import { validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, STEP_LABEL, runSteps, runProgress, moveStep, moveTo, workflowProblem, WORKFLOW_PRESETS } from '../src/lib/review.js';
 
 const steps = [
   { step: 'PM', status: 'APPROVED' }, { step: 'BA', status: 'APPROVED' }, { step: 'ARCH', status: 'APPROVED' },
@@ -113,5 +113,20 @@ describe('configurable workflow', () => {
     expect(workflowProblem(wf.map(w => (w.step === 'DEV' ? { ...w, mode: 'SKIP' } : w)))).toMatch(/Lập trình/);
     expect(workflowProblem([...wf.slice(0, 3), wf[4], wf[3], wf[5]])).toMatch(/trước Lập trình/);
     expect(workflowProblem(wf.slice(1))).toMatch(/6 bước/);
+  });
+});
+
+describe('drag & drop and presets', () => {
+  const wf = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'].map(step => ({ step, mode: 'REQUIRED' }));
+  it('drops a document step anywhere in the head, never past DEV', () => {
+    expect(moveTo(wf, 'ARCH', 0).map(w => w.step)).toEqual(['ARCH', 'PM', 'BA', 'DESIGN', 'DEV', 'TEST']);
+    expect(moveTo(wf, 'PM', 9).map(w => w.step)).toEqual(['BA', 'ARCH', 'DESIGN', 'PM', 'DEV', 'TEST']);
+    expect(moveTo(wf, 'DEV', 0)).toBe(wf);
+    expect(moveTo(wf, 'BA', 1)).toBe(wf);
+  });
+  it('every preset is a valid workflow; Plan → Code → Test auto-runs code and test', () => {
+    for (const p of WORKFLOW_PRESETS) expect(workflowProblem(p.steps), p.id).toBe('');
+    const pct = WORKFLOW_PRESETS.find(p => p.id === 'plan-code-test').steps.filter(w => w.mode !== 'SKIP');
+    expect(pct).toEqual([{ step: 'ARCH', mode: 'REQUIRED' }, { step: 'DEV', mode: 'AUTO' }, { step: 'TEST', mode: 'AUTO' }]);
   });
 });

@@ -177,3 +177,19 @@ describe('architecture-first project', () => {
     expect(orch.calls.filter(c => c[0] === 'release')).toHaveLength(1);
   });
 });
+
+describe('workflow from the wizard', () => {
+  it('is saved on the project right after it is registered, with the creator\'s token', async () => {
+    const pct = [{ step: 'ARCH', mode: 'REQUIRED' }, { step: 'PM', mode: 'SKIP' }, { step: 'BA', mode: 'SKIP' },
+      { step: 'DESIGN', mode: 'SKIP' }, { step: 'DEV', mode: 'AUTO' }, { step: 'TEST', mode: 'AUTO' }];
+    const set = [];
+    const orch = fakeOrch([{ mode: 'WAIT' }]);
+    const bp = createBlueprintRunner({ orch, run: fakeRun(), claudeBin: '/x/claude', ...mem(), workRoot: () => work });
+    const jobs = createJobRunner({ root, tools: () => ALL, run: fakeRun(), blueprint: bp,
+      registerProject: async () => ({ id: 'proj_w' }), setWorkflow: async (...a) => { set.push(a); } });
+    const j = jobs.start(spec('kho-w', { workflow: pct }), user, 'tok-w');
+    await jobs.wait(j.id);
+    expect(set).toEqual([['proj_w', pct, 'tok-w']]);
+    expect(jobs.get(j.id).log.some(l => l.includes('Quy trình: ARCH → DEV → TEST'))).toBe(true);
+  });
+});

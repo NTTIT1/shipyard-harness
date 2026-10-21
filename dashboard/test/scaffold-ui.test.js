@@ -22,12 +22,12 @@ describe('slugify', () => {
 
 describe('wizard steps', () => {
   it('drops the database step for frontend stacks', () => {
-    expect(wizardSteps(findStack(catalog, 'java-spring')).map(s => s.id)).toEqual(['info', 'kind', 'language', 'stack', 'db', 'options', 'git', 'arch', 'team', 'review']);
+    expect(wizardSteps(findStack(catalog, 'java-spring')).map(s => s.id)).toEqual(['info', 'need', 'kind', 'language', 'stack', 'db', 'options', 'git', 'arch', 'workflow', 'team', 'review']);
     expect(wizardSteps(findStack(catalog, 'ts-react-vite')).map(s => s.id)).not.toContain('db');
   });
   it('a fullstack project adds the frontend step after the backend options', () => {
     const ids = wizardSteps(findStack(catalog, 'java-spring'), 'fullstack').map(s => s.id);
-    expect(ids).toEqual(['info', 'kind', 'language', 'stack', 'db', 'options', 'frontend', 'git', 'arch', 'team', 'review']);
+    expect(ids).toEqual(['info', 'need', 'kind', 'language', 'stack', 'db', 'options', 'frontend', 'git', 'arch', 'workflow', 'team', 'review']);
     expect(wizardSteps(null, 'fullstack').find(s => s.id === 'stack').label).toBe('Backend');
     expect(stepProblem('frontend', {}, null, null)).toMatch(/frontend/);
     expect(stepProblem('frontend', {}, null, { available: true })).toBe('');

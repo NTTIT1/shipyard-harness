@@ -45,36 +45,52 @@ try {
   await openWorkflow();
   await shot(p, 'wf1-default');
 
-  await p.getByRole('button', { name: 'Kiến trúc → Code → Test' }).click();
-  ok(await p.locator('.wf-chip').allTextContents().then(t => t.join(' → ')) === 'Kiến trúc → Lập trình → Kiểm thử', 'preset shows ARCH → DEV → TEST');
-  // fine-tune: bring PM back right after ARCH, approved automatically
+  await p.getByRole('button', { name: 'Plan → Code → Test' }).click();
+  ok(await p.locator('.wf-chip').allTextContents().then(t => t.join(' → ')) === 'Plan — Kiến trúc → Lập trình → Kiểm thử', 'preset shows Plan → Code → Test');
+  // fine-tune: bring PM back (approved automatically) and DRAG it above Plan
   await p.getByRole('radiogroup', { name: 'Chế độ bước PM — Yêu cầu' }).getByText('Tự duyệt').click();
-  ok(await p.getByRole('button', { name: 'Đưa Lập trình lên trước' }).count() === 0, 'DEV cannot be moved');
+  const grip = p.locator('[data-grip="PM"]');
+  const box = await grip.boundingBox();
+  const rowH = await p.locator('.gate-pipeline-card').first().evaluate(el => el.offsetHeight);
+  await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await p.mouse.down();
+  for (let i = 1; i <= 8; i++) await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - (rowH * i) / 8);
+  await shot(p, 'wf2-dragging');
+  await p.mouse.up();
+  const order = () => p.locator('.gate-pipeline-card .gate-step-name').allTextContents();
+  ok((await order())[0] === 'PM — Yêu cầu', 'dragging the handle moved PM to the top');
+  // keyboard: ↓ then ↑ on the same handle → back where it was, focus kept
+  await p.locator('[data-grip="PM"]').focus();
+  await p.keyboard.press('ArrowDown');
+  ok((await order())[1] === 'PM — Yêu cầu', 'arrow down moves the step');
+  await p.keyboard.press('ArrowUp');
+  ok((await order())[0] === 'PM — Yêu cầu', 'arrow up moves it back');
+  ok(await p.locator('[data-grip="DEV"]').count() === 0, 'DEV cannot be moved');
   ok(await p.getByRole('radiogroup', { name: 'Chế độ bước Lập trình' }).getByText('Bỏ bước').count() === 0, 'DEV cannot be skipped');
-  await shot(p, 'wf2-edited');
+  await shot(p, 'wf3-edited');
   await p.getByRole('button', { name: 'Lưu quy trình' }).click();
   await p.getByText('Đã lưu.', { exact: false }).waitFor();
 
   const wf1 = (await api('GET', `/api/platform/projects/${pid}/workflow`)).body.data;
-  ok(wf1.map(w => `${w.step}:${w.mode}`).join() === 'ARCH:REQUIRED,PM:AUTO,BA:SKIP,DESIGN:SKIP,DEV:REQUIRED,TEST:REQUIRED', 'saved order and modes');
+  ok(wf1.map(w => `${w.step}:${w.mode}`).join() === 'PM:AUTO,ARCH:REQUIRED,BA:SKIP,DESIGN:SKIP,DEV:AUTO,TEST:AUTO', 'saved order and modes');
 
   await p.reload(); await p.waitForSelector('.sb-user');
   await openWorkflow();
-  ok(await p.locator('.wf-chip').allTextContents().then(t => t.join(' → ')) === 'Kiến trúc → PM — Yêu cầu → Lập trình → Kiểm thử', 'after reload the page shows the saved workflow');
-  await shot(p, 'wf3-after-reload');
+  ok(await p.locator('.wf-chip').allTextContents().then(t => t.join(' → ')) === 'PM — Yêu cầu → Plan — Kiến trúc → Lập trình → Kiểm thử', 'after reload the page shows the saved workflow');
+  await shot(p, 'wf4-after-reload');
 
   // A new feature run (what a lane does at /ship-feature start) follows the project's workflow.
   const token = fs.readFileSync(path.join(HARNESS, 'run/platform/service-token'), 'utf8').trim();
   const run = await (await fetch(`${ORCH}/internal/v1/runs`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Service-Token': token },
     body: JSON.stringify({ projectId: pid, laneRef: 'e2e:lane9', title: 'thử quy trình', description: '', createdBy: 'e2e' }) })).json();
-  ok(run.data.currentStep === 'ARCH', `the run starts at ARCH (${run.data.currentStep})`);
-  ok(run.data.workflow.join() === 'ARCH,PM,BA,DESIGN,DEV,TEST', 'the run froze the workflow order');
+  ok(run.data.currentStep === 'PM', `the run starts at PM (${run.data.currentStep})`);
+  ok(run.data.workflow.join() === 'PM,ARCH,BA,DESIGN,DEV,TEST', 'the run froze the workflow order');
 
   const bad = await api('PUT', `/api/platform/projects/${pid}/workflow`, wf1.map(w => (w.step === 'DEV' ? { ...w, mode: 'SKIP' } : w)));
   ok(bad.status === 400, 'skipping DEV is refused by the server');
 
   await p.setViewportSize({ width: 390, height: 844 });
-  await shot(p, 'wf4-mobile');
+  await shot(p, 'wf5-mobile');
   ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no horizontal scroll on a phone');
 } finally {
   if (pid && !process.env.KEEP) {

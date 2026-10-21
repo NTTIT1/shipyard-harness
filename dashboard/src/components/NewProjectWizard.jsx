@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ArrowLeft, ArrowRight, Rocket, RotateCcw,
-  Trash2, StopCircle, Terminal, GitBranch, Database
+  Trash2, StopCircle, Terminal, GitBranch, Database, Sparkles, Loader2, Check
 } from 'lucide-react';
+import WorkflowEditor from './projects/WorkflowEditor.jsx';
 import Modal from './Modal.jsx';
 import Badge from './ui/Badge.jsx';
 import { Choice, JobView, GitStep, RoleSkillsConfigurator } from './projects/WizardSteps.jsx';
 import {
   scaffold, slugify, findStack, defaultOptions, defaultRoleSkills,
-  wizardSteps, stepProblem, summary, PROVIDER_LABEL, KINDS, languagesFor, frontendStacks
+  wizardSteps, stepProblem, summary, PROVIDER_LABEL, KINDS, languagesFor, frontendStacks,
+  applyAdvice, DEFAULT_WORKFLOW
 } from '../lib/scaffold.js';
+import { WORKFLOW_PRESETS } from '../lib/review.js';
 import '../styles/wizard.css';
 
 const JOB_KEY = 'shipyard.scaffoldJob';
@@ -25,8 +28,12 @@ export default function NewProjectWizard({ onClose, onCreated }) {
     frontend: { stack: '', options: {} },
     git: { provider: 'local', owner: '', ownerLabel: '', visibility: 'private' },
     aiTeam: true, brief: '', roleSkills: defaultRoleSkills(null, 'java-spring'),
-    archFirst: false, requirements: '',
+    archFirst: false, requirements: '', workflow: DEFAULT_WORKFLOW,
   });
+  const [advice, setAdvice] = useState(null);
+  const [advising, setAdvising] = useState(false);
+  const [adviceErr, setAdviceErr] = useState('');
+  const [applied, setApplied] = useState(false);
   const [job, setJob] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -64,12 +71,20 @@ export default function NewProjectWizard({ onClose, onCreated }) {
         aiTeam: form.aiTeam, brief: form.aiTeam ? form.brief : '',
         roleSkills: form.roleSkills,
         ...(form.archFirst ? { archFirst: true, requirements: form.requirements.trim() } : {}),
+        workflow: form.workflow,
       });
       remember(j.id);
       setJob({ ...j, log: j.log || [] });
     } catch (e) { setErr(e.message); }
     setBusy(false);
   }, [form]);
+
+  const askAdvice = async () => {
+    setAdvising(true); setAdviceErr(''); setApplied(false);
+    try { setAdvice(await scaffold.advise(form.requirements.trim())); } catch (e) { setAdviceErr(e.message); }
+    setAdvising(false);
+  };
+  const stackName = id => { const st = findStack(catalog, id); return st ? `${st.languageLabel} · ${st.label}` : id; };
 
   const act = fn => async () => {
     setBusy(true); setErr('');
@@ -142,6 +157,48 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                   <label className="form-label" htmlFor="wz-desc">Mô tả ngắn (không bắt buộc)</label>
                   <input id="wz-desc" value={form.description} maxLength={500} onChange={e => set({ description: e.target.value })} />
                 </div>
+              </div>
+            )}
+
+            {cur === 'need' && (
+              <div className="wz-fields">
+                <div className="form-field">
+                  <label className="form-label" htmlFor="wz-need">Bạn cần xây hệ thống gì?</label>
+                  <textarea id="wz-need" rows={5} maxLength={20000} value={form.requirements}
+                    onChange={e => { set({ requirements: e.target.value }); setApplied(false); }}
+                    placeholder={'Ví dụ: Hệ thống bán hàng cho chuỗi 5 cửa hàng, khoảng 1000 người dùng. Có quản lý sản phẩm, đơn hàng, kho, khách hàng, báo cáo doanh thu…'} />
+                  <span className="faint">Không bắt buộc. Nhờ AI tư vấn để được gợi ý công nghệ, quy mô và quy trình — bạn vẫn tự chọn ở các bước sau.</span>
+                </div>
+                <div className="wz-advise-row">
+                  <button type="button" className="btn btn-md btn-secondary" disabled={advising || form.requirements.trim().length < 10} onClick={askAdvice}>
+                    {advising ? <Loader2 size={16} className="wz-spin" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />}
+                    <span>{advising ? 'AI đang tư vấn… (khoảng 1 phút)' : advice ? 'Tư vấn lại' : 'Nhờ AI tư vấn'}</span>
+                  </button>
+                  {adviceErr && <span className="m-err" role="alert" style={{ margin: 0 }}>{adviceErr}</span>}
+                </div>
+                {advice && (
+                  <div className="wz-advice" aria-live="polite">
+                    <p className="wz-advice-summary">{advice.summary}</p>
+                    <div className="wz-review-pills">
+                      <span className="wz-pill"><Terminal size={12} /> {advice.kind === 'fullstack' ? `backend/ ${stackName(advice.stack)}` : stackName(advice.stack)}</span>
+                      {advice.frontend && <span className="wz-pill"><Terminal size={12} /> frontend/ {stackName(advice.frontend.stack)}</span>}
+                      {advice.options.db && advice.options.db !== 'none' && <span className="wz-pill"><Database size={12} /> {advice.options.db}</span>}
+                      <span className="wz-pill">Quy trình: {WORKFLOW_PRESETS.find(x => x.id === advice.workflow)?.label}</span>
+                      <span className="wz-pill">{advice.archFirst ? 'Duyệt kiến trúc trước' : 'Tạo khung ngay'}</span>
+                    </div>
+                    {[['Vì sao', advice.reasons], ['Với quy mô này', advice.scale], ['Cần làm rõ', advice.risks]].filter(([, l]) => l.length).map(([t, l]) => (
+                      <div key={t} className="wz-advice-sec"><b>{t}</b><ul>{l.map((x, i) => <li key={i}>{x}</li>)}</ul></div>
+                    ))}
+                    <div className="wz-advise-row">
+                      <button type="button" className="btn btn-md btn-primary" disabled={applied}
+                        onClick={() => { setForm(f => applyAdvice(f, advice, catalog)); setApplied(true); }}>
+                        {applied ? <Check size={16} aria-hidden="true" /> : <ArrowRight size={16} aria-hidden="true" />}
+                        <span>{applied ? 'Đã áp dụng' : 'Áp dụng gợi ý'}</span>
+                      </button>
+                      <span className="faint">{applied ? 'Các bước sau đã được chọn sẵn theo gợi ý — bấm Tiếp để xem và chỉnh.' : 'Áp dụng sẽ chọn sẵn kiểu dự án, framework, database, kiến trúc và quy trình.'}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -281,7 +338,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                 </fieldset>
                 {form.archFirst && (
                   <div className="form-field">
-                    <label className="form-label" htmlFor="wz-req">Hệ thống cần xây (cho kiến trúc sư AI)</label>
+                    <label className="form-label" htmlFor="wz-req">Hệ thống cần xây (cho kiến trúc sư AI — lấy từ bước Yêu cầu, sửa thêm được)</label>
                     <textarea id="wz-req" rows={6} maxLength={20000} value={form.requirements} onChange={e => set({ requirements: e.target.value })}
                       placeholder={'Ví dụ: Hệ thống quản lý kho cho 3 chi nhánh. Người dùng: thủ kho, kế toán, quản lý. Nhập/xuất kho, kiểm kê, cảnh báo tồn thấp, báo cáo tháng. Đăng nhập bằng tài khoản công ty…'} />
                     <span className="faint">
@@ -290,6 +347,16 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                     </span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {cur === 'workflow' && (
+              <div className="wz-fields">
+                <p className="faint" style={{ margin: 0 }}>Mọi lane của dự án chạy theo quy trình này (đổi sau ở <b>Quy trình &amp; duyệt</b>). Ví dụ dự án chỉ cần
+                  {' '}<b>Plan → Code → Test</b>: test xanh là xong, đỏ thì dừng chờ người.</p>
+                <div className="wz-wf card-panel">
+                  <WorkflowEditor value={form.workflow} onChange={w => set({ workflow: w })} />
+                </div>
               </div>
             )}
 

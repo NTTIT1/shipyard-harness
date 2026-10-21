@@ -117,7 +117,8 @@ public class RunCommands {
 
         String override = run.gateOverrides == null ? null : run.gateOverrides.get(step.name());
         // Project rules and project architecture are never auto-approved.
-        boolean auto = !RunKind.alwaysHuman(step) && (override != null ? GateMode.valueOf(override) == GateMode.AUTO
+        // AUTO only lets a green submission through: a step reporting a failed check waits for a human.
+        boolean auto = !RunKind.alwaysHuman(step) && !reportsFailure(req.meta()) && (override != null ? GateMode.valueOf(override) == GateMode.AUTO
                 : policies.findById(new GatePolicy.Key(run.projectId, step)).map(p -> p.mode == GateMode.AUTO).orElse(false));
         if (auto) {
             applyDecision(run, st, a, rev, new Decision(DecisionAction.APPROVE, null, null, null, null), AUTO, AUTO);
@@ -212,6 +213,15 @@ public class RunCommands {
         p.put("runTitle", run.title);
         p.put("step", step.name());
         return p;
+    }
+
+    /** Check results the lane reports in meta (DEV: ci, e2e; TEST: result) — any "fail" blocks auto-approval. */
+    static boolean reportsFailure(Map<String, Object> meta) {
+        if (meta == null) return false;
+        for (String k : List.of("result", "ci", "e2e")) {
+            if (meta.get(k) instanceof String v && v.trim().equalsIgnoreCase("fail")) return true;
+        }
+        return false;
     }
 
     /** Validates per-run gate choices: known steps, REQUIRED|AUTO (any case); null/empty → no overrides. */

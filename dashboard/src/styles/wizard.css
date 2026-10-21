@@ -98,3 +98,11 @@
 .wz-waiting { padding: 10px 12px; margin-bottom: 10px; border-radius: var(--radius-sm); border: 1px solid var(--warn); background: var(--warn-soft); font-size: 13px; line-height: 1.5 }
 .wz-setup.awaiting-review { background: var(--warn-soft) } .wz-setup.awaiting-review svg { color: var(--warn-text) }
 .wz-setup.building svg { color: var(--accent-text) }
+
+/* AI advice + workflow steps */
+.wz-advise-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
+.wz-advice { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--accent-soft) }
+.wz-advice-summary { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.45 }
+.wz-advice-sec { font-size: 13px; line-height: 1.5 }
+.wz-advice-sec ul { margin: 4px 0 0; padding-left: 18px }
+.wz-wf { overflow: hidden; padding: 0 }

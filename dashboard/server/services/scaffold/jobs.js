@@ -80,7 +80,7 @@ export async function initRepo(dir, { authorName, authorEmail, stackId, run }) {
  * once created, is never deleted from here.
  */
 export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeTools(), fetchImpl = fetch,
-  run = runCmd, registerProject, remotes = null, setup = null, blueprint = null, now = () => new Date() } = {}) {
+  run = runCmd, registerProject, setWorkflow = null, remotes = null, setup = null, blueprint = null, now = () => new Date() } = {}) {
   const jobs = new Map();
   const locks = new Set();
 
@@ -183,9 +183,17 @@ export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeToo
         await pushRepo(j.dir, remotes.authHeader(provider), ctx.run);
       },
       async register() {
-        j.project = await registerProject({ slug: j.spec.slug, name: j.spec.name, repoUrl: j.remote?.cloneUrl || j.dir,
-          defaultBranch: 'development' }, j.token);
-        ctx.log(`Đã tạo dự án ${j.project?.id || ''}`);
+        if (!j.project) {
+          j.project = await registerProject({ slug: j.spec.slug, name: j.spec.name, repoUrl: j.remote?.cloneUrl || j.dir,
+            defaultBranch: 'development' }, j.token);
+          ctx.log(`Đã tạo dự án ${j.project?.id || ''}`);
+        }
+        // The feature workflow chosen in the wizard (Plan → Code → Test, …) — every lane follows it.
+        if (j.spec.workflow && setWorkflow && !j.workflowSet) {
+          await setWorkflow(j.project.id, j.spec.workflow, j.token);
+          j.workflowSet = true;
+          ctx.log(`Quy trình: ${j.spec.workflow.filter(w => w.mode !== 'SKIP').map(w => w.step).join(' → ')}`);
+        }
       },
       async team() {
         if (!j.setupRunId) {

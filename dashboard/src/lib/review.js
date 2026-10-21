@@ -1,6 +1,6 @@
 // Pure helpers for the review screen (unit-tested; mirrors orchestrator rules, spec §3.2).
 export const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
-export const STEP_LABEL = { PM: 'PM — Yêu cầu', BA: 'BA — Nghiệp vụ', ARCH: 'Kiến trúc', DESIGN: 'Thiết kế UI', DEV: 'Lập trình', TEST: 'Kiểm thử',
+export const STEP_LABEL = { PM: 'PM — Yêu cầu', BA: 'BA — Nghiệp vụ', ARCH: 'Plan — Kiến trúc', DESIGN: 'Thiết kế UI', DEV: 'Lập trình', TEST: 'Kiểm thử',
   MANAGER: 'Luật dự án (AI Manager)', BLUEPRINT: 'Kiến trúc dự án (trước khi tạo khung)' };
 
 /**
@@ -33,6 +33,38 @@ export const GATE_MODES = [
 
 /** Steps that may be reordered (they feed DEV); DEV then TEST always close the workflow. */
 export const MOVABLE = ['PM', 'BA', 'ARCH', 'DESIGN'];
+
+/** Moves a step to `target` inside the movable head of the workflow (drag & drop); returns a new list. */
+export function moveTo(workflow, step, target) {
+  const i = workflow.findIndex(w => w.step === step);
+  const last = workflow.findIndex(w => !MOVABLE.includes(w.step)) - 1;
+  if (i < 0 || !MOVABLE.includes(step)) return workflow;
+  const j = Math.max(0, Math.min(target, last));
+  if (j === i) return workflow;
+  const out = [...workflow];
+  const [w] = out.splice(i, 1);
+  out.splice(j, 0, w);
+  return out;
+}
+
+const wf = (...pairs) => pairs.map(([step, mode]) => ({ step, mode }));
+/**
+ * Ready-made workflows (ids are also what the AI advisor may suggest). "Plan" is the ARCH step: it
+ * writes plan.md + tasks.md. Auto steps only pass green submissions; a red test waits for a human.
+ */
+export const WORKFLOW_PRESETS = [
+  { id: 'full', label: 'Đầy đủ', desc: 'PM → BA → Plan → Thiết kế UI → Code → Test, bước nào cũng có người duyệt.',
+    steps: wf(['PM', 'REQUIRED'], ['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
+  { id: 'plan-code-test', label: 'Plan → Code → Test', desc: 'Bạn duyệt Plan; Code và Test tự qua khi xanh, đỏ thì dừng chờ người.',
+    steps: wf(['ARCH', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['TEST', 'AUTO']) },
+  { id: 'auto', label: 'Tự chạy hết', desc: 'Plan → Code → Test không chờ duyệt; chỉ dừng khi test hoặc CI đỏ.',
+    steps: wf(['ARCH', 'AUTO'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['TEST', 'AUTO']) },
+  { id: 'ui', label: 'Thiết kế UI → Code → Test', desc: 'Cho dự án nặng giao diện: duyệt mockup trước khi code.',
+    steps: wf(['DESIGN', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
+  { id: 'code', label: 'Chỉ Code + Test', desc: 'Việc nhỏ, rõ ràng: AI tự lên kế hoạch trong bước Code.',
+    steps: wf(['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['TEST', 'REQUIRED']) },
+];
+export const presetById = id => WORKFLOW_PRESETS.find(p => p.id === id) || null;
 
 /** Moves a step one place up/down inside the movable head of the workflow; returns a new list. */
 export function moveStep(workflow, step, dir) {

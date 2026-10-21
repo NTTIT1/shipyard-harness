@@ -1,6 +1,8 @@
 import { authFetch } from './api.js';
 
 // Project wizard client (server: dashboard/server/routes/scaffold.js) + pure helpers for the steps.
+import { WORKFLOW_PRESETS, workflowProblem, STEP_LABEL } from './review.js';
+
 async function call(method, url, body) {
   const r = await authFetch(url, {
     method, headers: { 'Content-Type': 'application/json' },
@@ -25,6 +27,7 @@ export const scaffold = {
   setup: runId => call('GET', `/api/scaffold/setup/${runId}`),
   retrySetup: runId => call('POST', `/api/scaffold/setup/${runId}/retry`),
   blueprint: runId => call('GET', `/api/scaffold/blueprint/${runId}`),
+  advise: requirements => call('POST', '/api/scaffold/advise', { requirements }),
   retryBlueprint: runId => call('POST', `/api/scaffold/blueprint/${runId}/retry`),
   projectBlueprints: projectId => call('GET', `/api/scaffold/blueprints?projectId=${encodeURIComponent(projectId)}`),
 };
@@ -114,6 +117,7 @@ export function wizardSteps(stack, kind = 'single') {
   const fullstack = kind === 'fullstack';
   return [
     { id: 'info', label: 'Thông tin' },
+    { id: 'need', label: 'Yêu cầu & tư vấn AI' },
     { id: 'kind', label: 'Kiểu dự án' },
     { id: 'language', label: fullstack ? 'Ngôn ngữ backend' : 'Ngôn ngữ' },
     { id: 'stack', label: fullstack ? 'Backend' : 'Framework' },
@@ -122,6 +126,7 @@ export function wizardSteps(stack, kind = 'single') {
     ...(fullstack ? [{ id: 'frontend', label: 'Frontend' }] : []),
     { id: 'git', label: 'Kho Git' },
     { id: 'arch', label: 'Kiến trúc' },
+    { id: 'workflow', label: 'Quy trình' },
     { id: 'team', label: 'Đội AI & Skill' },
     { id: 'review', label: 'Xem lại' },
   ];
@@ -148,6 +153,7 @@ export function stepProblem(step, form, stack, fstack = null) {
       return '';
     case 'team':
       return (form.brief || '').length > 20000 ? 'Tài liệu tối đa 20.000 ký tự' : '';
+    case 'workflow': return form.workflow ? workflowProblem(form.workflow) : '';
     case 'arch':
       if (!form.archFirst) return '';
       if ((form.requirements || '').trim().length < 20) return 'Mô tả hệ thống cần xây (ít nhất 20 ký tự) để kiến trúc sư AI làm việc';
@@ -181,6 +187,7 @@ export function summary(form, stack, catalog, fstack = null) {
     for (const o of stack.options) rows.push([o.label, choiceLabel(o, form.options[o.id])]);
   }
   rows.push(['Kho Git', gitLabel(form.git)]);
+  if (form.workflow) rows.push(['Quy trình tính năng', workflowLabel(form.workflow)]);
   rows.push(['Kiến trúc', form.archFirst ? 'AI soạn kiến trúc → bạn duyệt → rồi mới tạo khung dự án' : 'Tạo khung ngay (không duyệt kiến trúc trước)']);
   rows.push(['Đội AI', form.aiTeam === false ? 'Không (chỉ dùng luật khởi đầu)' : `AI Manager soạn luật, bạn duyệt${form.brief?.trim() ? ' · có tài liệu kèm' : ''}`]);
   const roleEntries = Object.entries(form.roleSkills || {});
@@ -215,3 +222,25 @@ export const SETUP_STATUS = {
   queued: 'Đang xếp hàng…', drafting: 'AI Manager đang soạn luật…', 'awaiting-review': 'Đã nộp bộ luật — vào "Chờ duyệt" để xem và duyệt',
   publishing: 'Đang commit luật đã duyệt…', done: 'Luật đã được duyệt và commit vào development', cancelled: 'Đã huỷ', error: 'Lỗi',
 };
+
+/** "Plan — Kiến trúc → Lập trình (tự duyệt) → Kiểm thử" for the review step. */
+export function workflowLabel(workflow) {
+  const preset = WORKFLOW_PRESETS.find(p => JSON.stringify(p.steps) === JSON.stringify(workflow));
+  const steps = workflow.filter(w => w.mode !== 'SKIP').map(w => `${STEP_LABEL[w.step]}${w.mode === 'AUTO' ? ' (tự duyệt)' : ''}`).join(' → ');
+  return preset ? `${preset.label}: ${steps}` : steps;
+}
+
+export const DEFAULT_WORKFLOW = WORKFLOW_PRESETS[0].steps;
+
+/** The wizard fields an AI advice fills in (the human can still change every one of them). */
+export function applyAdvice(form, advice, catalog) {
+  const preset = WORKFLOW_PRESETS.find(p => p.id === advice.workflow);
+  return {
+    ...form,
+    kind: advice.kind, language: advice.language, stack: advice.stack, options: { ...advice.options },
+    frontend: advice.frontend ? { stack: advice.frontend.stack, options: { ...advice.frontend.options } } : { stack: '', options: {} },
+    roleSkills: defaultRoleSkills(catalog, advice.stack),
+    archFirst: !!advice.archFirst,
+    ...(preset ? { workflow: preset.steps } : {}),
+  };
+}

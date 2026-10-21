@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { HARNESS_ROOT } from '../config.js';
 import { run as runCmd, readText } from './util.js';
-import { orchClient, parseVerdict } from './setup.js';
+import { orchClient, parseVerdict, resultLine } from './setup.js';
 
 // Architecture first (new-project wizard): the project is registered, a BLUEPRINT run asks the
 // project architect for architecture.md, a TECH_LEAD/OWNER approves it in "Chờ duyệt", and only then
@@ -87,7 +87,7 @@ export function createBlueprintRunner({ orch = orchClient(), run = runCmd, host 
       '--permission-mode', 'acceptEdits', '--disallowedTools', 'Bash,WebFetch,WebSearch',
       '--append-system-prompt', agentPrompt(), architectPrompt(entry, next)],
     { cwd: dir, timeoutMs: 30 * 60_000, log: l => { out += `${l}\n`; } });
-    const v = parseVerdict(out.trim().split('\n').find(l => l.startsWith('{')) || out);
+    const v = parseVerdict(resultLine(out));
     if (!v.ok) throw new Error(v.error.replace('AI Manager', 'Kiến trúc sư AI'));
     await orch.submit(runId, { summary: v.summary.slice(0, 4000), documents: { [DOC]: readArchitecture(dir) },
       images: [], meta: {}, contextUsed: [] }, 'BLUEPRINT');
