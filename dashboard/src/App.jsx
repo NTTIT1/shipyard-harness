@@ -31,6 +31,7 @@ import ProjectBoardView from './components/ProjectBoardView.jsx';
 import UsersView from './components/UsersView.jsx';
 import LaneAiPanel from './components/LaneAiPanel.jsx';
 import ViewLoading from './components/ui/ViewLoading.jsx';
+import TopHeader from './components/TopHeader.jsx';
 
 // Screens most sessions never open load on demand (separate chunks).
 const ReviewView = lazy(() => import('./components/ReviewView.jsx'));
@@ -42,6 +43,7 @@ export default function App({ user, onLogout }) {
   const { data, refreshNow } = useLanes();
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState('ALL');
+  const [projectSubTab, setProjectSubTab] = useState('members');
   const [selectedLane, setSelectedLane] = useState(null);
   const [shot, setShot] = useState(null);
   const [gallery, setGallery] = useState(null);
@@ -220,6 +222,8 @@ export default function App({ user, onLogout }) {
         onLogout={onLogout}
         view={view}
         onView={setView}
+        projectSubTab={projectSubTab}
+        onProjectSubTab={setProjectSubTab}
         inboxCount={inbox.items.length}
         open={drawer}
         onClose={() => setDrawer(false)}
@@ -227,10 +231,14 @@ export default function App({ user, onLogout }) {
         returnFocusRef={menuBtn}
       />
       <main className="main" id="main-content" tabIndex={-1}>
-        <div className="topbar">
-          <IconButton ref={menuBtn} icon={MenuIcon} label="Mở danh sách lane" onClick={() => setDrawer(true)} />
-          <b>Shipyard</b>
-        </div>
+        <TopHeader
+          projects={projects}
+          activeProjectId={activeProjectId}
+          onSelectProject={setActiveProjectId}
+          view={view}
+          projectSubTab={projectSubTab}
+          onOpenDrawer={() => setDrawer(true)}
+        />
         {view === 'board' && (
           <ProjectBoardView
             projects={projects}
@@ -256,6 +264,8 @@ export default function App({ user, onLogout }) {
             activeProjectId={activeProjectId}
             onSelectProject={setActiveProjectId}
             onOpenRun={runId => openReview({ runId })}
+            subTab={projectSubTab}
+            onTabChange={setProjectSubTab}
           />
         )}
         {view === 'users' && <UsersView user={user} onLogout={onLogout} />}

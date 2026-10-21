@@ -26,10 +26,14 @@ export default function ProjectsView({
   activeProjectId,
   onSelectProject,
   onOpenRun,
+  subTab,
+  onTabChange,
 }) {
   const [projects, setProjects] = useState([]);
   const [localSel, setLocalSel] = useState(null);
-  const [tab, setTab] = useState('members');
+  const [localTab, setLocalTab] = useState('members');
+  const tab = subTab || localTab;
+  const setTab = onTabChange || setLocalTab;
   const [err, setErr] = useState('');
   const [copiedType, setCopiedType] = useState('');
   const [searchPj, setSearchPj] = useState('');
