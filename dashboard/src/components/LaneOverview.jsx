@@ -4,6 +4,7 @@ import Badge from './ui/Badge.jsx';
 import PipelineMap from './PipelineMap.jsx';
 import StepsTable from './StepsTable.jsx';
 import { fmtAge, fmtDur } from '../lib/format.js';
+import { stageLabel } from '../lib/laneview.js';
 import { fmtVnd, fmtUsd } from '../lib/costs.js';
 import { getSimpleStepIndex } from './ProjectBoardView.jsx';
 
@@ -42,7 +43,7 @@ export default function LaneOverview({ lane, config, archived }) {
             )}
           </div>
           <span className="ov-telemetry-sub">
-            Bước hiện tại: <b>{lane.stage || '—'}</b>
+            Bước hiện tại: <b>{stageLabel(lane.stage)}</b>
             {!archived && lane.stage_age_sec != null ? ` · ${fmtDur(lane.stage_age_sec)}` : ''}
           </span>
         </div>

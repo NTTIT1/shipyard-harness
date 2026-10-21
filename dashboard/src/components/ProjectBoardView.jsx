@@ -8,34 +8,10 @@ import Badge from './ui/Badge.jsx';
 import StatusDot from './ui/StatusDot.jsx';
 import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
 import { fmtAge } from '../lib/format.js';
+import { LANE_STATUS, stageLabel as stageLabel_ } from '../lib/laneview.js';
 import { laneAttention } from '../lib/laneview.js';
 
-const STAGE_VI = {
-  intake: 'Tiếp nhận yêu cầu',
-  plan: 'Lập kế hoạch & Spec',
-  implement: 'Đang lập trình',
-  gates: 'Kiểm tra chất lượng',
-  e2e: 'Kiểm thử tự động (E2E)',
-  review: 'AI Review code',
-  qc: 'Kiểm thử QC',
-  'sr-gate': 'Cổng duyệt Senior',
-  pr: 'Tạo Pull Request',
-  'watch-pr': 'Chờ gộp PR',
-  merged: 'Đã gộp nhánh',
-  'dev-qc': 'Kiểm thử môi trường Dev',
-  done: 'Hoàn tất',
-  'no-state': 'Chưa nhận việc',
-};
 
-const STATUS_VI = {
-  running: ['accent', 'Đang chạy'],
-  waiting: ['warn', 'Chờ duyệt'],
-  passed: ['ok', 'Hoàn tất'],
-  blocked: ['danger', 'Đang dừng'],
-  failed: ['danger', 'Lỗi'],
-  provisioning: ['info', 'Khởi tạo'],
-  idle: ['neutral', 'Rảnh'],
-};
 
 const SIMPLE_STEPS = [
   { id: 'plan', label: '1. Kế hoạch', match: ['intake', 'plan'] },
@@ -302,9 +278,9 @@ export default function ProjectBoardView({
                   {pjLanes.map(l => {
                     const attn = laneAttention(l);
                     const [age] = fmtAge(l.heartbeat_age_sec);
-                    const stInfo = STATUS_VI[l.status] || STATUS_VI.idle;
+                    const stInfo = LANE_STATUS[l.status] || LANE_STATUS.idle;
                     const stepIdx = getSimpleStepIndex(l.stage, l.status);
-                    const stageLabel = STAGE_VI[(l.stage || '').toLowerCase()] || l.stage || 'Chưa nhận việc';
+                    const stageLabel = stageLabel_(l.stage);
                     const prog = l.progress != null ? Number(l.progress) : (l.status === 'passed' ? 100 : 0);
 
                     return (

@@ -3,13 +3,22 @@ export function esc(s) {
   return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
+/** "45 giây", "12 phút", "3 giờ 5 phút", "2 ngày 4 giờ": two units at most, the reader wants magnitude. */
+export function fmtDur(s) {
+  if (s == null || Number.isNaN(Number(s))) return '—';
+  s = Math.max(0, Math.round(Number(s)));
+  if (s < 60) return `${s} giây`;
+  if (s < 3600) return `${Math.floor(s / 60)} phút`;
+  if (s < 86400) { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return m ? `${h} giờ ${m} phút` : `${h} giờ`; }
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
+  return h ? `${d} ngày ${h} giờ` : `${d} ngày`;
+}
+
+/** Heartbeat age: ["3 phút trước", recency class]. */
 export function fmtAge(s) {
   if (s == null) return ['—', ''];
-  const t = s < 60 ? s + 's'
-    : s < 3600 ? Math.floor(s / 60) + 'm ' + (s % 60) + 's'
-    : Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
   const cls = s < 120 ? 'hb-fresh' : s < 900 ? 'hb-warn' : 'hb-stale';
-  return [t + ' ago', cls];
+  return [s < 5 ? 'vừa xong' : `${fmtDur(s)} trước`, cls];
 }
 
 // Heartbeat colour follows LIVENESS, not raw age: a DEAD lane is loud red, an
@@ -21,25 +30,10 @@ export function hbClass(liveness, ageCls) {
   return ageCls;
 }
 
-// Plain elapsed duration (no "ago") — used for time-on-current-phase.
-export function fmtDur(s) {
-  if (s == null) return '—';
-  if (s < 60) return s + 's';
-  if (s < 3600) return Math.floor(s / 60) + 'm ' + (s % 60) + 's';
-  return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm';
-}
-
 export function fmtWhen(iso) {
-  try {
-    const t = new Date(iso);
-    const s = Math.round((Date.now() - t) / 1000);
-    if (s < 60) return s + 's ago';
-    if (s < 3600) return Math.floor(s / 60) + 'm ago';
-    if (s < 86400) return Math.floor(s / 3600) + 'h ago';
-    return Math.floor(s / 86400) + 'd ago';
-  } catch {
-    return iso;
-  }
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return iso;
+  return fmtAge((Date.now() - t) / 1000)[0];
 }
 
 export function prNum(u) {

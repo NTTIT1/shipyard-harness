@@ -8,15 +8,11 @@ import Button from './ui/Button.jsx';
 import IconButton from './ui/IconButton.jsx';
 import Badge from './ui/Badge.jsx';
 import StatusDot from './ui/StatusDot.jsx';
-import { sortLanes, laneAttention } from '../lib/laneview.js';
+import { sortLanes, laneAttention, ATTENTION as ATTN } from '../lib/laneview.js';
 import { fmtAge } from '../lib/format.js';
 import { isAdmin } from '../lib/users.js';
 import { createSpring, SPRING, project, rubberband, velocityFrom, prefersReducedMotion } from '../lib/spring.js';
 
-const ATTN = {
-  question: ['warn', 'đang hỏi'], approve: ['warn', 'chờ duyệt'], blocked: ['danger', 'bị chặn'],
-  dead: ['danger', 'dead'], needs: ['accent', 'cần bạn'],
-};
 
 function dotTone(l) {
   if (l.liveness === 'dead' || l.status === 'blocked' || l.status === 'failed') return 'danger';

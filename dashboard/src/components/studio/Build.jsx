@@ -5,6 +5,7 @@ import { JobView } from '../projects/WizardSteps.jsx';
 import AddLaneModal from '../AddLaneModal.jsx';
 import { fetchLanes, assignLane } from '../../lib/api.js';
 import { lanesOf, freeLanesOf, featureRequirement } from '../../lib/studio.js';
+import { laneStatus, stageLabel } from '../../lib/laneview.js';
 
 export default function Build({ s, onOpenProject }) {
   const [lanes, setLanes] = useState([]);
@@ -46,7 +47,7 @@ export default function Build({ s, onOpenProject }) {
       {mine.length ? (
         <ul className="st-lanes">
           {mine.map(l => (
-            <li key={l.lane}><b>Lane {l.lane}</b> <span className="faint">· {l.status === 'provisioning' ? `đang chuẩn bị (${l.stage})` : l.feature_title || l.status || 'rảnh'}</span></li>
+            <li key={l.lane}><b>Lane {l.lane}</b> <span className="faint">· {l.status === 'provisioning' ? `đang chuẩn bị (${stageLabel(l.stage)})` : l.feature_title || laneStatus(l.status)[1]}</span></li>
           ))}
         </ul>
       ) : <p className="faint">Chưa có lane nào cho dự án này.</p>}

@@ -7,11 +7,10 @@ import {
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Menu from './ui/Menu.jsx';
-import { primaryActions } from '../lib/laneview.js';
+import { primaryActions, laneStatus } from '../lib/laneview.js';
 import { prNum } from '../lib/format.js';
 import { stopSession, resumeSession } from '../lib/api.js';
 
-const STATUS_TONE = { running: 'accent', waiting: 'warn', blocked: 'danger', failed: 'danger', passed: 'ok', provisioning: 'info' };
 
 export default function LaneHeader({ lane, projectName, archived, onBackToBoard, onAction, onCreds, onAssign, onTab, onReview, onDocs }) {
   const [err, setErr] = useState('');
@@ -61,7 +60,7 @@ export default function LaneHeader({ lane, projectName, archived, onBackToBoard,
           <span className="lh-lane">Lane {n}</span>
           <h1>{lane.feature_title || 'Chưa có việc'}</h1>
           {archived && <Badge tone="info">đang xem bản cũ</Badge>}
-          <Badge tone={STATUS_TONE[lane.status] || 'neutral'} dot>{lane.status || 'idle'}</Badge>
+          <Badge tone={laneStatus(lane.status)[0]} dot>{laneStatus(lane.status)[1]}</Badge>
         </div>
         <div className="lh-meta">
           {branch && <span className="mono"><GitBranch size={13} aria-hidden="true" /> {branch}</span>}

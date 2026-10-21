@@ -59,12 +59,7 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .us-actions { display: flex; gap: 4px; flex-wrap: wrap }
 .us-scroll { overflow-x: auto }
 /* Memory entries are rows of one list */
-.mem-list { padding: 0 18px }
 /*, split by hairlines (no card per entry). */
-.mem-item { padding: 14px 0; border-bottom: 1px solid var(--border) } .mem-item:last-child { border-bottom: 0 } .mem-item.off { opacity: .55 }
-.mem-item p, .mem-text { margin: 6px 0 0; max-width: 60ch; font-size: 13px; line-height: 1.5; color: var(--text-muted); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 7.5em; overflow: hidden }
-.mem-item.open .mem-text { max-height: none }
-.mem-toggle { margin-top: 4px; font-size: 12.5px }
 @media (max-width: 900px) {
   .rv-edit, .pj-grid { grid-template-columns: minmax(0, 1fr) }
 }
@@ -179,7 +174,7 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .pj-meta-muted { font-size: 12.5px; color: var(--text-muted) }
 .pj-repo-link { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--accent-text); text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .pj-repo-link:hover { text-decoration: underline }
-.pj-hero-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 0 }
+.pj-hero-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-shrink: 1; min-width: 0; max-width: 100% }
 
 /* Restrained Hairline Metrics Strip */
 .pj-apple-metrics-bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--border); border-top: 1px solid var(--border) }
@@ -366,3 +361,40 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
   cursor: default;
 }
 
+
+/* Project memory: filters, feature groups, one line per item */
+.mem { display: grid; gap: 18px; min-width: 0 }
+.mem-toolbar { display: grid; gap: 10px }
+.mem-search { max-width: 520px }
+.mem-kinds { display: flex; flex-wrap: wrap; gap: 6px }
+.mem-kind { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 11px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--panel); color: var(--text-muted); font: 500 12.5px var(--font); cursor: pointer; transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease) }
+.mem-kind:hover { color: var(--text); background: var(--panel-hover) }
+.mem-kind:active { transform: scale(.97) }
+.mem-kind.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); font-weight: 600 }
+.mem-kind:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.mem-kind-n { font-size: 11.5px; color: var(--text-faint); font-variant-numeric: tabular-nums }
+.mem-group { display: grid; gap: 6px; min-width: 0 }
+.mem-group-title { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: 14px; font-weight: 600; color: var(--text) }
+.mem-group-n { font-size: 12px; font-weight: 500; color: var(--text-faint); font-variant-numeric: tabular-nums }
+.mem-rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: hidden }
+.mem-row + .mem-row { border-top: 1px solid var(--border) }
+.mem-row.off .mem-row-main { opacity: .55 }
+.mem-row-head { display: flex; align-items: center; gap: 4px; padding-right: 6px; min-width: 0 }
+.mem-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 9px 4px 9px 12px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer }
+.mem-row-main:hover { background: var(--panel-hover) }
+.mem-row-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px }
+.mem-chev { flex: none; color: var(--text-faint); transition: transform .18s cubic-bezier(.2, .8, .2, 1) }
+.mem-row.open .mem-chev { transform: rotate(90deg) }
+.mem-row-label { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--text) }
+.mem-row-preview { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--text-muted) }
+.mem-row-when { flex: none; margin-left: auto; font-size: 12px; color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap }
+.mem-text { margin: 0; padding: 4px 16px 14px 40px; max-height: 420px; overflow: auto; font: 12.5px/1.6 var(--mono); color: var(--text-muted); white-space: pre-wrap; overflow-wrap: anywhere }
+@media (max-width: 700px) {
+  .mem-row-main { flex-wrap: wrap; row-gap: 4px }
+  .mem-row-label { max-width: none; flex: 1 }
+  .mem-row-preview { flex-basis: 100%; padding-left: 24px }
+  .mem-row-when { display: none }
+  .mem-text { padding-left: 16px }
+}
+@media (prefers-reduced-motion: reduce) { .mem-chev { transition: none } }

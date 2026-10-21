@@ -2,7 +2,7 @@ import React from 'react';
 import { Inbox, ChevronRight, CheckCircle2 } from 'lucide-react';
 import Badge from './ui/Badge.jsx';
 import { STEP_LABEL, ROLE_LABEL } from '../lib/review.js';
-import { fmtAge } from '../lib/format.js';
+import { fmtDur } from '../lib/format.js';
 
 export default function InboxView({ items, error, onOpen }) {
   return (
@@ -21,7 +21,7 @@ export default function InboxView({ items, error, onOpen }) {
       )}
       <ul className="inbox-list">
         {items.map(i => {
-          const [age] = fmtAge((Date.now() - Date.parse(i.waitingSince)) / 1000);
+          const age = fmtDur((Date.now() - Date.parse(i.waitingSince)) / 1000);
           return (
             <li key={i.approvalId}>
               <button className="inbox-item" onClick={() => onOpen(i)}>

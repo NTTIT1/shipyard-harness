@@ -1,6 +1,50 @@
 // Pure view logic for the lane sidebar/header — kept out of components so it is unit-tested.
 
 const RUNNING = new Set(['running', 'provisioning']);
+
+/** Lane status → [badge tone, Vietnamese label]; one table for the board, the lane header and the sidebar. */
+export const LANE_STATUS = {
+  running: ['accent', 'Đang chạy'],
+  waiting: ['warn', 'Chờ duyệt'],
+  passed: ['ok', 'Hoàn tất'],
+  blocked: ['danger', 'Đang dừng'],
+  failed: ['danger', 'Lỗi'],
+  provisioning: ['info', 'Khởi tạo'],
+  idle: ['neutral', 'Rảnh'],
+  down: ['neutral', 'Đã tắt'],
+};
+export const laneStatus = st => LANE_STATUS[st || 'idle'] || ['neutral', st];
+
+/** Harness stage id → what a person calls it. */
+export const STAGE_VI = {
+  intake: 'Tiếp nhận yêu cầu',
+  plan: 'Lập kế hoạch & Spec',
+  implement: 'Đang lập trình',
+  gates: 'Kiểm tra chất lượng',
+  e2e: 'Kiểm thử tự động (E2E)',
+  review: 'AI Review code',
+  qc: 'Kiểm thử QC',
+  'sr-gate': 'Cổng duyệt Senior',
+  pr: 'Tạo Pull Request',
+  'watch-pr': 'Chờ gộp PR',
+  merged: 'Đã gộp nhánh',
+  'dev-qc': 'Kiểm thử môi trường Dev',
+  done: 'Hoàn tất',
+  'no-state': 'Chưa nhận việc',
+  assigned: 'Vừa giao việc',
+  provisioning: 'Đang khởi tạo lane',
+  'spec-review': 'Chờ duyệt spec',
+  fix: 'Đang sửa lỗi',
+};
+
+export const stageLabel = st => STAGE_VI[(st || '').toLowerCase()]
+  || (/^role-(\w+)$/.test(st || '') ? `Bước ${st.slice(5).toUpperCase()}` : /^review-(\w+)$/.test(st || '') ? `Chờ duyệt ${st.slice(7).toUpperCase()}` : st || 'Chưa nhận việc');
+
+/** Why a lane wants attention → [tone, label]. */
+export const ATTENTION = {
+  question: ['warn', 'đang hỏi'], approve: ['warn', 'chờ duyệt'], blocked: ['danger', 'bị chặn'],
+  dead: ['danger', 'mất kết nối'], needs: ['accent', 'cần bạn'],
+};
 const FREE = new Set(['idle', 'down', '']);
 
 export function laneAttention(l) {
