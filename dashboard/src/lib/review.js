@@ -1,14 +1,15 @@
 // Pure helpers for the review screen (unit-tested; mirrors orchestrator rules, spec §3.2).
 export const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
 export const STEP_LABEL = { PM: 'PM — Yêu cầu', BA: 'BA — Nghiệp vụ', ARCH: 'Kiến trúc', DESIGN: 'Thiết kế UI', DEV: 'Lập trình', TEST: 'Kiểm thử',
-  MANAGER: 'Luật dự án (AI Manager)' };
+  MANAGER: 'Luật dự án (AI Manager)', BLUEPRINT: 'Kiến trúc dự án (trước khi tạo khung)' };
 
 /**
  * Steps shown for a run, in the run's own workflow order (the server lists them in order; steps the
- * workflow left out are hidden). A project-rules (SETUP) run has only MANAGER.
+ * workflow left out are hidden). A project-rules (SETUP) run has only MANAGER, a new project's
+ * architecture (BLUEPRINT) run only BLUEPRINT.
  */
 export function runSteps(steps) {
-  if ((steps || []).some(s => s.step === 'MANAGER')) return ['MANAGER'];
+  for (const single of ['MANAGER', 'BLUEPRINT']) if ((steps || []).some(s => s.step === single)) return [single];
   if (!steps?.length) return STEPS;
   return steps.filter(s => !leftOut(s)).map(s => s.step);
 }

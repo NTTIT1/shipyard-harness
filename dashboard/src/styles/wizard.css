@@ -42,7 +42,7 @@
 .wz-stage { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted) }
 .wz-stage.running, .wz-stage.done { color: var(--text) }
 .wz-stage.failed { color: var(--danger-text) }
-.wz-ok { color: var(--ok-text) } .wz-bad { color: var(--danger-text) }
+.wz-ok { color: var(--ok-text) } .wz-bad { color: var(--danger-text) } .wz-wait { color: var(--warn-text) }
 .wz-done { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--ok-soft); font-size: 13px }
 .wz-done code, .wz-fields code { overflow-wrap: anywhere }
 .wz-err { display: flex; gap: 8px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--danger-soft); font-size: 13px; overflow-wrap: anywhere }
@@ -94,3 +94,7 @@
   .wz-steps li.on .wz-step-label { display: inline }
   .wz-log { height: 220px }
 }
+
+.wz-waiting { padding: 10px 12px; margin-bottom: 10px; border-radius: var(--radius-sm); border: 1px solid var(--warn); background: var(--warn-soft); font-size: 13px; line-height: 1.5 }
+.wz-setup.awaiting-review { background: var(--warn-soft) } .wz-setup.awaiting-review svg { color: var(--warn-text) }
+.wz-setup.building svg { color: var(--accent-text) }

@@ -18,7 +18,7 @@ const TOOL_HINT = {
   unzip: 'Cài unzip (sudo apt install unzip)',
 };
 
-const choiceOf = c => (typeof c === 'string' ? { id: c, label: DB_LABEL[c] || c } : c);
+export const choiceOf = c => (typeof c === 'string' ? { id: c, label: DB_LABEL[c] || c } : c);
 
 /** Catalog for the wizard: languages → stacks → options, with what is missing on this machine. */
 export function publicCatalog(tools, stacks = STACKS) {
@@ -97,9 +97,15 @@ export function validateRequest(body, tools, stacks = STACKS) {
   const brief = String(b.brief || '').trim();
   if (brief.length > 20000) throw bad('Tài liệu cho AI tối đa 20.000 ký tự (tải thêm file sau)');
   const roleSkills = validateRoleSkills(b.roleSkills);
+  // Architecture first: an AI architect drafts architecture.md from these requirements and a human
+  // approves it before anything is generated.
+  const archFirst = b.archFirst === true;
+  const requirements = archFirst ? String(b.requirements || '').trim() : '';
+  if (archFirst && requirements.length < 20) throw bad('Duyệt kiến trúc trước: mô tả hệ thống cần xây (ít nhất 20 ký tự)');
+  if (requirements.length > 20000) throw bad('Yêu cầu cho kiến trúc sư tối đa 20.000 ký tự');
   return {
     name, slug, description, kind, stack: stack.id, options, ...(frontend ? { frontend } : {}),
-    git: validateGit(b.git), aiTeam: b.aiTeam !== false, brief,
+    git: validateGit(b.git), aiTeam: b.aiTeam !== false, brief, ...(archFirst ? { archFirst, requirements } : {}),
     ...(roleSkills ? { roleSkills } : {}),
   };
 }

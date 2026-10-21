@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   CheckCircle2, Circle, Loader2, XCircle,
-  AlertTriangle, ExternalLink, KeyRound, Sparkles, Bot
+  AlertTriangle, ExternalLink, KeyRound, Sparkles, Bot, Hourglass
 } from 'lucide-react';
+import BlueprintStatus from './BlueprintStatus.jsx';
 import {
   scaffold, PROVIDER_LABEL, SETUP_STATUS,
   FALLBACK_ROLES, FALLBACK_SKILL_CATALOG
@@ -29,8 +30,9 @@ const STAGE_ICON = {
   running: <Loader2 size={16} className="wz-spin" aria-hidden="true" />,
   done: <CheckCircle2 size={16} className="wz-ok" aria-hidden="true" />,
   failed: <XCircle size={16} className="wz-bad" aria-hidden="true" />,
+  waiting: <Hourglass size={16} className="wz-wait" aria-hidden="true" />,
 };
-const STAGE_STATE = { pending: 'chưa chạy', running: 'đang chạy', done: 'xong', failed: 'lỗi' };
+const STAGE_STATE = { pending: 'chưa chạy', running: 'đang chạy', done: 'xong', failed: 'lỗi', waiting: 'chờ người duyệt' };
 
 export function JobView({ job, stages }) {
   const logRef = useRef(null);
@@ -58,6 +60,7 @@ export function JobView({ job, stages }) {
           <div><b>{job.status === 'cancelled' ? 'Đã huỷ' : 'Lỗi'}:</b> {job.error}</div>
         </div>
       )}
+      {job.blueprintRunId && <BlueprintStatus runId={job.blueprintRunId} />}
       {job.setupRunId && <SetupStatus runId={job.setupRunId} />}
       <pre ref={logRef} className="wz-log" aria-label="Nhật ký" tabIndex={0}>{job.log.join('\n')}</pre>
     </div>

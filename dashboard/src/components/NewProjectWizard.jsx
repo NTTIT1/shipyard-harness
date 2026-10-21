@@ -25,6 +25,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
     frontend: { stack: '', options: {} },
     git: { provider: 'local', owner: '', ownerLabel: '', visibility: 'private' },
     aiTeam: true, brief: '', roleSkills: defaultRoleSkills(null, 'java-spring'),
+    archFirst: false, requirements: '',
   });
   const [job, setJob] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -36,8 +37,9 @@ export default function NewProjectWizard({ onClose, onCreated }) {
   }, []);
 
   useEffect(() => {
-    if (job?.status !== 'running') return undefined;
-    const t = setTimeout(() => scaffold.job(job.id).then(setJob, e => setErr(e.message)), 1500);
+    // A job paused for the architecture review keeps being polled (slowly): approval resumes it.
+    if (job?.status !== 'running' && job?.status !== 'waiting') return undefined;
+    const t = setTimeout(() => scaffold.job(job.id).then(setJob, e => setErr(e.message)), job.status === 'waiting' ? 5000 : 1500);
     return () => clearTimeout(t);
   }, [job]);
   useEffect(() => { if (job?.status === 'done') remember(null); }, [job?.status]);
@@ -61,6 +63,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
         options: form.options, ...(form.kind === 'fullstack' ? { frontend: form.frontend } : {}), git: { provider: form.git.provider, owner: form.git.owner, visibility: form.git.visibility },
         aiTeam: form.aiTeam, brief: form.aiTeam ? form.brief : '',
         roleSkills: form.roleSkills,
+        ...(form.archFirst ? { archFirst: true, requirements: form.requirements.trim() } : {}),
       });
       remember(j.id);
       setJob({ ...j, log: j.log || [] });
@@ -79,12 +82,12 @@ export default function NewProjectWizard({ onClose, onCreated }) {
     buttons = [];
     if (job.status === 'running') buttons.push({ label: 'Huỷ', icon: StopCircle, cls: 'warn', disabled: busy, fn: act(async () => setJob(await scaffold.cancel(job.id))) });
     if (job.retryable) {
-      buttons.push({ label: 'Thử lại', icon: RotateCcw, cls: 'add', disabled: busy, fn: act(async () => setJob(await scaffold.retry(job.id))) });
+      buttons.push({ label: job.archFirst && job.stages?.blueprint === 'done' ? 'Thử dựng lại' : 'Thử lại', icon: RotateCcw, cls: 'add', disabled: busy, fn: act(async () => setJob(await scaffold.retry(job.id))) });
     } else if (job.status === 'failed' || job.status === 'cancelled') {
       buttons.push({ label: 'Xoá thư mục & sửa lựa chọn', icon: Trash2, cls: 'warn', disabled: busy,
         fn: act(async () => { await scaffold.discard(job.id); remember(null); setJob(null); setStep(steps.length - 1); }) });
     }
-    if (job.status === 'done') buttons.push({ label: 'Mở dự án', icon: ArrowRight, cls: 'add', fn: () => { onCreated(job.project?.id); onClose(); } });
+    if (job.status === 'done' || job.status === 'waiting') buttons.push({ label: 'Mở dự án', icon: ArrowRight, cls: 'add', fn: () => { onCreated(job.project?.id); onClose(); } });
     else buttons.push({ label: 'Đóng', fn: onClose });
   } else {
     buttons = [
@@ -99,6 +102,12 @@ export default function NewProjectWizard({ onClose, onCreated }) {
     <Modal title={job ? `Đang tạo ${job.name}` : 'Tạo dự án mới từ khung'} wide onClose={onClose} buttons={buttons}>
       {err && <p className="m-err" role="alert">{err}</p>}
       {!catalog && !err && <p className="muted-empty">Đang tải danh mục…</p>}
+      {job?.status === 'waiting' && (
+        <div className="wz-waiting" role="status">
+          <b>Đang chờ duyệt kiến trúc.</b> Kiến trúc sư AI đang soạn <code>architecture.md</code>; khi xong, bản kiến trúc nằm trong
+          {' '}<b>Chờ duyệt</b> của dự án. Duyệt xong Shipyard tự tạo khung dự án theo kiến trúc đó — bạn có thể đóng cửa sổ này.
+        </div>
+      )}
       {job && catalog && <JobView job={job} stages={job.stageList || catalog.stages} />}
       {!job && catalog && (
         <div className="wz">
@@ -259,6 +268,31 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                 onProviders={p => setCatalog(c => ({ ...c, providers: p }))} />
             )}
 
+            {cur === 'arch' && (
+              <div className="wz-fields">
+                <fieldset className="wz-grid">
+                  <legend className="form-label">Khi nào tạo khung dự án?</legend>
+                  <Choice name="archFirst" value="now" current={form.archFirst ? 'first' : 'now'} title="Tạo khung ngay"
+                    desc="Sinh code khung, build, test, đăng ký dự án ngay bây giờ. Kiến trúc của từng tính năng được duyệt sau."
+                    onPick={() => set({ archFirst: false })} />
+                  <Choice name="archFirst" value="first" current={form.archFirst ? 'first' : 'now'} title="Duyệt kiến trúc trước"
+                    desc="AI soạn kiến trúc tổng thể từ yêu cầu của bạn; Tech Lead / Owner duyệt xong Shipyard mới tạo khung và bắt đầu code."
+                    onPick={() => set({ archFirst: true })} />
+                </fieldset>
+                {form.archFirst && (
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="wz-req">Hệ thống cần xây (cho kiến trúc sư AI)</label>
+                    <textarea id="wz-req" rows={6} maxLength={20000} value={form.requirements} onChange={e => set({ requirements: e.target.value })}
+                      placeholder={'Ví dụ: Hệ thống quản lý kho cho 3 chi nhánh. Người dùng: thủ kho, kế toán, quản lý. Nhập/xuất kho, kiểm kê, cảnh báo tồn thấp, báo cáo tháng. Đăng nhập bằng tài khoản công ty…'} />
+                    <span className="faint">
+                      Công nghệ đã chọn ở các bước trước được giữ nguyên. Bản kiến trúc được duyệt sẽ nằm ở <code>docs/architecture.md</code>
+                      {' '}và là khung cho mọi tính năng sau. {form.requirements.length.toLocaleString('vi-VN')}/20.000 ký tự.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {cur === 'team' && (
               <div className="wz-fields wz-git">
                 <RoleSkillsConfigurator
@@ -298,7 +332,12 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                 <table className="wz-summary">
                   <tbody>{summary(form, stack, catalog, fstack).map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody>
                 </table>
+                {form.archFirst ? (
+                  <p className="faint">Shipyard đăng ký dự án{form.git.provider !== 'local' ? ', tạo repo trống' : ''} rồi giao kiến trúc sư AI soạn kiến trúc.
+                    {' '}Sau khi bản kiến trúc được duyệt trong <b>Chờ duyệt</b>, Shipyard mới sinh khung tại <code>{catalog.root}/{form.slug}</code>, build + test, khởi tạo Git và kèm <code>docs/architecture.md</code>.</p>
+                ) : (
                 <p className="faint">Shipyard sẽ sinh khung dự án tại <code>{catalog.root}/{form.slug}</code>, nạp các Skill AI vào <code>.shipyard/</code> & <code>.claude/skills/</code>, chạy thử lệnh build + test, khởi tạo kho Git và đăng ký dự án tự động.</p>
+                )}
               </div>
             )}
           </div>

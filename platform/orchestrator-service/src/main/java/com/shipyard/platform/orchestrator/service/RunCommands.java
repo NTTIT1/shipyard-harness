@@ -45,6 +45,14 @@ public class RunCommands {
         if (kind == RunKind.SETUP && setups.stream().anyMatch(r -> r.status != RunStatus.DONE && r.status != RunStatus.CANCELLED)) {
             throw new ConflictException("Project rules are already being drafted (an open SETUP run exists)");
         }
+        List<Run> blueprints = runs.findByProjectIdAndKind(req.projectId(), RunKind.BLUEPRINT);
+        if (kind == RunKind.BLUEPRINT && blueprints.stream().anyMatch(r -> r.status != RunStatus.DONE && r.status != RunStatus.CANCELLED)) {
+            throw new ConflictException("The project architecture is already being drafted (an open BLUEPRINT run exists)");
+        }
+        // Architecture first: no feature until it is approved and the project scaffolded (released).
+        if (kind == RunKind.FEATURE && !blueprints.isEmpty() && blueprints.stream().noneMatch(r -> r.status == RunStatus.DONE)) {
+            throw new ConflictException("Project architecture is not approved yet: approve the BLUEPRINT step first");
+        }
         // A project that has an AI team (it had a SETUP run) needs approved rules before any feature.
         if (kind == RunKind.FEATURE && !setups.isEmpty() && setups.stream().noneMatch(r -> r.status == RunStatus.DONE)) {
             throw new ConflictException("Project rules are not approved yet: approve the AI Manager step first");
@@ -108,8 +116,8 @@ public class RunCommands {
         a = approvals.save(a);
 
         String override = run.gateOverrides == null ? null : run.gateOverrides.get(step.name());
-        // Rules written by the AI Manager are never auto-approved.
-        boolean auto = step != Step.MANAGER && (override != null ? GateMode.valueOf(override) == GateMode.AUTO
+        // Project rules and project architecture are never auto-approved.
+        boolean auto = !RunKind.alwaysHuman(step) && (override != null ? GateMode.valueOf(override) == GateMode.AUTO
                 : policies.findById(new GatePolicy.Key(run.projectId, step)).map(p -> p.mode == GateMode.AUTO).orElse(false));
         if (auto) {
             applyDecision(run, st, a, rev, new Decision(DecisionAction.APPROVE, null, null, null, null), AUTO, AUTO);
@@ -212,7 +220,7 @@ public class RunCommands {
         Map<String, String> out = new LinkedHashMap<>();
         for (Map.Entry<String, String> e : in.entrySet()) {
             Step step = Step.parse(e.getKey());
-            if (step == Step.MANAGER) throw new BadRequestException("Project rules (MANAGER) always need a human approval");
+            if (RunKind.alwaysHuman(step)) throw new BadRequestException(step + " always needs a human approval");
             String mode = e.getValue() == null ? "" : e.getValue().trim().toUpperCase(java.util.Locale.ROOT);
             if (!mode.equals("REQUIRED") && !mode.equals("AUTO") && !mode.equals("SKIP")) {
                 throw new BadRequestException("gateOverrides." + step + " must be REQUIRED, AUTO or SKIP");

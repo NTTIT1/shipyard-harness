@@ -322,7 +322,11 @@ export default function App({ user, onLogout }) {
         <Suspense fallback={null}>
           <NewProjectWizard
             onClose={() => setWizard(false)}
-            onCreated={async id => { await loadProjects(); if (id) setActiveProjectId(id); refreshNow(); }}
+            onCreated={async id => {
+              await loadProjects();
+              if (id) { setActiveProjectId(id); setView('projects'); setProjectSubTab('members'); }
+              refreshNow();
+            }}
           />
         </Suspense>
       )}

@@ -34,7 +34,7 @@ export function orchClient({ url = ORCH_URL, token = serviceToken, fetchImpl = f
   return {
     createRun: body => call('POST', '/runs', body),
     next: id => call('GET', `/runs/${id}/next`),
-    submit: (id, body) => call('POST', `/runs/${id}/steps/MANAGER/submit`, body),
+    submit: (id, body, step = 'MANAGER') => call('POST', `/runs/${id}/steps/${step}/submit`, body),
     release: (id, summary) => call('POST', `/runs/${id}/release`, { summary }),
   };
 }

@@ -6,11 +6,12 @@ import java.util.Locale;
 
 /**
  * Pipeline steps in order; each is approved by one human project role. MANAGER (the project's
- * AI-team rules) is the only step of a SETUP run and never part of a FEATURE run.
+ * AI-team rules) is the only step of a SETUP run, BLUEPRINT (the architecture of a project that does
+ * not exist yet) the only step of a BLUEPRINT run; neither is ever part of a FEATURE run.
  */
 public enum Step {
     PM("PM"), BA("BA"), ARCH("TECH_LEAD"), DESIGN("DESIGNER"), DEV("DEVELOPER"), TEST("TESTER"),
-    MANAGER("TECH_LEAD");
+    MANAGER("TECH_LEAD"), BLUEPRINT("TECH_LEAD");
 
     private final String requiredRole;
 

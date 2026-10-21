@@ -198,6 +198,10 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
           {rev.step === 'ARCH' && (
             <label className="rv-sub"><input type="checkbox" checked={!!hasUi} onChange={e => setHasUi(e.target.checked)} /> Tính năng có giao diện (cần bước Thiết kế)</label>
           )}
+          {rev.step === 'BLUEPRINT' && (
+            <p className="rv-sub">Dự án chưa có code. <b>Duyệt</b> → Shipyard tạo khung dự án theo bản kiến trúc này (lưu ở <code>docs/architecture.md</code>);
+              {' '}<b>Yêu cầu sửa</b> → kiến trúc sư AI soạn lại; <b>Huỷ</b> → không tạo khung (dự án đã đăng ký vẫn còn, có thể xoá).</p>
+          )}
           <div className="rv-btns">
             <Button variant="primary" icon={Check} disabled={busy} onClick={() => decide('APPROVE')}>
               {Object.keys(edits).some(k => edits[k] !== docs[k]) ? 'Duyệt kèm bản đã sửa' : 'Duyệt'}</Button>
@@ -207,7 +211,7 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
               {sendBackTargets(rev.step, steps).map(s => <option key={s} value={s}>{STEP_LABEL[s]}</option>)}
             </select>
             <Button icon={Undo2} disabled={busy || !sendBackTo} onClick={() => decide('SEND_BACK')}>Trả về</Button>
-            <Button variant="ghost" icon={Ban} disabled={busy} onClick={() => decide('CANCEL')}>Huỷ tính năng</Button>
+            <Button variant="ghost" icon={Ban} disabled={busy} onClick={() => decide('CANCEL')}>{rev.step === 'BLUEPRINT' ? 'Huỷ' : 'Huỷ tính năng'}</Button>
           </div>
           {msg && <p className={`rv-note ${msg.tone}`} role="status">{msg.text}</p>}
         </div>

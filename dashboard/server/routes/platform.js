@@ -6,6 +6,7 @@ import { BIN } from '../services/config.js';
 import { PLATFORM_URL, AT_COOKIE, parseCookies } from '../services/auth.js';
 import * as S from '../services/sessions.js';
 import { defaultSetupRunner } from '../services/scaffold/setup.js';
+import { defaultBlueprintRunner } from '../services/scaffold/blueprint.js';
 
 // Browser → /api/platform/<path> → gateway /api/v1/<path> with the session JWT (BFF, spec §7.1).
 // A successful gate decision wakes the lane that owns the run (laneRef "<host>:lane<N>").
@@ -36,7 +37,7 @@ function stateRunId(n) {
 }
 
 export function platformRouter({ gatewayUrl = PLATFORM_URL, sessions = S, hostname = os.hostname(), fetchImpl = fetch,
-  laneRunId = stateRunId, setup = defaultSetupRunner() } = {}) {
+  laneRunId = stateRunId, setup = defaultSetupRunner(), blueprint = defaultBlueprintRunner() } = {}) {
   const router = Router();
   router.all('/api/platform/*', async (req, res) => {
     const sub = req.params[0] || '';
@@ -68,6 +69,12 @@ export function platformRouter({ gatewayUrl = PLATFORM_URL, sessions = S, hostna
       // Project-rules runs are worked by the dashboard's AI Manager runner, not a lane.
       if (setup?.owns(body.data.laneRef)) {
         setup.work(body.data.runId);
+        body.resumed = true;
+        return res.status(r.status).json(body);
+      }
+      // Architecture of a new project: redraft on changes, scaffold on approval.
+      if (blueprint?.owns(body.data.laneRef)) {
+        blueprint.work(body.data.runId);
         body.resumed = true;
         return res.status(r.status).json(body);
       }

@@ -5,6 +5,7 @@ import { createJobRunner, STAGES } from '../services/scaffold/jobs.js';
 import { probeTools } from '../services/scaffold/util.js';
 import { createProviderStore } from '../services/scaffold/remotes.js';
 import { defaultSetupRunner } from '../services/scaffold/setup.js';
+import { defaultBlueprintRunner } from '../services/scaffold/blueprint.js';
 
 /** Creates the project on the platform as the calling user (who becomes OWNER). */
 export function platformRegistrar(gatewayUrl = PLATFORM_URL, fetchImpl = fetch) {
@@ -38,9 +39,11 @@ export function cachedProbe(probe = probeTools, ttlMs = 60_000, now = Date.now) 
 
 // Project wizard (spec 2026-10-19 §3–4). It runs toolchains on this host, so P1 limits it to SYS_ADMIN.
 export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cachedProbe(), providers = createProviderStore(),
-  setup = defaultSetupRunner({ providers }) } = {}) {
+  setup = defaultSetupRunner({ providers }), blueprint = defaultBlueprintRunner() } = {}) {
   const router = Router();
-  const jobs = runner || createJobRunner({ registerProject: platformRegistrar(), tools, remotes: providers, setup });
+  const jobs = runner || createJobRunner({ registerProject: platformRegistrar(), tools, remotes: providers, setup, blueprint });
+  // An approved architecture scaffolds the project through the job runner (same job, or rebuilt).
+  blueprint.setBuilder?.((entry, architecture) => jobs.build(entry.snapshot, architecture));
   const admin = (req, res, next) => {
     if (authEnabled === false && !req.user) { req.user = { id: 'local', email: 'local@shipyard.local', role: 'SYS_ADMIN' }; return next(); }
     if (req.user?.role !== 'SYS_ADMIN') return res.status(403).json({ ok: false, error: 'Chỉ quản trị viên được tạo dự án mới từ khung' });
@@ -56,7 +59,7 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
   };
 
   router.get('/api/scaffold/catalog', admin, (_req, res) => {
-    try { res.json({ ...publicCatalog(tools()), stages: STAGES, root: jobs.root, providers: providers.list() }); } catch (e) { fail(res, e); }
+    try { res.json({ ...publicCatalog(tools()), stages: STAGES.filter(s => s.id !== 'reserve' && s.id !== 'blueprint'), root: jobs.root, providers: providers.list() }); } catch (e) { fail(res, e); }
   });
   router.post('/api/scaffold/jobs', admin, (req, res) => {
     try {
@@ -83,6 +86,23 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
     if (!setup.get(req.params.runId)) return res.status(404).json({ ok: false, error: 'Không tìm thấy' });
     setup.work(req.params.runId);
     res.status(202).json({ ok: true });
+  });
+
+  // Architecture-first projects: BLUEPRINT run progress, retry, and the runs of one project.
+  const bpView = (runId, e) => ({ runId, status: e.status, error: e.error || null, busy: blueprint.isBusy(runId),
+    jobId: e.jobId || e.snapshot?.jobId || null, updatedAt: e.updatedAt });
+  router.get('/api/scaffold/blueprint/:runId', admin, (req, res) => {
+    const e = blueprint.get(req.params.runId);
+    if (!e) return res.status(404).json({ ok: false, error: 'Không tìm thấy' });
+    res.json(bpView(req.params.runId, e));
+  });
+  router.post('/api/scaffold/blueprint/:runId/retry', admin, (req, res) => {
+    if (!blueprint.get(req.params.runId)) return res.status(404).json({ ok: false, error: 'Không tìm thấy' });
+    blueprint.work(req.params.runId);
+    res.status(202).json({ ok: true });
+  });
+  router.get('/api/scaffold/blueprints', admin, (req, res) => {
+    res.json(blueprint.forProject(String(req.query.projectId || '')).map(e => bpView(e.runId, blueprint.get(e.runId))));
   });
 
   // Shared GitHub / GitLab connections (token never leaves the server).

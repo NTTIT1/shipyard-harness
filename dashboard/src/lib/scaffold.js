@@ -24,6 +24,9 @@ export const scaffold = {
   discard: id => call('DELETE', `/api/scaffold/jobs/${id}`),
   setup: runId => call('GET', `/api/scaffold/setup/${runId}`),
   retrySetup: runId => call('POST', `/api/scaffold/setup/${runId}/retry`),
+  blueprint: runId => call('GET', `/api/scaffold/blueprint/${runId}`),
+  retryBlueprint: runId => call('POST', `/api/scaffold/blueprint/${runId}/retry`),
+  projectBlueprints: projectId => call('GET', `/api/scaffold/blueprints?projectId=${encodeURIComponent(projectId)}`),
 };
 
 export const FALLBACK_ROLES = {
@@ -118,6 +121,7 @@ export function wizardSteps(stack, kind = 'single') {
     { id: 'options', label: fullstack ? 'Tuỳ chọn backend' : 'Tuỳ chọn' },
     ...(fullstack ? [{ id: 'frontend', label: 'Frontend' }] : []),
     { id: 'git', label: 'Kho Git' },
+    { id: 'arch', label: 'Kiến trúc' },
     { id: 'team', label: 'Đội AI & Skill' },
     { id: 'review', label: 'Xem lại' },
   ];
@@ -144,6 +148,10 @@ export function stepProblem(step, form, stack, fstack = null) {
       return '';
     case 'team':
       return (form.brief || '').length > 20000 ? 'Tài liệu tối đa 20.000 ký tự' : '';
+    case 'arch':
+      if (!form.archFirst) return '';
+      if ((form.requirements || '').trim().length < 20) return 'Mô tả hệ thống cần xây (ít nhất 20 ký tự) để kiến trúc sư AI làm việc';
+      return form.requirements.length > 20000 ? 'Yêu cầu tối đa 20.000 ký tự' : '';
     case 'options':
       for (const o of stack?.options || []) {
         if (o.type === 'text' && !new RegExp(o.pattern).test(String(form.options[o.id] ?? ''))) return `${o.label}: ${o.help || 'không hợp lệ'}`;
@@ -173,6 +181,7 @@ export function summary(form, stack, catalog, fstack = null) {
     for (const o of stack.options) rows.push([o.label, choiceLabel(o, form.options[o.id])]);
   }
   rows.push(['Kho Git', gitLabel(form.git)]);
+  rows.push(['Kiến trúc', form.archFirst ? 'AI soạn kiến trúc → bạn duyệt → rồi mới tạo khung dự án' : 'Tạo khung ngay (không duyệt kiến trúc trước)']);
   rows.push(['Đội AI', form.aiTeam === false ? 'Không (chỉ dùng luật khởi đầu)' : `AI Manager soạn luật, bạn duyệt${form.brief?.trim() ? ' · có tài liệu kèm' : ''}`]);
   const roleEntries = Object.entries(form.roleSkills || {});
   const customizedRoles = roleEntries.filter(([, cfg]) => (cfg?.skills?.length > 0) || (cfg?.customRule || '').trim());
@@ -195,6 +204,12 @@ export function gitLabel(git) {
   const where = git.ownerLabel || git.owner;
   return `${PROVIDER_LABEL[git.provider]} · ${where} · ${git.visibility === 'public' ? 'công khai' : 'riêng tư'} (push main + development, có CI)`;
 }
+
+export const BLUEPRINT_STATUS = {
+  queued: 'Đang xếp hàng…', drafting: 'Kiến trúc sư AI đang soạn kiến trúc…',
+  'awaiting-review': 'Đã nộp bản kiến trúc — vào "Chờ duyệt" để xem và duyệt', building: 'Kiến trúc đã duyệt — đang tạo khung dự án…',
+  done: 'Kiến trúc đã duyệt, khung dự án đã tạo', cancelled: 'Bản kiến trúc đã bị huỷ — dự án chưa có code', error: 'Lỗi',
+};
 
 export const SETUP_STATUS = {
   queued: 'Đang xếp hàng…', drafting: 'AI Manager đang soạn luật…', 'awaiting-review': 'Đã nộp bộ luật — vào "Chờ duyệt" để xem và duyệt',

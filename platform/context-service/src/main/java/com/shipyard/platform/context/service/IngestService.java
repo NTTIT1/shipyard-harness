@@ -53,7 +53,8 @@ public class IngestService {
             String id = add(new NewItem(projectId, "ARTIFACT", runId, step, title + " — " + step + " — " + d.getKey(),
                     d.getValue(), runId + "/" + step + "/" + d.getKey(), revisionNo));
             if (graphSource == null || d.getKey().equals("plan.md")) graphSource = id;
-            if (d.getKey().equals("plan.md")) {
+            // A feature's plan and a new project's architecture both end with "## Quyết định".
+            if (d.getKey().equals("plan.md") || d.getKey().equals("architecture.md")) {
                 String decisions = Chunker.section(d.getValue(), DECISIONS);
                 if (decisions != null) {
                     add(new NewItem(projectId, "DECISION", runId, step, "Quyết định kiến trúc — " + title, decisions, runId + "/" + step + "/decisions", revisionNo));

@@ -14,6 +14,8 @@ import ProjectMembersTab from './projects/ProjectMembersTab.jsx';
 import ProjectGatesTab from './projects/ProjectGatesTab.jsx';
 import ProjectRunsTab from './projects/ProjectRunsTab.jsx';
 import LinkRepoModal from './projects/LinkRepoModal.jsx';
+import BlueprintStatus from './projects/BlueprintStatus.jsx';
+import { scaffold } from '../lib/scaffold.js';
 import { platform } from '../lib/platform.js';
 import { ROLE_LABEL } from '../lib/review.js';
 import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
@@ -277,6 +279,8 @@ export default function ProjectsView({
             </div>
           </div>
 
+          <ProjectBlueprint key={`bp-${project.id}`} pid={project.id} onOpenRun={onOpenRun} />
+
           {/* Sub-navigation Tabs */}
           <Tabs
             value={tab}
@@ -337,4 +341,14 @@ export default function ProjectsView({
       )}
     </section>
   );
+}
+
+/** Architecture-first project: where its BLUEPRINT run stands (only for admins, who may scaffold). */
+function ProjectBlueprint({ pid, onOpenRun }) {
+  const [bp, setBp] = useState(null);
+  useEffect(() => {
+    scaffold.projectBlueprints(pid).then(list => setBp((list || []).find(b => b.status !== 'done') || null), () => setBp(null));
+  }, [pid]);
+  if (!bp) return null;
+  return <BlueprintStatus runId={bp.runId} initial={bp} onOpen={onOpenRun} />;
 }

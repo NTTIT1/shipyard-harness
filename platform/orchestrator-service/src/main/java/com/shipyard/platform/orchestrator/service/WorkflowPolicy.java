@@ -82,7 +82,7 @@ public class WorkflowPolicy {
     }
 
     static GateMode parseMode(Step step, String raw) {
-        if (step == Step.MANAGER) throw new BadRequestException("Project rules (MANAGER) always need a human approval");
+        if (RunKind.alwaysHuman(step)) throw new BadRequestException("Project rules (MANAGER) and architecture (BLUEPRINT) always need a human approval");
         GateMode mode;
         try {
             mode = GateMode.valueOf(raw.trim().toUpperCase(Locale.ROOT));

@@ -23,7 +23,8 @@ public final class StepRequirements {
             Step.DESIGN, List.of("design.md"),
             Step.DEV, List.of(),
             Step.TEST, List.of("qc-plan.md"),
-            Step.MANAGER, List.of("project.md", "team.json"));
+            Step.MANAGER, List.of("project.md", "team.json"),
+            Step.BLUEPRINT, List.of("architecture.md"));
 
     public static void validateSubmission(Step step, String summary, Map<String, String> documents,
                                           int imageCount, Map<String, Object> meta, Boolean hasUi) {
