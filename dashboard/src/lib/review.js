@@ -53,6 +53,9 @@ const wf = (...pairs) => pairs.map(([step, mode]) => ({ step, mode }));
  * writes plan.md + tasks.md. Auto steps only pass green submissions; a red test waits for a human.
  */
 export const WORKFLOW_PRESETS = [
+  { id: 'enterprise', label: 'Doanh nghiệp (11 bước)',
+    desc: 'BA đặc tả → Review BA → Giải pháp ARCH → Review Lead → UX Flow → UI Mockup → Design QA → Duyệt UI → Backend Dev → Frontend Dev → Quality Gate.',
+    steps: wf(['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['PM', 'REQUIRED'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
   { id: 'full', label: 'Đầy đủ', desc: 'PM → BA → Plan → Thiết kế UI → Code → Test, bước nào cũng có người duyệt.',
     steps: wf(['PM', 'REQUIRED'], ['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
   { id: 'plan-code-test', label: 'Plan → Code → Test', desc: 'Bạn duyệt Plan; Code và Test tự qua khi xanh, đỏ thì dừng chờ người.',
@@ -87,6 +90,28 @@ export function workflowProblem(workflow) {
 }
 export const ROLE_LABEL = { PM: 'PM', BA: 'BA', TECH_LEAD: 'Tech Lead', DESIGNER: 'Designer', DEVELOPER: 'Developer', TESTER: 'Tester',
   OWNER: 'Owner', MAINTAINER: 'Maintainer', VIEWER: 'Viewer', OWNER_FALLBACK: 'Owner (duyệt thay)', AUTO: 'Tự động' };
+
+export const APPROVER_ROLE_OPTIONS = [
+  { id: 'BA', label: 'BA Lead (vai trò BA)', desc: 'Phê duyệt tài liệu đặc tả nghiệp vụ' },
+  { id: 'TECH_LEAD', label: 'Tech Lead (vai trò TECH_LEAD)', desc: 'Phê duyệt kiến trúc, giải pháp và code' },
+  { id: 'PM', label: 'Product Owner / PM (vai trò PM)', desc: 'Phê duyệt mục tiêu sản phẩm & UI/UX' },
+  { id: 'DESIGNER', label: 'Lead Designer (vai trò DESIGNER)', desc: 'Phê duyệt thiết kế và mockup giao diện' },
+  { id: 'TESTER', label: 'QA Lead (vai trò TESTER)', desc: 'Phê duyệt chất lượng và kết quả kiểm thử' },
+  { id: 'MAINTAINER', label: 'Maintainer (Quản trị viên)', desc: 'Thành viên quản trị dự án' },
+  { id: 'OWNER', label: 'Owner (Chủ dự án)', desc: 'Chủ sở hữu dự án' },
+];
+
+export function defaultApproverRole(step) {
+  switch (step) {
+    case 'BA': return 'BA';
+    case 'ARCH': return 'TECH_LEAD';
+    case 'DESIGN': return 'PM';
+    case 'PM': return 'PM';
+    case 'DEV': return 'TECH_LEAD';
+    case 'TEST': return 'TESTER';
+    default: return 'TECH_LEAD';
+  }
+}
 export const ACTION_LABEL = { APPROVE: 'Duyệt', REQUEST_CHANGES: 'Yêu cầu sửa', SEND_BACK: 'Trả về bước trước', CANCEL: 'Huỷ tính năng' };
 export const STATUS_LABEL = { PENDING: 'chờ', AI_WORKING: 'AI đang làm', AWAITING_REVIEW: 'chờ duyệt', APPROVED: 'đã duyệt', SKIPPED: 'bỏ qua' };
 

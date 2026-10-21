@@ -74,13 +74,17 @@ export default function App({ user, onLogout }) {
   const config = data?.config || {};
   const canScaffold = !user || user.role === 'SYS_ADMIN';
 
-  // auto-select first running lane
+  // auto-select first running lane within active project scope
   useEffect(() => {
     if (!lanes.length) return;
-    if (selectedLane != null && lanes.some(l => l.lane === selectedLane)) return;
-    const run = lanes.find(l => l.status === 'running');
-    setSelectedLane((run || lanes[0]).lane);
-  }, [lanes, selectedLane]);
+    const currentScoped = (!activeProjectId || activeProjectId === 'ALL')
+      ? lanes
+      : lanes.filter(l => l.run_project_id === activeProjectId);
+    if (!currentScoped.length) return;
+    if (selectedLane != null && currentScoped.some(l => l.lane === selectedLane)) return;
+    const run = currentScoped.find(l => l.status === 'running');
+    setSelectedLane((run || currentScoped[0]).lane);
+  }, [lanes, selectedLane, activeProjectId]);
 
   const selectedLaneData = lanes.find(l => l.lane === selectedLane);
   const selectedLaneProject = projects.find(p => p.id === selectedLaneData?.run_project_id)
@@ -231,7 +235,7 @@ export default function App({ user, onLogout }) {
         onOpen={() => setDrawer(true)}
         returnFocusRef={menuBtn}
       />
-      <main className="main" id="main-content" tabIndex={-1}>
+      <main className={`main${view === 'studio' ? ' main-studio' : ''}`} id="main-content" tabIndex={-1}>
         <TopHeader
           projects={projects}
           activeProjectId={activeProjectId}
@@ -349,7 +353,11 @@ export default function App({ user, onLogout }) {
           onDone={n => { setSelectedLane(n); setView('lanes'); refreshNow(); }} />
       )}
       {addLane && (
-        <AddLaneModal onClose={() => setAddLane(false)} onDone={refreshNow} />
+        <AddLaneModal
+          initialProject={projects.find(p => p.id === activeProjectId)?.slug || ''}
+          onClose={() => setAddLane(false)}
+          onDone={refreshNow}
+        />
       )}
       {GalleryModal && <GalleryModal gallery={gallery} onClose={() => setGallery(null)} onShot={openShot} />}
       <Lightbox shot={shot} onClose={() => setShot(null)} onNav={shotNav} />

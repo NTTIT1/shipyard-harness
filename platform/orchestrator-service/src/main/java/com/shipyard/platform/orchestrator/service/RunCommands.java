@@ -112,7 +112,9 @@ public class RunCommands {
         a.step = step;
         a.revisionId = rev.id;
         a.projectId = run.projectId;
-        a.requiredRole = step.requiredRole();
+        GatePolicy pol = policies.findById(new GatePolicy.Key(run.projectId, step)).orElse(null);
+        a.requiredRole = (pol != null && pol.approverRole != null && !pol.approverRole.isBlank())
+                ? pol.approverRole : step.requiredRole();
         a = approvals.save(a);
 
         String override = run.gateOverrides == null ? null : run.gateOverrides.get(step.name());

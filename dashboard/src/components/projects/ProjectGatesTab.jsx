@@ -59,7 +59,7 @@ export default function ProjectGatesTab({ pid, canManage }) {
           </div>
         </div>
 
-        <WorkflowEditor value={draft} disabled={!canManage} onChange={w => { setNotice(''); setDraft(w); }} />
+        <WorkflowEditor value={draft} pid={pid} disabled={!canManage} onChange={w => { setNotice(''); setDraft(w); }} />
 
         {canManage && (
           <div className="wf-actions">
@@ -76,7 +76,7 @@ export default function ProjectGatesTab({ pid, canManage }) {
         )}
 
         <div className="pj-card-footnote">
-          Kéo biểu tượng <b>⋮⋮</b> để đổi thứ tự các bước tài liệu. <b>Cần người duyệt</b>: AI làm xong thì dừng chờ người có vai trò đó duyệt.
+          Kéo biểu tượng <b>⋮⋮</b> để đổi thứ tự các bước. <b>Cần người duyệt</b>: AI làm xong thì dừng chờ người có vai trò hoặc thành viên được chỉ định duyệt.
           {' '}<b>Tự duyệt</b>: tự qua khi kết quả xanh — test hoặc CI đỏ thì vẫn dừng chờ người. <b>Bỏ bước</b>: bước không chạy, bước sau làm từ yêu cầu gốc.
           {' '}Code chỉ bắt đầu khi mọi bước đứng trước đã qua. Khi giao việc, từng lane / tính năng vẫn có thể chọn khác.
         </div>

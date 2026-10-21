@@ -35,7 +35,10 @@ public class WorkflowPolicy {
         List<WorkflowStep> out = new ArrayList<>();
         for (Step s : order) {
             GatePolicy p = rows.get(s);
-            out.add(new WorkflowStep(s.name(), (p == null || p.mode == null ? GateMode.REQUIRED : p.mode).name()));
+            String defRole = s == Step.DESIGN ? "PM" : s.requiredRole();
+            String role = (p != null && p.approverRole != null && !p.approverRole.isBlank()) ? p.approverRole : defRole;
+            String approverId = p != null ? p.approverId : null;
+            out.add(new WorkflowStep(s.name(), (p == null || p.mode == null ? GateMode.REQUIRED : p.mode).name(), role, approverId));
         }
         return out;
     }
@@ -45,10 +48,12 @@ public class WorkflowPolicy {
         if (body == null) throw new BadRequestException("workflow is required");
         List<Step> order = new ArrayList<>();
         Map<Step, GateMode> modes = new EnumMap<>(Step.class);
+        Map<Step, WorkflowStep> bodyMap = new EnumMap<>(Step.class);
         for (WorkflowStep w : body) {
             Step s = Step.parse(w.step() == null ? "" : w.step());
             order.add(s);
             modes.put(s, parseMode(s, w.mode()));
+            bodyMap.put(s, w);
         }
         Workflow.validateOrder(order);
         Map<Step, GatePolicy> rows = new EnumMap<>(Step.class);
@@ -59,6 +64,11 @@ public class WorkflowPolicy {
             GatePolicy p = rows.getOrDefault(s, new GatePolicy(projectId, s, GateMode.REQUIRED));
             p.mode = modes.get(s);
             p.position = i;
+            WorkflowStep stepBody = bodyMap.get(s);
+            if (stepBody != null) {
+                p.approverRole = stepBody.approverRole();
+                p.approverId = stepBody.approverId();
+            }
             out.add(p);
         }
         policies.saveAll(out);

@@ -11,8 +11,9 @@ import { parseVerdict, resultLine } from './setup.js';
 // the workflow preset and whether to approve the architecture first — with the reasons and what the
 // expected scale implies. The wizard only pre-fills its choices; the human still decides.
 
-export const PRESET_IDS = ['full', 'plan-code-test', 'auto', 'ui', 'code'];
+export const PRESET_IDS = ['enterprise', 'full', 'plan-code-test', 'auto', 'ui', 'code'];
 const PRESET_HINT = {
+  enterprise: 'BA đặc tả → Review BA → Giải pháp ARCH → Review Lead → UX Flow → UI Mockup → Design QA → Duyệt UI → Backend Dev → Frontend Dev → Quality Gate (chuẩn doanh nghiệp 11 bước)',
   full: 'PM → BA → Plan → Thiết kế UI → Code → Test, mỗi bước có người duyệt (dự án lớn, nghiệp vụ phức tạp)',
   'plan-code-test': 'Người duyệt Plan; Code và Test tự qua khi xanh (dự án vừa, yêu cầu rõ)',
   auto: 'Plan → Code → Test không chờ duyệt, chỉ dừng khi đỏ (công cụ nội bộ, thử nghiệm)',

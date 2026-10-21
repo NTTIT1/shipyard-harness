@@ -32,6 +32,11 @@ case "$STEP" in
   ba) AGENT="ba-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   arch) AGENT="architect-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   design) AGENT="designer-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
+  ux-design) AGENT="ux-designer-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
+  ui-design) AGENT="ui-designer-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
+  design-qa) AGENT="design-qa-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
+  backend-dev) AGENT="backend-dev-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
+  frontend-dev) AGENT="frontend-dev-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   dev) AGENT=""; VERDICT_RE='^ROLE-STEP: ' ;;  # engine chosen below from the configured model
   test) AGENT="tester-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   *) usage ;;

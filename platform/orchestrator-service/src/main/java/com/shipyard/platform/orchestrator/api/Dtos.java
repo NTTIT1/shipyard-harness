@@ -23,8 +23,10 @@ public final class Dtos {
                              String currentStep, Boolean hasUi, String createdBy, Map<String, String> gateOverrides,
                              Instant createdAt, Instant updatedAt, String kind, List<String> workflow) {}
 
-    /** One step of a project's workflow: mode REQUIRED | AUTO | SKIP. */
-    public record WorkflowStep(String step, String mode) {}
+    /** One step of a project's workflow: mode REQUIRED | AUTO | SKIP, plus configured approver role/id. */
+    public record WorkflowStep(String step, String mode, String approverRole, String approverId) {
+        public WorkflowStep(String step, String mode) { this(step, mode, null, null); }
+    }
 
     public record ImageRef(String path, String caption) {}
 

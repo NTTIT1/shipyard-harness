@@ -161,7 +161,20 @@ export default function Sidebar({
         <div className="sb-section-group">
           <div className="sb-section-heading">
             <span>DỰ ÁN ĐANG LÀM VIỆC</span>
-            {activeProject && <span className="sb-heading-tag">{activeProject.slug}</span>}
+            {projects.length > 1 ? (
+              <select
+                className="sb-project-select"
+                aria-label="Chọn dự án đang làm việc"
+                value={activeProjectId || 'ALL'}
+                onChange={e => onSelectProject?.(e.target.value)}>
+                <option value="ALL">Tất cả ({projects.length})</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name || p.slug}</option>
+                ))}
+              </select>
+            ) : (
+              activeProject && <span className="sb-heading-tag">{activeProject.slug}</span>
+            )}
           </div>
 
           <nav className="sb-nav" aria-label="Menu chức năng dự án">
