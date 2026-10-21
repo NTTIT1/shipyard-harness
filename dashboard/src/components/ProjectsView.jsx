@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import {
   Plus, Copy, Check, FolderKanban,
-  GitBranch, ExternalLink, Search, AlertCircle,
+  GitBranch, ExternalLink, AlertCircle,
   Wand2
 } from 'lucide-react';
 import Button from './ui/Button.jsx';
@@ -38,7 +38,6 @@ export default function ProjectsView({
   const setTab = onTabChange || setLocalTab;
   const [err, setErr] = useState('');
   const [copiedType, setCopiedType] = useState('');
-  const [searchPj, setSearchPj] = useState('');
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [wizard, setWizard] = useState(false);
 
@@ -63,6 +62,15 @@ export default function ProjectsView({
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Project pages are about ONE project: with "Tất cả dự án" picked, adopt the first one so the
+  // header switcher and the page always name the same project.
+  useEffect(() => {
+    if (!projects.length || !onSelectProject) return;
+    if (!activeProjectId || activeProjectId === 'ALL' || !projects.some(p => p.id === activeProjectId)) {
+      onSelectProject(localSel && projects.some(p => p.id === localSel) ? localSel : projects[0].id);
+    }
+  }, [projects, activeProjectId, onSelectProject, localSel]);
 
   const project = projects.find(p => p.id === sel) || projects[0] || null;
   const roles = project?.currentUserRoles || [];
@@ -111,15 +119,6 @@ export default function ProjectsView({
 
   const currentMetrics = useMemo(() => getProjectMetrics(project?.id), [getProjectMetrics, project?.id]);
 
-  const filteredProjects = useMemo(() => {
-    if (!searchPj.trim()) return projects;
-    const q = searchPj.toLowerCase();
-    return projects.filter(p =>
-      (p.name || '').toLowerCase().includes(q) ||
-      (p.slug || '').toLowerCase().includes(q)
-    );
-  }, [projects, searchPj]);
-
   const copyEnvVar = () => {
     if (!project) return;
     navigator.clipboard?.writeText(`PLATFORM_PROJECT_ID="${project.id}"`);
@@ -129,45 +128,6 @@ export default function ProjectsView({
 
   return (
     <section className="pj-workspace" aria-labelledby="pj-title">
-      {/* Only show horizontal project switcher when there are multiple projects */}
-      {projects.length > 1 && (
-        <div className="pj-switcher-bar">
-          <div className="pj-switcher-pills" role="tablist" aria-label="Danh sách dự án">
-            {filteredProjects.map(p => {
-              const pm = getProjectMetrics(p.id);
-              const active = p.id === project?.id;
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  className={`pj-switch-pill${active ? ' active' : ''}`}
-                  onClick={() => selectProject(p.id)}>
-                  <FolderKanban size={14} className="pj-switch-icon" />
-                  <span className="pj-switch-name">{p.name}</span>
-                  {pm.avgProg != null && (
-                    <span className="pj-switch-prog">{pm.avgProg}%</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {projects.length > 4 && (
-            <div className="pj-switcher-search">
-              <Search size={14} />
-              <input
-                type="text"
-                placeholder="Lọc dự án…"
-                value={searchPj}
-                onChange={e => setSearchPj(e.target.value)}
-              />
-            </div>
-          )}
-        </div>
-      )}
-
       {err && (
         <div className="alert-banner err" role="alert">
           <AlertCircle size={18} />
@@ -286,11 +246,11 @@ export default function ProjectsView({
             value={tab}
             onChange={setTab}
             items={[
-              { id: 'members', label: 'Thành viên & Vai trò' },
+              { id: 'members', label: 'Thành viên' },
               { id: 'gates', label: 'Quy trình & duyệt' },
-              { id: 'team', label: 'Kỹ năng AI & Khung dự án' },
-              { id: 'runs', label: 'Tính năng & Model AI' },
-              { id: 'memory', label: 'Bộ nhớ dự án' }
+              { id: 'runs', label: 'Tính năng & model AI' },
+              { id: 'memory', label: 'Bộ nhớ dự án' },
+              { id: 'team', label: 'Kỹ năng AI & khung' }
             ]}
           />
 

@@ -26,7 +26,7 @@ const p = await (await b.newContext({ viewport: { width: 1280, height: 900 } }))
 await p.goto(DASH);
 await p.fill('input[type=email]', 'admin@shipyard.local'); await p.fill('input[type=password]', PW); await p.click('button[type=submit]');
 await p.waitForSelector('.sb-user');
-await p.getByRole('button', { name: 'Dự án' }).click();
+await p.locator('.sb-nav-item', { hasText: 'Tổng quan & thành viên' }).click();
 await p.getByText(proj.name).first().click();
 await p.getByRole('button', { name: 'Xoá dự án' }).click();
 const confirmBtn = p.locator('.modal-panel').getByRole('button', { name: 'Xoá vĩnh viễn' });

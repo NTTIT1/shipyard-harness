@@ -277,7 +277,8 @@ export default function App({ user, onLogout }) {
         {view === 'costs' && <Suspense fallback={<ViewLoading />}><CostsView /></Suspense>}
         {view === 'studio' && <Suspense fallback={<ViewLoading />}><StudioView
           onOpenProject={async pid => { await loadProjects(); setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }} /></Suspense>}
-        {view === 'docs' && <Suspense fallback={<ViewLoading />}><DocsView key={docsRun} initialRunId={docsRun} onOpenRun={runId => openReview({ runId })} /></Suspense>}
+        {view === 'docs' && <Suspense fallback={<ViewLoading />}><DocsView key={docsRun} initialRunId={docsRun} onOpenRun={runId => openReview({ runId })}
+          activeProjectId={activeProjectId} onSelectProject={setActiveProjectId} /></Suspense>}
         {view === 'lanes' && (<>
         {!selectedLaneData ? (
           <div className="empty-state">

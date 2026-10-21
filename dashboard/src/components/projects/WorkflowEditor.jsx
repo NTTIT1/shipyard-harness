@@ -39,55 +39,26 @@ function ApproverConfig({ stepName, stepState, disabled, members, users, onChang
     m.roles?.includes(curRole) || m.roles?.includes('OWNER') || m.roles?.includes('MAINTAINER')
   );
 
+  const who = curApproverId
+    ? `Chỉ ${users[curApproverId]?.name || users[curApproverId]?.email || curApproverId} duyệt bước này.`
+    : `Ai có vai trò ${curRole} trong dự án đều duyệt được (Owner duyệt thay khi chưa có ai giữ vai trò này).`;
   return (
-    <div className="wf-approver-box">
-      <div className="wf-approver-heading">
-        <UserCheck size={14} className="wf-approver-icon" />
-        <span>Cấu hình người duyệt bước này:</span>
-      </div>
-      <div className="wf-approver-row">
-        <div className="wf-field">
-          <label className="wf-field-label" htmlFor={`role-sel-${stepName}`}>Vai trò duyệt</label>
-          <select
-            id={`role-sel-${stepName}`}
-            className="wf-select"
-            disabled={disabled}
-            value={curRole}
-            onChange={e => onChange(stepName, { approverRole: e.target.value })}>
-            {APPROVER_ROLE_OPTIONS.map(opt => (
-              <option key={opt.id} value={opt.id}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-
-        {eligibleMembers.length > 0 && (
-          <div className="wf-field">
-            <label className="wf-field-label" htmlFor={`user-sel-${stepName}`}>Chỉ định người duyệt</label>
-            <select
-              id={`user-sel-${stepName}`}
-              className="wf-select"
-              disabled={disabled}
-              value={curApproverId}
-              onChange={e => onChange(stepName, { approverId: e.target.value || null })}>
-              <option value="">Bất kỳ ai có vai trò {curRole}</option>
-              {eligibleMembers.map(m => {
-                const u = users[m.userId];
-                const name = u?.name || u?.email || m.userId;
-                return (
-                  <option key={m.userId} value={m.userId}>
-                    {name} ({m.roles?.join(', ')})
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-        )}
-      </div>
-      <div className="wf-approver-hint">
-        {curApproverId
-          ? `Chỉ định: Thành viên ${users[curApproverId]?.name || users[curApproverId]?.email || curApproverId} sẽ nhận thông báo duyệt khi bước này hoàn tất.`
-          : `Tất cả thành viên trong dự án có vai trò ${curRole} (hoặc Owner khi chưa có vai trò này) đều có quyền duyệt.`}
-      </div>
+    <div className="wf-approver-inline" title={who}>
+      <span className="wf-approver-label" id={`appr-${stepName}`}><UserCheck size={13} aria-hidden="true" /> Người duyệt</span>
+      <select className="wf-select" aria-labelledby={`appr-${stepName}`} aria-label={`Vai trò duyệt bước ${stepName}`}
+        disabled={disabled} value={curRole} onChange={e => onChange(stepName, { approverRole: e.target.value })}>
+        {APPROVER_ROLE_OPTIONS.map(opt => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+      </select>
+      {eligibleMembers.length > 0 && (
+        <select className="wf-select" aria-label={`Người duyệt cụ thể cho bước ${stepName}`} disabled={disabled}
+          value={curApproverId} onChange={e => onChange(stepName, { approverId: e.target.value || null })}>
+          <option value="">Bất kỳ ai có vai trò này</option>
+          {eligibleMembers.map(m => {
+            const u = users[m.userId];
+            return <option key={m.userId} value={m.userId}>{u?.name || u?.email || m.userId}</option>;
+          })}
+        </select>
+      )}
     </div>
   );
 }
@@ -260,10 +231,12 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
                     <div className="gate-step-header">
                       <span className="gate-step-name">{item.label}</span>
                       <span className={`gate-role-tag tag-${item.type}`}>{item.roleType}</span>
-                      <span className="gate-dep-badge">Phụ thuộc: {item.dep}</span>
                     </div>
                     <div className="gate-step-sub">{item.subLabel}</div>
                     <div className="gate-step-desc">{item.desc}</div>
+                    {item.type === 'gate' && phaseState?.mode === 'REQUIRED' && (
+                      <ApproverConfig stepName={item.phase} stepState={phaseState} disabled={disabled} members={members} users={users} onChange={updateStep} />
+                    )}
                   </div>
                 </div>
                 <div className="gate-card-right">
@@ -289,16 +262,6 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
                   )}
                 </div>
 
-                {item.type === 'gate' && phaseState?.mode === 'REQUIRED' && (
-                  <ApproverConfig
-                    stepName={item.phase}
-                    stepState={phaseState}
-                    disabled={disabled}
-                    members={members}
-                    users={users}
-                    onChange={updateStep}
-                  />
-                )}
               </div>
             );
           })
@@ -361,13 +324,11 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
                   <div className="gate-card-texts">
                     <div className="gate-step-header">
                       <span className="gate-step-name">{STEP_LABEL[w.step]}</span>
-                      <span className="gate-dep-badge">
-                        {idx === 0
-                          ? 'Phụ thuộc: Không · bước bắt đầu từ 0'
-                          : `Phụ thuộc: Bước ${idx} · ${STEP_LABEL[value[idx - 1].step]?.split('—')?.[0]?.trim() || value[idx - 1].step}`}
-                      </span>
                     </div>
                     <div className="gate-step-desc">{STEP_DESCRIPTIONS[w.step]}</div>
+                    {w.mode === 'REQUIRED' && (
+                      <ApproverConfig stepName={w.step} stepState={w} disabled={disabled} members={members} users={users} onChange={updateStep} />
+                    )}
                   </div>
                 </div>
                 <div className="gate-card-right">
@@ -387,16 +348,6 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
                   </div>
                 </div>
 
-                {w.mode === 'REQUIRED' && (
-                  <ApproverConfig
-                    stepName={w.step}
-                    stepState={w}
-                    disabled={disabled}
-                    members={members}
-                    users={users}
-                    onChange={updateStep}
-                  />
-                )}
               </div>
             );
           })

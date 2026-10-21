@@ -100,149 +100,59 @@ export default function Sidebar({
           <IconButton ref={closeRef} className="sb-close" icon={X} label="Đóng" onClick={onClose} />
         </div>
 
-        {/* Action Button: Giao việc */}
         <Button variant="primary" icon={Plus} className="sb-assign" onClick={() => onAssign(null)}>
           Giao việc mới
         </Button>
 
-        {/* Group 1: CÁ NHÂN & ĐIỀU HÀNH */}
-        <div className="sb-section-group">
-          <div className="sb-section-heading">CÁ NHÂN & ĐIỀU HÀNH</div>
-          <nav className="sb-nav" aria-label="Cá nhân và điều hành">
-            <button
-              type="button"
-              className={`sb-nav-item${view === 'board' ? ' active' : ''}`}
-              onClick={() => handleNav('board')}>
-              <LayoutGrid size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Tổng quan điều hành</span>
-            </button>
-
-            {isAdmin(user) && (
-              <button
-                type="button"
-                className={`sb-nav-item${view === 'studio' ? ' active' : ''}`}
-                onClick={() => handleNav('studio')}>
-                <Sparkles size={16} className="sb-nav-icon" />
-                <span className="sb-nav-label">Ý tưởng sản phẩm (chat)</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              className={`sb-nav-item${view === 'inbox' || view === 'review' ? ' active' : ''}`}
-              onClick={() => handleNav('inbox')}>
-              <Inbox size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Việc của tôi</span>
-              {inboxCount ? <span className="sb-nav-pill-badge">{inboxCount}</span> : null}
-            </button>
-
-            <button
-              type="button"
-              className={`sb-nav-item${view === 'projects' && (!projectSubTab || projectSubTab === 'members') ? ' active' : ''}`}
-              onClick={() => handleNav('projects', 'members')}>
-              <FolderKanban size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Danh sách dự án</span>
-              <span className="sb-nav-count-badge">{projects.length}</span>
-            </button>
-
-            {isAdmin(user) && (
-              <button
-                type="button"
-                className={`sb-nav-item${view === 'costs' ? ' active' : ''}`}
-                onClick={() => handleNav('costs')}>
-                <Coins size={16} className="sb-nav-icon" />
-                <span className="sb-nav-label">Báo cáo tổng hợp</span>
-              </button>
-            )}
-          </nav>
-        </div>
-
-        {/* Group 2: DỰ ÁN ĐANG LÀM VIỆC */}
-        <div className="sb-section-group">
-          <div className="sb-section-heading">
-            <span>DỰ ÁN ĐANG LÀM VIỆC</span>
-            {projects.length > 1 ? (
-              <select
-                className="sb-project-select"
-                aria-label="Chọn dự án đang làm việc"
-                value={activeProjectId || 'ALL'}
-                onChange={e => onSelectProject?.(e.target.value)}>
-                <option value="ALL">Tất cả ({projects.length})</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name || p.slug}</option>
-                ))}
-              </select>
-            ) : (
-              activeProject && <span className="sb-heading-tag">{activeProject.slug}</span>
-            )}
-          </div>
-
-          <nav className="sb-nav" aria-label="Menu chức năng dự án">
-            <button
-              type="button"
-              className={`sb-nav-item${view === 'projects' && projectSubTab === 'members' ? ' active' : ''}`}
-              onClick={() => handleNav('projects', 'members')}>
-              <FolderKanban size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Tổng quan & Thành viên</span>
-            </button>
-
-            <button
-              type="button"
-              className={`sb-nav-item${view === 'projects' && projectSubTab === 'runs' ? ' active' : ''}`}
-              onClick={() => handleNav('projects', 'runs')}>
-              <Sparkles size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Hành trình & Model AI</span>
-            </button>
-
-            <button
-              type="button"
-              className={`sb-nav-item${view === 'projects' && projectSubTab === 'gates' ? ' active' : ''}`}
-              onClick={() => handleNav('projects', 'gates')}>
-              <SlidersHorizontal size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Quy trình &amp; duyệt</span>
-            </button>
-
-            <button
-              type="button"
-              className={`sb-nav-item${view === 'lanes' ? ' active' : ''}`}
-              onClick={() => handleNav('lanes')}>
-              <ListTodo size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Công việc (Lanes)</span>
-              {scopedLanes.length > 0 && (
-                <span className="sb-nav-count-badge">{scopedLanes.length}</span>
+        <div className="sb-scroll">
+          {/* Daily work: what needs me, what runs, new ideas. */}
+          <nav className="sb-section-group" aria-labelledby="sb-h-work">
+            <div className="sb-section-heading" id="sb-h-work">Điều hành</div>
+            <div className="sb-nav">
+              <NavItem icon={LayoutGrid} label="Tổng quan" active={view === 'board'} onClick={() => handleNav('board')} />
+              <NavItem icon={Inbox} label="Chờ tôi duyệt" active={view === 'inbox' || view === 'review'} onClick={() => handleNav('inbox')}
+                badge={inboxCount ? <span className="sb-nav-pill-badge" aria-label={`${inboxCount} bước chờ duyệt`}>{inboxCount}</span> : null} />
+              <NavItem icon={ListTodo} label="Lanes" active={view === 'lanes'} onClick={() => handleNav('lanes')}
+                badge={scopedLanes.length > 0 ? <span className="sb-nav-count-badge">{scopedLanes.length}</span> : null} />
+              {isAdmin(user) && (
+                <NavItem icon={Sparkles} label="Ý tưởng sản phẩm" active={view === 'studio'} onClick={() => handleNav('studio')} />
               )}
-            </button>
-
-            <button
-              type="button"
-              className={`sb-nav-item${view === 'projects' && projectSubTab === 'memory' ? ' active' : ''}`}
-              onClick={() => handleNav('projects', 'memory')}>
-              <Database size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Yêu cầu & Bộ nhớ</span>
-            </button>
-
-            <button
-              type="button"
-              className={`sb-nav-item${view === 'docs' ? ' active' : ''}`}
-              onClick={() => handleNav('docs')}>
-              <FileText size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Tài liệu đã duyệt</span>
-            </button>
-
-            <button
-              type="button"
-              className={`sb-nav-item${view === 'projects' && projectSubTab === 'team' ? ' active' : ''}`}
-              onClick={() => handleNav('projects', 'team')}>
-              <Palette size={16} className="sb-nav-icon" />
-              <span className="sb-nav-label">Kỹ năng AI & Khung</span>
-            </button>
+            </div>
           </nav>
-        </div>
+
+          {/* The project picked in the header: every item below is about it. */}
+          <nav className="sb-section-group" aria-labelledby="sb-h-project">
+            <div className="sb-section-heading" id="sb-h-project">
+              <span>Dự án</span>
+              <span className="sb-heading-project" title={activeProject?.name || 'Chọn dự án ở thanh trên'}>
+                {activeProject ? activeProject.name : projects.length ? 'chưa chọn' : ''}
+              </span>
+            </div>
+            <div className="sb-nav">
+              <NavItem icon={FolderKanban} label="Tổng quan & thành viên" active={view === 'projects' && (!projectSubTab || projectSubTab === 'members')} onClick={() => handleNav('projects', 'members')} />
+              <NavItem icon={SlidersHorizontal} label="Quy trình & duyệt" active={view === 'projects' && projectSubTab === 'gates'} onClick={() => handleNav('projects', 'gates')} />
+              <NavItem icon={Layers} label="Tính năng & model AI" active={view === 'projects' && projectSubTab === 'runs'} onClick={() => handleNav('projects', 'runs')} />
+              <NavItem icon={FileText} label="Tài liệu đã duyệt" active={view === 'docs'} onClick={() => handleNav('docs')} />
+              <NavItem icon={Database} label="Bộ nhớ dự án" active={view === 'projects' && projectSubTab === 'memory'} onClick={() => handleNav('projects', 'memory')} />
+              <NavItem icon={Palette} label="Kỹ năng AI & khung" active={view === 'projects' && projectSubTab === 'team'} onClick={() => handleNav('projects', 'team')} />
+            </div>
+          </nav>
+
+          {isAdmin(user) && (
+            <nav className="sb-section-group" aria-labelledby="sb-h-admin">
+              <div className="sb-section-heading" id="sb-h-admin">Quản trị</div>
+              <div className="sb-nav">
+                <NavItem icon={Coins} label="Chi phí & hạn mức" active={view === 'costs'} onClick={() => handleNav('costs')} />
+                <NavItem icon={Users} label="Người dùng" active={view === 'users'} onClick={() => handleNav('users')} />
+                <NavItem icon={Settings2} label="Nhà cung cấp AI" onClick={() => { onProviders(); onClose(); }} />
+              </div>
+            </nav>
+          )}
 
         {/* If viewing Lanes view, display quick switcher list directly under Lanes menu */}
         {view === 'lanes' && scopedLanes.length > 0 && (
-          <div className="sb-sub-lane-list" aria-label="Danh sách lane của dự án">
-            <div className="sb-sub-lane-title">Lane thực thi:</div>
+          <div className="sb-sub-lane-list" aria-label="Danh sách lane">
+            <div className="sb-section-heading">Chọn lane</div>
             {sortedLanes.map(l => {
               const attn = laneAttention(l);
               const isSelected = l.lane === selected;
@@ -265,20 +175,27 @@ export default function Sidebar({
           </div>
         )}
 
-        {/* Sidebar Footer */}
-        <div className="sb-foot">
-          <Button variant="ghost" size="sm" icon={Settings2} onClick={onProviders}>Nhà cung cấp</Button>
-          <IconButton icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? 'Giao diện sáng' : 'Giao diện tối'} onClick={onToggleTheme} />
         </div>
 
-        {user && (
-          <div className="sb-user">
-            <span className="sb-user-email" title={user.email}>{user.email}</span>
-            {onLogout && <IconButton icon={LogOut} label="Đăng xuất" onClick={onLogout} />}
-          </div>
-        )}
+        <div className="sb-foot sb-user">
+          <span className="sb-user-email" title={user?.email}>{user?.email || ''}</span>
+          {!isAdmin(user) && <IconButton icon={Settings2} label="Nhà cung cấp AI" onClick={onProviders} />}
+          <IconButton icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? 'Giao diện sáng' : 'Giao diện tối'} onClick={onToggleTheme} />
+          {user && onLogout && <IconButton icon={LogOut} label="Đăng xuất" onClick={onLogout} />}
+        </div>
       </aside>
     </>
+  );
+}
+
+/** One navigation row; `aria-current` marks the page the user is on. */
+function NavItem({ icon: Icon, label, active = false, onClick, badge = null }) {
+  return (
+    <button type="button" className={`sb-nav-item${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined} onClick={onClick}>
+      <Icon size={16} className="sb-nav-icon" aria-hidden="true" />
+      <span className="sb-nav-label">{label}</span>
+      {badge}
+    </button>
   );
 }
 

@@ -28,7 +28,7 @@ try {
   await p.goto(DASH);
   await p.fill('input[type=email]', 'admin@shipyard.local'); await p.fill('input[type=password]', PW); await p.click('button[type=submit]');
   await p.waitForSelector('.sb-user');
-  await p.locator('.sb-nav-item', { hasText: 'Ý tưởng sản phẩm (chat)' }).click();
+  await p.locator('.sb-nav-item', { hasText: 'Ý tưởng sản phẩm' }).click();
   await p.getByText('Bạn muốn làm sản phẩm gì?').waitFor();
   await shot(p, 'st1-new');
   await p.getByLabel('Ý tưởng sản phẩm').fill('Tôi cần hệ thống bán hàng khoảng 1000 user');
@@ -87,7 +87,7 @@ try {
   const wf = (await api('GET', `/api/platform/projects/${projectId}/workflow`)).body.data;
   ok(wf.filter(w => w.mode !== 'SKIP').map(w => w.step).join() === 'ARCH,DEV,TEST', 'project workflow is Plan → Code → Test');
   await p.reload(); await p.waitForSelector('.sb-user');
-  await p.locator('.sb-nav-item', { hasText: 'Ý tưởng sản phẩm (chat)' }).click();
+  await p.locator('.sb-nav-item', { hasText: 'Ý tưởng sản phẩm' }).click();
   await p.locator('.st-item').first().click();
   await p.getByRole('heading', { name: 'Lộ trình tính năng' }).waitFor();
   await shot(p, 'st6-build');

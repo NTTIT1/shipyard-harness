@@ -2,22 +2,25 @@ html, body, #root { height: 100% }
 body { margin: 0; padding: 0; background: var(--bg); -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.5 }
 .app { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100vh }
 .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 14px; padding: 18px 14px;
-  border-right: 1px solid var(--border); background: var(--bg-subtle); overflow-y: auto }
+  border-right: 1px solid var(--border); background: var(--bg-subtle); overflow: hidden }
 .sb-brand { display: flex; align-items: center; gap: 10px; padding: 2px 4px; font-size: 14.5px; letter-spacing: -0.01em }
 .sb-brand-logo { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-text); flex-shrink: 0 }
 .sb-brand-info { display: flex; flex-direction: column; min-width: 0 }
 .sb-brand-name { font-size: 14.5px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; line-height: 1.2 }
 .sb-brand-sub { font-size: 9.5px; font-family: var(--mono); font-weight: 600; color: var(--text-faint); letter-spacing: .08em }
 .sb-close { display: none; margin-left: auto }
-.sb-assign { width: 100%; justify-content: center }
+.sb-assign { width: 100%; justify-content: center; flex-shrink: 0 }
+/* The nav scrolls between the fixed brand/CTA and the footer, so nothing is ever squashed. */
+.sb-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 18px;
+  margin: 0 -6px; padding: 0 6px; scrollbar-width: thin }
+.sb-brand, .sb-foot { flex-shrink: 0 }
 
 /* --- Two-Tier Sidebar Hierarchy --- */
 .sb-section-group { display: flex; flex-direction: column; gap: 4px }
-.sb-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 6px 4px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint) }
+.sb-section-heading { display: flex; align-items: baseline; gap: 8px; padding: 0 10px 6px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint) }
+.sb-heading-project { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
+  text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 12px; color: var(--accent-text) }
 .sb-heading-tag { font-family: var(--mono); font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--panel); border: 1px solid var(--border); color: var(--accent-text); font-weight: 600; text-transform: none; letter-spacing: 0 }
-.sb-project-select { font-family: var(--font); font-size: 11px; font-weight: 600; padding: 2px 18px 2px 6px; border-radius: 4px; background: var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 4px center; border: 1px solid var(--border); color: var(--accent-text); max-width: 135px; cursor: pointer; appearance: none; text-overflow: ellipsis; white-space: nowrap }
-.sb-project-select:hover { border-color: var(--accent) }
-.sb-project-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
 
 .sb-nav { display: flex; flex-direction: column; gap: 2px }
 .sb-nav-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 10px; border-radius: var(--radius-sm); border: 1px solid transparent; background: transparent; color: var(--text-muted); font: 500 13px var(--font); text-align: left; cursor: pointer; transition: background .12s var(--ease), color .12s var(--ease), transform .08s ease-out }
@@ -30,7 +33,7 @@ body { margin: 0; padding: 0; background: var(--bg); -webkit-font-smoothing: ant
 .sb-nav-pill-badge { margin-left: auto; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--warn); color: #000; font-variant-numeric: tabular-nums }
 .sb-nav-count-badge { margin-left: auto; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: var(--bg); border: 1px solid var(--border); color: var(--text-faint); font-variant-numeric: tabular-nums }
 
-.sb-sub-lane-list { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px 10px; margin: 2px 0 6px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); animation: fadeIn 0.15s ease-out }
+.sb-sub-lane-list { display: flex; flex-direction: column; gap: 2px; padding-top: 12px; border-top: 1px solid var(--border) }
 .sb-sub-lane-title { font-size: 11px; font-weight: 600; color: var(--text-faint); padding: 2px 4px }
 .sb-sub-lane-item { display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 8px; border-radius: var(--radius-sm); border: 1px solid transparent; background: transparent; color: var(--text-muted); font: 500 12px var(--font); cursor: pointer; text-align: left }
 .sb-sub-lane-item:hover { background: var(--panel-hover); color: var(--text) }
@@ -38,30 +41,26 @@ body { margin: 0; padding: 0; background: var(--bg); -webkit-font-smoothing: ant
 .sb-sub-lane-name { flex: 1; font-family: var(--mono); font-weight: 600 }
 .sb-sub-lane-prog { font-size: 11px; color: var(--accent-text); font-weight: 600 }
 
-.sb-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--border) }
+.sb-foot { display: flex; align-items: center; gap: 2px; padding: 10px 0 0 10px; border-top: 1px solid var(--border) }
 .main { min-width: 0; padding: 0 32px 48px; display: flex; flex-direction: column }
 .topbar { display: none }
 
 /* --- Top Header (Apple Design Topbar with Project Context) --- */
-.app-top-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; margin-bottom: 20px; border-bottom: 1px solid var(--border); min-width: 0 }
+.app-top-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; margin-bottom: 24px; border-bottom: 1px solid var(--border); min-width: 0 }
 .top-header-left { display: flex; align-items: center; gap: 12px; min-width: 0 }
 .top-header-menu-btn { display: none }
-.top-header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0 }
-.top-header-section-name { font-size: 13.5px; font-weight: 600; color: var(--text-muted); padding: 4px 10px; border-radius: 999px; background: var(--bg-subtle); border: 1px solid var(--border) }
 
 .top-project-badge-wrap { position: relative }
-.top-project-badge-btn { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; font: inherit; text-align: left; transition: border-color .14s var(--ease), background .14s var(--ease), box-shadow .14s var(--ease) }
+.top-project-badge-btn { display: flex; align-items: center; gap: 8px; min-height: 36px; max-width: min(520px, 100%); padding: 6px 10px 6px 12px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; font: inherit; text-align: left; transition: border-color .14s var(--ease), background .14s var(--ease), box-shadow .14s var(--ease) }
 .top-project-badge-btn:hover { border-color: var(--border-strong); background: var(--panel-hover) }
-.top-project-badge-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-text); flex-shrink: 0 }
-.top-project-badge-text { display: flex; flex-direction: column; min-width: 0 }
-.top-project-sub-label { font-size: 10px; font-weight: 700; color: var(--text-faint); letter-spacing: .06em; line-height: 1.1 }
-.top-project-main-row { display: flex; align-items: center; gap: 6px; min-width: 0 }
-.top-project-name { font-size: 13px; font-weight: 650; color: var(--text); letter-spacing: -0.01em; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.top-project-icon { color: var(--accent-text); flex-shrink: 0 }
+.top-project-badge-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.top-project-name { font-size: 13.5px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .top-project-slug { font-family: var(--mono); font-size: 11px; color: var(--text-muted); padding: 0 5px; border-radius: 4px; background: var(--bg-subtle); border: 1px solid var(--border) }
 .top-project-chevron { color: var(--text-faint); transition: transform .15s var(--ease) }
 .top-project-chevron.open { transform: rotate(180deg) }
 
-.top-project-dropdown { position: absolute; top: calc(100% + 6px); left: 0; min-width: 260px; max-width: 340px; padding: 6px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--panel); box-shadow: var(--shadow-md); z-index: 60; display: flex; flex-direction: column; gap: 3px; animation: dropdownPop .12s cubic-bezier(0.22, 1, 0.36, 1) }
+.top-project-dropdown { position: absolute; top: calc(100% + 6px); left: 0; transform-origin: top left; min-width: 260px; max-width: 340px; padding: 6px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--panel); box-shadow: var(--shadow-md); z-index: 60; display: flex; flex-direction: column; gap: 3px; animation: dropdownPop .12s cubic-bezier(0.22, 1, 0.36, 1) }
 .top-dropdown-header { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-faint); padding: 6px 10px 4px; letter-spacing: .04em }
 .top-dropdown-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 10px; border-radius: var(--radius-sm); border: 1px solid transparent; background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background .12s var(--ease) }
 .top-dropdown-item:hover { background: var(--panel-hover) }
@@ -126,7 +125,6 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 .ov-bar i { display: block; height: 100%; background: var(--accent) }
 .ov-head { font-size: 12px; color: var(--text-faint); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center }
 
-.sb-user { display: flex; align-items: center; gap: 6px; padding: 0 2px 0 6px }
 .sb-user-email { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-muted) }
 .login { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--bg); color: var(--text) }
 .login-card { width: min(380px, 100%); padding: 28px 24px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-md) }
@@ -205,6 +203,8 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 .pb-h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.2; color: var(--text); text-wrap: balance }
 .pb-subtitle { margin: 0; max-width: 70ch; font-size: 13.5px; line-height: 1.45; color: var(--text-muted); text-wrap: pretty }
 .pb-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.pb-cta-narrow { display: none }
+@media (max-width: 900px) { .pb-cta-narrow { display: inline-flex } }
 
 /* Apple-style Grouped Telemetry Strip: 1px gap over var(--border) so no empty cells or hanging border seams ever appear */
 .pb-telemetry-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1px; border: 1px solid var(--border);
@@ -220,25 +220,20 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 .pb-telemetry-bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; transition: width .25s cubic-bezier(0.22, 1, 0.36, 1) }
 .pb-telemetry-sub { font-size: 12px; line-height: 1.45; color: var(--text-faint); font-variant-numeric: tabular-nums }
 
-/* Apple Segmented Filter Pills */
-.pb-filter-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--border) }
-.pb-filter-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--border);
-  background: var(--panel); color: var(--text-muted); font: 500 12.5px var(--font); cursor: pointer;
-  transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease), transform 100ms ease-out }
-.pb-filter-pill:hover { color: var(--text); background: var(--panel-hover) }
-.pb-filter-pill:active { transform: scale(0.97) }
-.pb-filter-pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); font-weight: 600 }
-.pb-filter-count { font: 600 11.5px var(--mono); font-variant-numeric: tabular-nums; opacity: .85 }
 
 /* Project Section Container & Responsive Auto-Fit Lane Grid (Stretches 2 lanes to 50%/50% with zero empty whitespace) */
-.pb-project-list { display: grid; gap: 22px }
-.pb-project-section { border: 1px solid var(--border); border-radius: 12px; background: var(--border); overflow: hidden; box-shadow: var(--shadow-sm); display: grid; gap: 1px }
+.pb-project-list { display: grid; gap: 22px; min-width: 0 }
+/* Grid/flex children default to min-width:auto and grow to their longest unbreakable line (branch names,
+   repo URLs); every level here must be allowed to shrink so ellipses work instead of clipping. */
+.pb-project-section > *, .pb-lanes-grid > *, .pb-lane-card > * { min-width: 0 }
+.pb-project-section { border: 1px solid var(--border); border-radius: 12px; background: var(--border); overflow: hidden; box-shadow: var(--shadow-sm); display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; min-width: 0 }
 .pb-project-head { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; padding: 15px 20px; background: var(--bg-subtle); flex-wrap: wrap }
-.pb-project-identity { display: flex; align-items: center; gap: 12px; min-width: 0 }
+.pb-project-identity { display: flex; align-items: center; gap: 12px; min-width: 0; max-width: 100% }
+.pb-project-identity > div { min-width: 0 }
 .pb-project-icon { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); flex: none; color: var(--accent-text) }
 .pb-project-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.pb-project-name { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -0.015em; color: var(--text) }
-.pb-project-slug { font: 500 11.5px var(--mono); color: var(--text-muted); padding: 1px 7px; border-radius: 5px; background: var(--panel); border: 1px solid var(--border) }
+.pb-project-name { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: 16px; font-weight: 650; letter-spacing: -0.015em; color: var(--text) }
+.pb-project-slug { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11.5px var(--mono); color: var(--text-muted); padding: 1px 7px; border-radius: 5px; background: var(--panel); border: 1px solid var(--border) }
 .pb-project-repo { display: flex; align-items: center; gap: 5px; margin-top: 3px; font-size: 12px; color: var(--text-faint); min-width: 0 }
 .pb-project-repo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .pb-project-metrics { display: flex; align-items: center; gap: 16px; flex-wrap: wrap }
@@ -252,8 +247,8 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 .pb-pm-divider { width: 1px; height: 26px; background: var(--border) }
 
 /* Apple-style Equal-Fill Grid: repeat(auto-fit, minmax(320px, 1fr)) + gap: 1px over var(--border) */
-.pb-lanes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1px; background: var(--border) }
-.pb-lane-card { display: grid; align-content: space-between; gap: 12px; padding: 18px 20px; background: var(--panel); text-align: left; font: inherit; color: var(--text); cursor: pointer;
+.pb-lanes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 1px; background: var(--border) }
+.pb-lane-card { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; align-content: space-between; gap: 12px; padding: 18px 20px; background: var(--panel); text-align: left; font: inherit; color: var(--text); cursor: pointer;
   min-width: 0; transition: background .15s var(--ease), transform 100ms ease-out }
 .pb-lane-card:hover { background: var(--panel-hover) }
 .pb-lane-card:active { transform: scale(0.992) }
@@ -286,13 +281,12 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 }
 
 @media (pointer: coarse) {
-  .pb-filter-pill { min-height: 44px; padding: 0 16px }
   .lh-back-btn { min-height: 44px; padding: 0 12px }
   .lh-meta a { min-height: 44px; min-width: 44px }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pb-lane-card:active, .pb-filter-pill:active, .btn:active:not(:disabled) { transform: none !important }
+  .pb-lane-card:active, .btn:active:not(:disabled) { transform: none !important }
   .sidebar, .sb-scrim { transition: opacity .15s ease !important }
 }
 @media (max-width: 900px) and (prefers-reduced-transparency: reduce) {

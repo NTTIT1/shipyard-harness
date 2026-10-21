@@ -58,7 +58,7 @@ try {
   ok((await p.inputValue('#wz-req')).includes('1000 user'), 'requirements carried to the architect');
   await next.click();
   ok(await m.locator('.wf-preset.on').textContent() === 'Plan → Code → Test', 'advised workflow pre-selected');
-  ok(await m.locator('.wf-chip').allTextContents().then(t => t.join(' → ')) === 'Plan — Kiến trúc → Lập trình → Kiểm thử', 'only Plan → Code → Test runs');
+  ok(await m.locator('.wf-chip > span:not(.wf-chip-mode)').allTextContents().then(t => t.join(' → ')) === 'Plan — Kiến trúc → Lập trình → Kiểm thử', 'only Plan → Code → Test runs');
   await shot(p, 'ad2-workflow');
   await next.click();
   const aiTeam = m.getByRole('checkbox', { name: /AI Manager/ });

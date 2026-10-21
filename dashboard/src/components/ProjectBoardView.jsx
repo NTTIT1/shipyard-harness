@@ -167,10 +167,8 @@ export default function ProjectBoardView({
       {/* Top Header */}
       <header className="pb-header">
         <div className="pb-header-titles">
-          <h1 id="pb-title" className="pb-h1">Bảng điều khiển Dự án & Lanes</h1>
-          <p className="pb-subtitle">
-            Theo dõi tiến độ trung bình, chi phí thực tế và trạng thái tất cả các AI Lane theo từng dự án.
-          </p>
+          <h1 id="pb-title" className="pb-h1">Tổng quan</h1>
+          <p className="pb-subtitle">Tiến độ, chi phí và trạng thái các lane, gom theo dự án.</p>
         </div>
         <div className="pb-header-actions">
           {canScaffold && (
@@ -179,9 +177,10 @@ export default function ProjectBoardView({
             </Button>
           )}
           <Button variant="secondary" icon={Server} onClick={onAddLane}>
-            Thêm Lane
+            Thêm lane
           </Button>
-          <Button variant="primary" icon={Plus} onClick={() => onAssign(null)}>
+          {/* The sidebar carries this action on wide screens; phones only see it here. */}
+          <Button variant="primary" icon={Plus} className="pb-cta-narrow" onClick={() => onAssign(null)}>
             Giao việc mới
           </Button>
         </div>
@@ -192,7 +191,7 @@ export default function ProjectBoardView({
         <div className="pb-telemetry-cell">
           <span className="pb-telemetry-label">
             <FolderKanban size={14} aria-hidden="true" />
-            <span>Phạm vi đang xem</span>
+            <span>Đang xem</span>
           </span>
           <div className="pb-telemetry-main">
             <span className="pb-telemetry-val">
@@ -208,7 +207,7 @@ export default function ProjectBoardView({
         <div className="pb-telemetry-cell">
           <span className="pb-telemetry-label">
             <Gauge size={14} aria-hidden="true" />
-            <span>Tiến độ toàn bộ dự án</span>
+            <span>Tiến độ trung bình</span>
           </span>
           <div className="pb-telemetry-main">
             <span className="pb-telemetry-val">{scopeMetrics.avgProg != null ? `${scopeMetrics.avgProg}%` : '—'}</span>
@@ -226,41 +225,17 @@ export default function ProjectBoardView({
         <div className="pb-telemetry-cell">
           <span className="pb-telemetry-label is-cost">
             <Coins size={14} aria-hidden="true" />
-            <span>Tổng chi phí dự án</span>
+            <span>Chi phí tháng này</span>
           </span>
           <div className="pb-telemetry-main">
             <span className="pb-telemetry-val">{fmtVnd(scopeMetrics.totalVnd)}</span>
             <span className="pb-telemetry-badge">{fmtUsd(scopeMetrics.totalUsd)} API</span>
           </div>
           <span className="pb-telemetry-sub">
-            Tổng hợp chi phí thực tế từ tất cả các lane thuộc phạm vi
+            Tổng các lane đang xem
           </span>
         </div>
       </div>
-
-      {/* Project Filter Pills when multiple projects exist */}
-      {projects.length > 0 && (
-        <div className="pb-filter-bar" role="group" aria-label="Lọc theo dự án">
-          <button
-            type="button"
-            aria-pressed={!activeProjectId || activeProjectId === 'ALL'}
-            className={`pb-filter-pill${(!activeProjectId || activeProjectId === 'ALL') ? ' on' : ''}`}
-            onClick={() => onSelectProject('ALL')}>
-            <span>Tất cả dự án</span>
-            <span className="pb-filter-count">{projects.length}</span>
-          </button>
-          {projects.map(p => (
-            <button
-              key={p.id}
-              type="button"
-              aria-pressed={activeProjectId === p.id}
-              className={`pb-filter-pill${activeProjectId === p.id ? ' on' : ''}`}
-              onClick={() => onSelectProject(p.id)}>
-              <span>{p.name}</span>
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Project Sections & Multi-Lane Cards */}
       <div className="pb-project-list">

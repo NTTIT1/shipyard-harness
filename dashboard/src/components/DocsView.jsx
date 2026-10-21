@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   ChevronDown, ChevronRight, Download, History, PencilLine,
-  FileText, FolderKanban, Search, Calendar, Layers
+  FileText, Search, Calendar, Layers
 } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
@@ -163,7 +163,7 @@ function StepCard({ runId, title, row, users, onHistory }) {
   );
 }
 
-export default function DocsView({ initialRunId, onOpenRun }) {
+export default function DocsView({ initialRunId, onOpenRun, activeProjectId, onSelectProject }) {
   const [projects, setProjects] = useState([]);
   const [pid, setPid] = useState('');
   const [runs, setRuns] = useState([]);
@@ -178,15 +178,24 @@ export default function DocsView({ initialRunId, onOpenRun }) {
       try {
         const ps = await platform.projects();
         setProjects(ps);
-        let p = ps[0]?.id || '';
+        // Follow the project picked in the header; a run opened from elsewhere brings its own project.
+        let p = ps.some(x => x.id === activeProjectId) ? activeProjectId : ps[0]?.id || '';
         if (initialRunId) {
           const v = await platform.run(initialRunId);
           p = v.run.projectId || p;
         }
         setPid(p);
+        if (p && p !== activeProjectId) onSelectProject?.(p);
       } catch (e) { setErr(e.message); }
     })();
-  }, [initialRunId]);
+  }, [initialRunId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The header switcher changed project: show that project's documents.
+  useEffect(() => {
+    if (activeProjectId && activeProjectId !== 'ALL' && projects.some(x => x.id === activeProjectId) && activeProjectId !== pid) {
+      setPid(activeProjectId); setRunId('');
+    }
+  }, [activeProjectId, projects]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!pid) return;
@@ -221,26 +230,13 @@ export default function DocsView({ initialRunId, onOpenRun }) {
         <div className="dc-header-titles">
           <h1 id="dc-title" className="rv-h1">
             <FileText size={20} strokeWidth={1.85} style={{ color: 'var(--accent-text)' }} />
-            <span>Tài liệu & Đặc tả quy trình</span>
+            <span>Tài liệu đã duyệt</span>
           </h1>
           <p className="rv-page-desc">
-            Tra cứu toàn bộ tài liệu PRD, BA, Kiến trúc, Thiết kế và Bộ luật AI đã duyệt của từng tính năng trong dự án.
+            Yêu cầu, nghiệp vụ, kế hoạch, thiết kế và luật AI đã duyệt — theo từng tính năng của dự án đang xem.
           </p>
         </div>
 
-        {projects.length > 0 && (
-          <div className="dc-project-select-wrap">
-            <FolderKanban size={15} style={{ color: 'var(--accent-text)', flexShrink: 0 }} />
-            <span className="dc-project-select-label">Dự án:</span>
-            <select
-              className="dc-project-select"
-              aria-label="Dự án"
-              value={pid}
-              onChange={e => { setPid(e.target.value); setRunId(''); }}>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name} ({p.slug})</option>)}
-            </select>
-          </div>
-        )}
       </div>
 
       {err && <p className="m-err">{err}</p>}

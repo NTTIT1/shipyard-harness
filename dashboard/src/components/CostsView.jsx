@@ -85,7 +85,7 @@ export default function CostsView() {
   return (
     <section className="rv-page ct-page" aria-labelledby="ct-title">
       <div className="ct-head">
-        <h1 id="ct-title" className="rv-h1">Chi phí & Tiến độ toàn dự án</h1>
+        <h1 id="ct-title" className="rv-h1">Chi phí & hạn mức</h1>
         <select className="msel" aria-label="Tháng" value={data.month} onChange={e => setMonth(e.target.value)}>
           {months.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
@@ -94,14 +94,14 @@ export default function CostsView() {
 
       <div className="ct-tiles">
         <Tile
-          label="Tổng chi phí cả dự án (tháng này)"
+          label="Chi phí tháng này"
           value={fmtVnd(t.vnd)}
           pct={qMonth.usdPct}
           tone={pctTone(qMonth.usdPct)}
           sub={data.settings.planFeeVnd > 0 ? `phân bổ từ phí gói · ${qMonth.usdPct}% hạn mức` : `đã dùng ${qMonth.usdPct}% hạn mức tháng (${fmtUsd(qMonth.limitUsd)})`}
         />
         <Tile
-          label="Tiến độ toàn bộ dự án"
+          label="Tiến độ trung bình"
           value={projProg != null ? `${projProg}%` : '—'}
           pct={projProg != null ? projProg : 0}
           tone={projProg === 100 ? 'ok' : undefined}

@@ -46,7 +46,7 @@ try {
   await shot(p, 'wf1-default');
 
   await p.getByRole('button', { name: 'Plan → Code → Test' }).click();
-  ok(await p.locator('.wf-chip').allTextContents().then(t => t.join(' → ')) === 'Plan — Kiến trúc → Lập trình → Kiểm thử', 'preset shows Plan → Code → Test');
+  ok(await p.locator('.wf-chip > span:not(.wf-chip-mode)').allTextContents().then(t => t.join(' → ')) === 'Plan — Kiến trúc → Lập trình → Kiểm thử', 'preset shows Plan → Code → Test');
   // fine-tune: bring PM back (approved automatically) and DRAG it above Plan
   await p.getByRole('radiogroup', { name: 'Chế độ bước PM — Yêu cầu' }).getByText('Tự duyệt').click();
   const grip = p.locator('[data-grip="PM"]');
@@ -76,7 +76,7 @@ try {
 
   await p.reload(); await p.waitForSelector('.sb-user');
   await openWorkflow();
-  ok(await p.locator('.wf-chip').allTextContents().then(t => t.join(' → ')) === 'PM — Yêu cầu → Plan — Kiến trúc → Lập trình → Kiểm thử', 'after reload the page shows the saved workflow');
+  ok(await p.locator('.wf-chip > span:not(.wf-chip-mode)').allTextContents().then(t => t.join(' → ')) === 'PM — Yêu cầu → Plan — Kiến trúc → Lập trình → Kiểm thử', 'after reload the page shows the saved workflow');
   await shot(p, 'wf4-after-reload');
 
   // A new feature run (what a lane does at /ship-feature start) follows the project's workflow.

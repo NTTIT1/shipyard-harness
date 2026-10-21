@@ -1,10 +1,14 @@
 /* Costs screen. Single-series marks use --accent (validated vs light & dark surfaces). */
 .ct-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap }
-.ct-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr)); gap: 10px }
-.ct-tile { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel) }
+.ct-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 1px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--border); overflow: hidden }
+/* One telemetry strip (hairline-divided), not seven floating cards; it reflows without orphans. */
+.ct-tile { display: grid; align-content: start; gap: 4px; padding: 14px 16px; background: var(--panel); min-width: 0 }
 .ct-tile-label { font-size: 12px; color: var(--text-muted) }
-.ct-tile-value { font-size: 20px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums }
-.ct-tile-value.tone-danger { color: var(--danger-text) } .ct-tile-value.tone-warn { color: var(--warn-text) } .ct-tile-value.tone-ok { color: var(--ok-text) }
+.ct-tile-value { font-size: 20px; font-weight: 600; letter-spacing: -0.015em; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere }
+.ct-tile-value.tone-danger { color: var(--danger-text) } .ct-tile-value.tone-warn { color: var(--warn-text) }
+/* "within budget" is the normal state: the bar says it, the number stays neutral. */
+.ct-tile-value.tone-ok { color: var(--text) }
 .ct-tile-sub { font-size: 12px; color: var(--text-faint) }
 .ct-chart { margin: 0; display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius) }
 .ct-chart-title { font-size: 13px; color: var(--text-muted) }

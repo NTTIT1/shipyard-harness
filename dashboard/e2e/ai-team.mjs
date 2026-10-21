@@ -39,7 +39,7 @@ const approveLatest = async () => {
 };
 
 try {
-  await p.getByRole('button', { name: 'Dự án' }).click();
+  await p.locator('.sb-nav-item', { hasText: 'Tổng quan & thành viên' }).click();
   await p.getByRole('button', { name: /Kho cũ thử/ }).click();
   await p.getByRole('tab', { name: 'Đội AI' }).click();
   await p.getByText('Dự án chưa có đội AI').waitFor({ timeout: 120_000 });
@@ -63,7 +63,7 @@ try {
   ok(git('show', 'develop:.shipyard/rules/project.md') === docs['project.md'].trim(), 'approved in the review screen → rules pushed to origin develop');
 
   // A person's edit: DEVOPS reads dev.md too, a new security rule file, and material for the AI.
-  await p.getByRole('button', { name: 'Dự án' }).click();
+  await p.locator('.sb-nav-item', { hasText: 'Tổng quan & thành viên' }).click();
   await p.getByRole('button', { name: /Kho cũ thử/ }).click();
   await p.getByRole('tab', { name: 'Đội AI' }).click();
   await p.locator('.tm-matrix').waitFor();

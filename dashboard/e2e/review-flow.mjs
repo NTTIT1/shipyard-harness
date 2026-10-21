@@ -57,7 +57,7 @@ ok(next.mode === 'REVISE' && next.editedDocuments['spec.md'].includes('AC-2'), '
 await submitPm(next.editedDocuments['spec.md'] + '- AC-3 nút có trên mọi trang\n');
 
 // Open the run from Projects → Tính năng (no approvalId): the decision buttons must still be there.
-await page.getByRole('button', { name: 'Dự án' }).click();
+await page.locator('.sb-nav-item', { hasText: 'Tổng quan & thành viên' }).click();
 await page.getByRole('button', { name: PNAME }).click();
 await page.getByRole('tab', { name: 'Tính năng' }).click();
 await page.getByRole('button', { name: 'Đăng xuất (UI e2e)' }).click();
@@ -76,7 +76,7 @@ const apr = (await (await fetch(`${GW}/api/v1/runs/${run.id}`, { headers: A })).
 const dup = await page.evaluate(async id => (await fetch(`/api/platform/approvals/${id}/decision`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"action":"APPROVE"}' })).status, apr);
 ok(dup === 409, 'a second decision on a closed gate is a 409');
 
-await page.getByRole('button', { name: 'Dự án' }).click();
+await page.locator('.sb-nav-item', { hasText: 'Tổng quan & thành viên' }).click();
 await page.getByRole('button', { name: PNAME }).click();
 await page.getByRole('tab', { name: 'Thành viên' }).waitFor();
 await page.getByLabel('Email thành viên mới').fill('khong-ton-tai@x.io');

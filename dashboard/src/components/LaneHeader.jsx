@@ -42,7 +42,7 @@ export default function LaneHeader({ lane, projectName, archived, onBackToBoard,
           <div className="lh-Subnav">
             <button type="button" className="lh-back-btn" onClick={onBackToBoard}>
               <ArrowLeft size={13} />
-              <span>Bảng điều khiển Dự án & Lanes</span>
+              <span>Tổng quan</span>
             </button>
             {projectName && (
               <>

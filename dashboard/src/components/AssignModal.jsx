@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Play } from 'lucide-react';
 import Modal from './Modal.jsx';
-import Badge from './ui/Badge.jsx';
 import StepModels from './StepModels.jsx';
 import { fetchProviders, fetchSpecs, assignLane, saveLaneModelDefaults } from '../lib/api.js';
 import { STEPS, STEP_LABEL } from '../lib/review.js';
@@ -78,39 +77,45 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
             </span>
           </div>
           {mode === 'new'
-            ? <textarea className="req" rows={5} value={text} onChange={e => setText(e.target.value)}
-                placeholder="Mô tả tính năng cần làm…" />
+            ? <textarea className="req" rows={5} value={text} onChange={e => setText(e.target.value)} aria-label="Mô tả tính năng"
+                placeholder="Mô tả tính năng cần làm: ai dùng, làm được gì, điều kiện xong…" />
             : <select className="msel" aria-label="Spec có sẵn" value={spec} onChange={e => setSpec(e.target.value)}>
                 {specs.map(s => <option key={s} value={s}>{s}</option>)}
               </select>}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 14, marginBottom: 8 }}>
-            <div className="m-l" style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <span>AI từng bước (cho tính năng này & Lane {lane})</span>
-              <Badge tone={hasLaneCustom ? 'accent' : 'neutral'}>
-                {hasLaneCustom ? `Theo cấu hình riêng Lane ${lane}` : 'Theo mặc định chung'}
-              </Badge>
+          {/* The common path is lane + request → Start; per-step AI and workflow are one level deeper. */}
+          <details className="am-advanced">
+            <summary>
+              <span className="am-adv-title">Tuỳ chỉnh AI & quy trình cho tính năng này</span>
+              <span className="am-adv-sum">
+                {hasLaneCustom ? `cấu hình riêng Lane ${lane}` : 'mặc định chung'}
+                {' · '}{Object.values(gates).filter(Boolean).length ? `${Object.values(gates).filter(Boolean).length} bước đổi quy trình` : 'quy trình theo dự án'}
+              </span>
+            </summary>
+            <div className="am-adv-body">
+              <div className="am-adv-row">
+                <span className="m-l" style={{ margin: 0 }}>AI từng bước</span>
+                <label className="am-check">
+                  <input type="checkbox" checked={saveAsLaneDef} onChange={e => setSaveAsLaneDef(e.target.checked)} />
+                  Lưu làm mặc định riêng cho Lane {lane}
+                </label>
+              </div>
+              {info && models && <StepModels info={info} value={models} onChange={setModels} />}
+              <div className="m-l" style={{ marginTop: 14 }}>Quy trình</div>
+              <div className="gate-grid">
+                {STEPS.map(s => (
+                  <label key={s}>{STEP_LABEL[s]}
+                    <select className="msel" value={gates[s] || ''} onChange={e => setGates(g => ({ ...g, [s]: e.target.value }))}>
+                      <option value="">Theo dự án</option>
+                      <option value="REQUIRED">Cần người duyệt</option>
+                      <option value="AUTO">Tự duyệt</option>
+                      {s !== 'DEV' && <option value="SKIP">Bỏ bước</option>}
+                    </select>
+                  </label>
+                ))}
+              </div>
+              <p className="m-hint">“Theo dự án” dùng quy trình ở <b>Quy trình &amp; duyệt</b>. Code chỉ bắt đầu khi mọi bước trước đã qua.</p>
             </div>
-            <label style={{ fontSize: 12, color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
-              <input type="checkbox" checked={saveAsLaneDef} onChange={e => setSaveAsLaneDef(e.target.checked)} />
-              Lưu làm mặc định riêng cho Lane {lane}
-            </label>
-          </div>
-          {info && models && <StepModels info={info} value={models} onChange={setModels} />}
-          <div className="m-l" style={{ marginTop: 14 }}>Quy trình cho tính năng này</div>
-          <div className="gate-grid">
-            {STEPS.map(s => (
-              <label key={s}>{STEP_LABEL[s]}
-                <select className="msel" value={gates[s] || ''} onChange={e => setGates(g => ({ ...g, [s]: e.target.value }))}>
-                  <option value="">Theo dự án</option>
-                  <option value="REQUIRED">Cần người duyệt</option>
-                  <option value="AUTO">Tự duyệt</option>
-                  {s !== 'DEV' && <option value="SKIP">Bỏ bước</option>}
-                </select>
-              </label>
-            ))}
-          </div>
-          <p className="m-hint">“Theo dự án” dùng quy trình đặt ở tab <b>Quy trình &amp; duyệt</b> của dự án. Chọn khác để đổi riêng cho tính năng này;
-            tick “Lưu làm mặc định riêng cho Lane {lane}” để lane này lần sau tự chọn như vậy. Lập trình chỉ bắt đầu khi mọi bước trước đã được duyệt.</p>
+          </details>
         </>
       )}
       {error && <p className="m-err">{error}</p>}
