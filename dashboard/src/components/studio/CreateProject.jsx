@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Rocket } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import WorkflowEditor from '../projects/WorkflowEditor.jsx';
@@ -13,11 +13,44 @@ export default function CreateProject({ s, act }) {
   const [name, setName] = useState(s.title);
   const [slug, setSlug] = useState(slugify(s.title));
   const [git, setGit] = useState({ provider: 'local', owner: '', ownerLabel: '', visibility: 'private' });
-  const [workflow, setWorkflow] = useState((WORKFLOW_PRESETS.find(p => p.id === advice?.workflow) || WORKFLOW_PRESETS[0]).steps);
+  const fromServer = s.docs.workflow || (WORKFLOW_PRESETS.find(p => p.id === advice?.workflow) || WORKFLOW_PRESETS[0]).steps;
+  const [workflow, setWorkflowState] = useState(fromServer);
+  const [saveState, setSaveState] = useState(''); // '' | 'saving' | 'saved' | error text
+  const pending = useRef(null);
+  const lastSent = useRef(JSON.stringify(fromServer));
   const [aiTeam, setAiTeam] = useState(true);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { scaffold.catalog().then(setCatalog, () => {}); }, []);
+
+  // The AI edits the same workflow in the chat: take its version unless the person has an unsaved edit.
+  const serverKey = JSON.stringify(s.docs.workflow || null);
+  useEffect(() => {
+    if (!s.docs.workflow || pending.current || serverKey === lastSent.current) return;
+    lastSent.current = serverKey;
+    setWorkflowState(s.docs.workflow);
+  }, [serverKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Hand edits are saved to the idea (shortly after the last change) so the AI and a reload see them.
+  const setWorkflow = w => {
+    setWorkflowState(w);
+    if (workflowProblem(w)) return;
+    clearTimeout(pending.current);
+    setSaveState('saving');
+    pending.current = setTimeout(async () => {
+      try {
+        const key = JSON.stringify(w);
+        lastSent.current = key;
+        await studio.setWorkflow(s.id, w);
+        setSaveState('saved');
+      } catch (e) {
+        setSaveState(e.message);
+      } finally {
+        pending.current = null;
+      }
+    }, 700);
+  };
+  useEffect(() => () => clearTimeout(pending.current), []);
 
   if (s.project) return <p className="muted-empty">Dự án đã được tạo — xem tab Plan → Code.</p>;
   if (s.stage !== 'create') return <p className="muted-empty">Duyệt các bước trước để tới bước tạo dự án.</p>;
@@ -49,14 +82,21 @@ export default function CreateProject({ s, act }) {
       </div>
       {catalog && <GitStep git={git} slug={slug} providers={catalog.providers} onChange={g => setGit(x => ({ ...x, ...g }))}
         onProviders={p => setCatalog(c => ({ ...c, providers: p }))} />}
-      <div className="form-label">Quy trình làm tính năng</div>
-      <div className="card-panel wz-wf"><WorkflowEditor value={workflow} onChange={setWorkflow} /></div>
+      <div className="st-wf-head">
+        <span className="form-label">Quy trình làm tính năng</span>
+        <span className="faint" role="status">
+          {s.busy ? 'AI đang sửa quy trình…' : saveState === 'saving' ? 'Đang lưu…' : saveState === 'saved' ? 'Đã lưu' : saveState}
+        </span>
+      </div>
+      <p className="st-wf-hint">Nhắn trong khung chat để AI chỉnh (vd “bước Test dùng Haiku, tối đa 30 phút”), hoặc bấm vào từng bước để tự sửa.</p>
+      {s.docs.workflowError && <p className="m-err">{s.docs.workflowError}</p>}
+      <div className="card-panel wz-wf"><WorkflowEditor value={workflow} onChange={setWorkflow} disabled={s.busy} /></div>
       <label className="wz-check">
         <input type="checkbox" checked={aiTeam} onChange={e => setAiTeam(e.target.checked)} />
         <span>Giao <b>AI Manager</b> soạn luật đội AI từ các tài liệu đã duyệt (bạn duyệt trước khi dùng)</span>
       </label>
       <div className="st-approve">
-        <Button variant="primary" icon={Rocket} disabled={busy || !!problem} onClick={create}>{busy ? 'Đang gửi…' : 'Tạo dự án'}</Button>
+        <Button variant="primary" icon={Rocket} disabled={busy || s.busy || !!problem} onClick={create}>{busy ? 'Đang gửi…' : 'Tạo dự án'}</Button>
         {problem && <span className="faint">{problem}</span>}
       </div>
     </div>

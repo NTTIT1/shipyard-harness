@@ -345,7 +345,7 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 
 
 /* Workflow editor: canvas (left) + step inspector (right), detailed table, six phases */
-.wfe { display: grid; gap: 0; min-width: 0 }
+.wfe { display: grid; gap: 0; min-width: 0; container-type: inline-size; container-name: wfe }
 .wfe-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 10px 18px; border-bottom: 1px solid var(--border) }
 .wfe-bar .wf-presets { padding: 0; border: 0; flex: 1 1 420px }
 .wfe-suggest { display: inline-flex; align-items: center; gap: 5px; border-style: dashed }
@@ -425,7 +425,8 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .wfe-table tr.skip td { color: var(--text-faint) }
 .wfe-work { margin: 0; padding-left: 14px; color: var(--text-muted); line-height: 1.5 }
 
-@media (max-width: 900px) {
+/* Stack canvas over inspector whenever the editor itself is narrow (phone, or beside the studio chat). */
+@container wfe (max-width: 760px) {
   .wfe-split { grid-template-columns: minmax(0, 1fr) }
   .wfc { border-right: 0; border-bottom: 1px solid var(--border) }
 }

@@ -95,6 +95,7 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
   router.post('/api/studio/:id/approve', admin, wrapS(req => chat.approve(req.params.id, req.user, String(req.body?.stage || ''))));
   router.post('/api/studio/:id/skip-ui', admin, wrapS(req => chat.skipUi(req.params.id, req.user)));
   router.post('/api/studio/:id/reopen', admin, wrapS(req => chat.reopen(req.params.id, req.user, String(req.body?.stage || ''))));
+  router.put('/api/studio/:id/workflow', admin, wrapS(req => chat.setWorkflow(req.params.id, req.user, req.body?.workflow)));
   router.post('/api/studio/:id/create', admin, wrapS(req => chat.create(req.params.id, req.user, token(req), req.body || {})));
   router.delete('/api/studio/:id', admin, wrapS(req => chat.remove(req.params.id, req.user)));
 

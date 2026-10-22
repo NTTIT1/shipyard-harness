@@ -121,7 +121,7 @@ function Session({ s, act, onOpenProject, onDeleted }) {
   }, [s.id, s.stage]);
 
   const stageIdx = s.stages.findIndex(x => x.id === s.stage);
-  const chatStage = ['pm', 'system', 'ui'].includes(s.stage);
+  const chatStage = ['pm', 'system', 'ui'].includes(s.stage) || (s.stage === 'create' && !s.project);
   const currentRole = s.stages[stageIdx]?.role;
 
   return (

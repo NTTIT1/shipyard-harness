@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { createStudio, roadmap, turnPrompt } from '../server/services/scaffold/studio.js';
+import { createStudio, roadmap, turnPrompt, normalizeWorkflow, workflowGuide } from '../server/services/scaffold/studio.js';
 
 const ALL = { java: { ok: true, major: 21, version: '21' }, node: { ok: true, major: 22 }, npm: { ok: true, major: 10 },
   git: { ok: true }, uv: { ok: true }, unzip: { ok: true } };
@@ -22,6 +22,11 @@ function fakeClaude(calls, { hasUi = true, fail = null } = {}) {
     let reply = 'Bạn dùng cho bao nhiêu cửa hàng?';
     if (agent === 'studio-pm-agent' && /5 cửa hàng/.test(args[1])) { w('product-brief.md', '# Bán hàng 5 cửa hàng\n\n## Tóm tắt\nPOS.'); reply = 'Mình đã viết bản yêu cầu.'; }
     if (agent === 'studio-architect-agent') { w('stack.json', JSON.stringify({ ...STACK, hasUi })); w('architecture.md', ARCH); reply = 'Đề xuất Spring + React.'; }
+    if (agent === 'studio-workflow-agent' && /Haiku/.test(args[1])) {
+      const wf = JSON.parse(fs.readFileSync(path.join(opts.cwd, 'workflow.json'), 'utf8'));
+      wf.find(x => x.step === 'TEST').config = { model: 'claude:claude-haiku-5-5', timeoutMinutes: 30, onFailure: 'RETRY', maxRetries: 2 };
+      w('workflow.json', JSON.stringify(wf)); reply = 'Test dùng Haiku, 30 phút.';
+    }
     if (agent === 'studio-designer-agent') { w('design.md', '# Giao diện'); w('mockups/01-dang-nhap.html', '<html><body>Đăng nhập</body></html>'); reply = 'Đã vẽ 1 màn hình.'; }
     opts.log(`$ ${cmd} ${args.join(' ')}`);
     opts.log(JSON.stringify({ type: 'result', is_error: false, result: `${reply}\nROLE-STEP: DONE chat` }));
@@ -71,15 +76,33 @@ describe('studio', () => {
     expect(s.docs.mockups.map(m => m.name)).toEqual(['01-dang-nhap.html']);
     s = st.approve(s.id, me, 'ui');
     expect(s.stage).toBe('create');
-    expect(() => st.send(s.id, me, 'x')).toThrow(/không trò chuyện/);
+    expect(s.messages.at(-1).text).toContain('Bước cuối');
+    // The advised preset is the starting workflow; the chat at "Tạo dự án" changes it in workflow.json.
+    expect(s.docs.workflow.map(w => `${w.step}:${w.mode}`)).toEqual(['ARCH:REQUIRED', 'PM:SKIP', 'BA:SKIP', 'DESIGN:SKIP', 'DEV:AUTO', 'TEST:AUTO']);
+    st.send(s.id, me, 'Bước Test dùng Haiku, tối đa 30 phút, lỗi thì thử lại 2 lần');
+    await until(() => !st.isBusy(s.id));
+    expect(calls.at(-1).agent).toBe('studio-workflow-agent');
+    expect(fs.readFileSync(path.join(calls.at(-1).cwd, 'workflow-guide.md'), 'utf8')).toContain('claude:claude-haiku-5-5');
+    s = st.get(s.id, me);
+    expect(s.docs.workflowSaved).toBe(true);
+    expect(s.docs.workflow.find(w => w.step === 'TEST').config).toEqual({ model: 'claude:claude-haiku-5-5', timeoutMinutes: 30, onFailure: 'RETRY', maxRetries: 2 });
+    // …and by hand: the ARCH step gets a minute limit (bad values are bounded, unknown keys dropped)
+    const hand = s.docs.workflow.map(w => (w.step === 'ARCH' ? { ...w, config: { timeoutMinutes: 9999, junk: 1 } } : w));
+    s = st.setWorkflow(s.id, me, hand);
+    expect(s.docs.workflow.find(w => w.step === 'ARCH').config).toEqual({ timeoutMinutes: 480 });
+    expect(() => st.setWorkflow(s.id, me, hand.filter(w => w.step !== 'DEV'))).toThrow(/đủ 6 bước/);
 
-    s = st.create(s.id, me, 'tok', { name: 'Bán hàng', slug: 'ban-hang', workflow: null, git: { provider: 'local' }, aiTeam: false });
+    s = st.create(s.id, me, 'tok', { name: 'Bán hàng', slug: 'ban-hang', git: { provider: 'local' }, aiTeam: false });
     expect(s.stage).toBe('build');
     const { spec, token } = started[0];
     expect(token).toBe('tok');
     expect(spec).toMatchObject({ slug: 'ban-hang', kind: 'fullstack', stack: 'java-spring', frontend: { stack: 'ts-react-vite' } });
     expect(Object.keys(spec.docs)).toEqual(['docs/product-brief.md', 'docs/architecture.md', 'docs/design/design.md', 'docs/design/mockups/01-dang-nhap.html']);
     expect(spec.brief).toContain('Bán hàng 5 cửa hàng');
+    expect(spec.workflow.find(w => w.step === 'TEST').config.model).toBe('claude:claude-haiku-5-5');   // the chat's workflow
+    expect(spec.workflow.find(w => w.step === 'ARCH').config).toEqual({ timeoutMinutes: 480 });
+    expect(() => st.send(s.id, me, 'x')).toThrow(/không trò chuyện/);
+    expect(() => st.setWorkflow(s.id, me, hand)).toThrow(/đã được tạo/);
     expect(st.get(s.id, me).project.projectId).toBe('proj_9');
   });
 
@@ -131,6 +154,14 @@ describe('studio', () => {
     expect(st.list(me).map(x => x.id)).toEqual([s.id]);
     st.remove(s.id, me);
     expect(st.list(me)).toEqual([]);
+  });
+
+  it('normalizes a workflow written by the AI', () => {
+    const base = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'].map(step => ({ step, mode: 'REQUIRED' }));
+    const w = normalizeWorkflow({ steps: base.map(x => (x.step === 'DEV' ? { ...x, config: { model: 'bad model', condition: 'HAS_UI', maxRetries: 2 } } : x)) });
+    expect(w.find(x => x.step === 'DEV').config).toEqual({ maxRetries: 2 });   // bad model + DEV condition dropped
+    expect(() => normalizeWorkflow(base.map(x => (x.step === 'DEV' ? { ...x, mode: 'SKIP' } : x)))).toThrow(/bỏ bước Code/);
+    expect(workflowGuide()).toContain('PREV_PASSED');
   });
 
   it('helpers', () => {

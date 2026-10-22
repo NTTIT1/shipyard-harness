@@ -32,13 +32,13 @@ try {
   await p.getByText('Bạn muốn làm sản phẩm gì?').waitFor();
   await shot(p, 'st1-new');
   await p.getByLabel('Ý tưởng sản phẩm').fill('Tôi cần hệ thống bán hàng khoảng 1000 user');
-  await p.getByRole('button', { name: 'Gửi cho AI PM' }).click();
+  await p.getByRole('button', { name: 'Bắt đầu với AI PM' }).click();
   await p.getByText('Bạn có bao nhiêu cửa hàng?').waitFor({ timeout: 60_000 });
   ok(true, 'AI PM answers the idea with a question');
   sessionId = (await api('GET', '/api/studio')).body[0].id;
 
   await p.getByLabel('Nhắn cho AI').fill('5 cửa hàng thời trang, bán tại quầy và online');
-  await p.getByRole('button', { name: 'Gửi', exact: true }).click();
+  await p.getByRole('button', { name: 'Gửi tin nhắn' }).click();
   await p.getByText('Mình đã viết bản yêu cầu', { exact: false }).waitFor({ timeout: 60_000 });
   await p.locator('.st-doc-body').getByText('Bán hàng cho 5 cửa hàng.').waitFor();
   ok(true, 'the brief appears next to the chat');
@@ -52,7 +52,7 @@ try {
   await p.getByRole('button', { name: 'Duyệt thiết kế hệ thống' }).click();
 
   await p.getByText('Đã vẽ 1 màn hình.').waitFor({ timeout: 60_000 });
-  const frame = p.frameLocator('iframe.st-mock');
+  const frame = p.frameLocator('iframe.st-mock-iframe');
   await frame.getByText('Màn hình thử').waitFor();
   ok(true, 'designer: mockup rendered (sandboxed)');
   await shot(p, 'st4-ui');
@@ -62,10 +62,23 @@ try {
   await p.fill('#st-name', 'Bán hàng chat');
   await p.fill('#st-slug', slug);
   ok(await p.locator('.wf-preset.on').textContent() === 'Plan → Code → Test', 'workflow pre-selected from the advice');
+  ok(await p.getByLabel('Nhắn cho AI').isEnabled(), 'the chat stays open at "Tạo dự án"');
+  // Configure the workflow right in the chat, then one field by hand.
+  await p.getByLabel('Nhắn cho AI').fill('Bước Test dùng Haiku, tối đa 30 phút, lỗi thì thử lại 2 lần');
+  await p.getByRole('button', { name: 'Gửi tin nhắn' }).click();
+  await p.getByText('Đã đổi: bước Test dùng Haiku').waitFor({ timeout: 60_000 });
+  await p.locator('.wfc-node', { hasText: 'Haiku' }).waitFor({ timeout: 10_000 });
+  ok(true, 'the chat changed the workflow (Test on Haiku) and the editor shows it');
+  await p.locator('.wfc-node', { hasText: 'Plan — Kiến trúc' }).click();
+  await p.locator('[id^="wfi-ARCH-time"]').fill('45');
+  await p.getByText('Đã lưu').waitFor({ timeout: 10_000 });
+  const saved = (await api('GET', `/api/studio/${sessionId}`)).body.docs.workflow;
+  ok(saved.find(w => w.step === 'ARCH').config?.timeoutMinutes === 45 && saved.find(w => w.step === 'TEST').config?.model === 'claude:claude-haiku-5-5',
+    'hand edit saved on the idea next to the chat edit');
   const aiTeam = p.getByRole('checkbox', { name: /AI Manager/ });
   if (await aiTeam.isChecked()) await aiTeam.uncheck();
   await shot(p, 'st5-create');
-  await p.getByRole('button', { name: 'Tạo dự án' }).click();
+  await p.getByRole('button', { name: 'Tạo dự án', exact: true }).click();
 
   await p.getByRole('heading', { name: 'Lộ trình tính năng' }).waitFor({ timeout: 30_000 });
   const done = await (async () => {
@@ -86,6 +99,8 @@ try {
     'every approved document committed under docs/');
   const wf = (await api('GET', `/api/platform/projects/${projectId}/workflow`)).body.data;
   ok(wf.filter(w => w.mode !== 'SKIP').map(w => w.step).join() === 'ARCH,DEV,TEST', 'project workflow is Plan → Code → Test');
+  ok(wf.find(w => w.step === 'TEST').config?.model === 'claude:claude-haiku-5-5' && wf.find(w => w.step === 'ARCH').config?.timeoutMinutes === 45,
+    'the project got the workflow settings made in the chat');
   await p.reload(); await p.waitForSelector('.sb-user');
   await p.locator('.sb-nav-item', { hasText: 'Ý tưởng sản phẩm' }).click();
   await p.locator('.st-item').first().click();

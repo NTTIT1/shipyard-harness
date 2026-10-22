@@ -6,23 +6,30 @@ import { HARNESS_ROOT } from '../config.js';
 import { run as runCmd, readText } from './util.js';
 import { parseVerdict, resultLine } from './setup.js';
 import { catalogForPrompt, parseAdvice, PRESET_IDS } from './advise.js';
-import { validateRequest } from './catalog.js';
+import { validateRequest, validateWorkflow } from './catalog.js';
 import { STACKS } from './catalog.js';
+import { CLAUDE_MODELS } from '../providers.js';
+import { WORKFLOW_PRESETS } from '../../../src/lib/review.js';
+import { cleanConfig, CONDITIONS, ON_FAILURE, KNOWN_INPUTS } from '../../../src/lib/workflow.js';
 
 // Product studio: a chat from an idea to a created project. Stage by stage an AI role talks with the
 // person and keeps a document up to date; the person approves it in the chat and the next role starts:
 //   pm (product-brief.md) → system (stack.json + architecture.md) → ui (design.md + mockups/, optional)
 //   → create (the project is generated with every approved document under docs/) → build (roadmap).
+// The project's feature workflow (workflow.json: steps, approvals, per-step model and guardrails) is
+// drafted by the architect and can be changed in the chat until the project is created.
 // Sessions live in run/studio/<id>.json; the documents are files in run/studio/<id>/ (the AI's cwd).
 
 export const STAGES = [
   { id: 'pm', label: 'Yêu cầu sản phẩm', role: 'AI PM', agent: 'studio-pm-agent' },
   { id: 'system', label: 'Tư vấn & thiết kế hệ thống', role: 'AI Kiến trúc sư', agent: 'studio-architect-agent' },
   { id: 'ui', label: 'Thiết kế giao diện', role: 'AI Thiết kế', agent: 'studio-designer-agent' },
-  { id: 'create', label: 'Tạo dự án', role: 'Shipyard' },
+  { id: 'create', label: 'Tạo dự án', role: 'AI Quy trình', agent: 'studio-workflow-agent' },
   { id: 'build', label: 'Plan → Code', role: 'Shipyard' },
 ];
 const STAGE_IDS = STAGES.map(s => s.id);
+const CHAT_STAGES = ['pm', 'system', 'ui', 'create'];
+const MODEL_RE = /^[a-z0-9_-]{1,40}:[A-Za-z0-9._\/:-]{1,120}$/;
 const ID_RE = /^stu_[a-f0-9]{12}$/;
 const MAX_MSG = 8000;
 const MAX_DOC = 200_000;
@@ -40,7 +47,53 @@ const KICKOFF = {
   ui: 'Thiết kế hệ thống đã được duyệt — AI thiết kế bắt đầu vẽ các màn hình chính.',
 };
 
+const CREATE_HINT = 'Bước cuối: xem quy trình làm tính năng bên trái. Muốn đổi gì cứ nhắn, ví dụ "bước Test dùng Haiku, tối đa 30 phút, lỗi thì tự thử lại 2 lần" — hoặc tự sửa trực tiếp, rồi bấm Tạo dự án.';
+
 const bad = (msg, status = 400) => Object.assign(new Error(msg), { status });
+
+/**
+ * A workflow as stored in workflow.json (a list, or { steps: [...] }): order and modes are checked like
+ * the wizard's, per-step settings are bounded like the orchestrator's (unknown or bad values dropped).
+ */
+export function normalizeWorkflow(raw) {
+  const list = Array.isArray(raw) ? raw : raw?.steps;
+  const out = validateWorkflow(list);
+  return out.map(w => {
+    const cfg = cleanConfig(w.step, w.config || {});
+    if (cfg.model && !MODEL_RE.test(cfg.model)) delete cfg.model;
+    const { config, ...rest } = w;
+    return Object.keys(cfg).length ? { ...rest, config: cfg } : rest;
+  });
+}
+
+/** What the AI may put in workflow.json, with the models this machine has. */
+export function workflowGuide(presetText = PRESET_TEXT) {
+  const steps = 'PM, BA, ARCH, DESIGN, DEV, TEST';
+  return [
+    '# Quy trình làm tính năng của dự án (workflow.json)',
+    '',
+    `File \`workflow.json\` là một mảng JSON đủ 6 bước (${steps}), theo thứ tự chạy:`,
+    '```json',
+    '[{"step":"ARCH","mode":"REQUIRED","config":{"model":"claude:claude-opus-5-5","timeoutMinutes":45}},',
+    ' {"step":"PM","mode":"SKIP"}, {"step":"BA","mode":"SKIP"}, {"step":"DESIGN","mode":"SKIP"},',
+    ' {"step":"DEV","mode":"AUTO"},',
+    ' {"step":"TEST","mode":"AUTO","config":{"model":"claude:claude-haiku-5-5","maxRetries":2,"onFailure":"RETRY","condition":"PREV_PASSED"}}]',
+    '```',
+    '- Thứ tự: PM/BA/ARCH/DESIGN (đổi chỗ được với nhau) luôn trước DEV; TEST sau DEV. DEV không được SKIP.',
+    '- mode: REQUIRED = người duyệt sau khi AI làm; AUTO = tự qua khi xanh; SKIP = không chạy bước này.',
+    '- approverRole (khi REQUIRED, tuỳ chọn): OWNER, MAINTAINER, PM, BA, TECH_LEAD, DESIGNER, DEVELOPER, QA.',
+    '- config (tuỳ chọn, chỉ ghi khóa cần đặt):',
+    `  - model: một trong ${CLAUDE_MODELS.map(m => `\`claude:${m.id}\` (${m.label})`).join(', ')}. Bỏ trống = mặc định của lane.`,
+    '  - timeoutMinutes 1–480; budgetVnd 0–1000000000 (₫); maxRetries 0–5 (chỉ có tác dụng khi onFailure = RETRY).',
+    `  - condition: ${CONDITIONS.map(c => `${c.id} (${c.label})`).join(', ')}. DEV luôn ALWAYS.`,
+    `  - onFailure: ${ON_FAILURE.map(c => `${c.id} (${c.label})`).join(', ')}.`,
+    `  - requiredInputs: đường dẫn tương đối, vd ${KNOWN_INPUTS.map(k => k.path).join(', ')}. Tên không có "/" = file trong thư mục spec của tính năng.`,
+    '',
+    'Mẫu có sẵn (điểm bắt đầu):',
+    presetText,
+    '',
+  ].join('\n');
+}
 
 /** Roadmap features from architecture.md's "## Lộ trình tính năng" (numbered or bulleted items). */
 export function roadmap(architecture) {
@@ -109,7 +162,15 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
     const raw = text('stack.json');
     if (raw) { try { advice = parseAdvice(raw, tools(), stacks); } catch (e) { adviceError = e.message; } }
     if (advice) advice.hasUi = readJson(path.join(dir, 'stack.json'), {}).hasUi !== false;
-    return { brief: text('product-brief.md'), architecture: text('architecture.md'), design: text('design.md'), mockups, advice, adviceError };
+    // The workflow: workflow.json once written (by the AI or the person), else the advised preset.
+    let workflow = null, workflowError = null, workflowSaved = false;
+    const wraw = text('workflow.json');
+    if (wraw) {
+      try { workflow = normalizeWorkflow(JSON.parse(wraw)); workflowSaved = true; } catch (e) { workflowError = e.message; }
+    }
+    if (!workflow && advice) workflow = (WORKFLOW_PRESETS.find(p => p.id === advice.workflow) || WORKFLOW_PRESETS[0]).steps;
+    return { brief: text('product-brief.md'), architecture: text('architecture.md'), design: text('design.md'), mockups, advice, adviceError,
+      workflow, workflowError, workflowSaved };
   }
 
   function view(s) {
@@ -137,6 +198,11 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
         fs.writeFileSync(path.join(dir, 'stacks.json'), JSON.stringify(catalogForPrompt(tools(), stacks), null, 2));
         fs.writeFileSync(path.join(dir, 'presets.md'), `# Quy trình (workflow) — chọn một id\n\n${PRESET_TEXT}\n`);
       }
+      if (stage.id === 'system' || stage.id === 'create') fs.writeFileSync(path.join(dir, 'workflow-guide.md'), workflowGuide());
+      if (stage.id === 'create' && !fs.existsSync(path.join(dir, 'workflow.json'))) {
+        const w = docs(id).workflow;
+        if (w) fs.writeFileSync(path.join(dir, 'workflow.json'), JSON.stringify(w, null, 2));
+      }
       let out = '';
       await run(claudeBin, ['-p', turnPrompt(s, stage.id), '--output-format', 'json', '--model', model,
         '--effort', stage.id === 'pm' ? 'medium' : 'high', '--permission-mode', 'acceptEdits',
@@ -147,9 +213,10 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       if (!v.ok) throw new Error(v.error.replace('AI Manager', stage.role));
       say(s, stage.id, 'ai', v.summary);
       s.error = null;
-      if (stage.id === 'system') {
+      if (stage.id === 'system' || stage.id === 'create') {
         const d = docs(id);
         if (d.adviceError) say(s, stage.id, 'shipyard', `Gợi ý công nghệ chưa hợp lệ: ${d.adviceError}. Nhắn AI để sửa.`);
+        if (d.workflowError) say(s, stage.id, 'shipyard', `Quy trình chưa hợp lệ: ${d.workflowError}. Nhắn AI để sửa.`);
       }
       save(s);
     } catch (e) {
@@ -197,7 +264,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       const msg = String(text || '').trim();
       if (!msg) throw bad('Tin nhắn trống');
       if (msg.length > MAX_MSG) throw bad(`Tin nhắn tối đa ${MAX_MSG} ký tự`);
-      if (!['pm', 'system', 'ui'].includes(s.stage)) throw bad('Bước này không trò chuyện với AI — quay lại bước trước để sửa', 409);
+      if (!CHAT_STAGES.includes(s.stage)) throw bad('Bước này không trò chuyện với AI — quay lại bước trước để sửa', 409);
       if (busy.has(id)) throw bad('AI đang trả lời, đợi chút rồi gửi tiếp', 409);
       say(s, s.stage, 'user', msg);
       save(s);
@@ -221,6 +288,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       s.stage = stage === 'pm' ? 'system' : stage === 'system' ? (d.advice.hasUi ? 'ui' : 'create') : 'create';
       if (stage === 'system' && !d.advice.hasUi) { s.skippedUi = true; say(s, 'system', 'shipyard', 'Sản phẩm không cần thiết kế giao diện riêng — chuyển sang Tạo dự án.'); }
       if (KICKOFF[s.stage]) say(s, s.stage, 'shipyard', KICKOFF[s.stage]);
+      if (s.stage === 'create') say(s, 'create', 'shipyard', CREATE_HINT);
       save(s);
       if (KICKOFF[s.stage]) turn(id);
       return view(s);
@@ -234,6 +302,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       s.skippedUi = true;
       s.stage = 'create';
       say(s, 'ui', 'shipyard', 'Bỏ qua thiết kế giao diện — chuyển sang Tạo dự án.');
+      say(s, 'create', 'shipyard', CREATE_HINT);
       return view(save(s));
     },
 
@@ -251,6 +320,18 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       return view(save(s));
     },
 
+    /** The person edits the workflow by hand (the AI edits the same workflow.json in the chat). */
+    setWorkflow(id, user, workflow) {
+      const s = mine(id, user);
+      if (s.project) throw bad('Dự án đã được tạo — sửa quy trình ở trang dự án', 409);
+      if (!['system', 'ui', 'create'].includes(s.stage)) throw bad('Chưa tới bước thiết kế hệ thống', 409);
+      if (busy.has(id)) throw bad('AI đang trả lời, đợi xong rồi sửa', 409);
+      const w = normalizeWorkflow(workflow);
+      fs.mkdirSync(work(id), { recursive: true });
+      fs.writeFileSync(path.join(work(id), 'workflow.json'), JSON.stringify(w, null, 2));
+      return view(save(s));
+    },
+
     /** Generate the project with every approved document; the job runs like the wizard's. */
     create(id, user, token, body = {}) {
       const s = mine(id, user);
@@ -262,7 +343,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       const spec = validateRequest({
         name: body.name, slug: body.slug, description: String(body.description || a.summary || '').replace(/[\r\n]+/g, ' ').slice(0, 500),
         kind: a.kind, stack: a.stack, options: a.options, ...(a.frontend ? { frontend: a.frontend } : {}),
-        git: body.git, aiTeam: body.aiTeam !== false, brief: d.brief.slice(0, 20000), workflow: body.workflow,
+        git: body.git, aiTeam: body.aiTeam !== false, brief: d.brief.slice(0, 20000), workflow: body.workflow || d.workflow,
       }, tools(), stacks);
       spec.docs = {
         'docs/product-brief.md': d.brief,

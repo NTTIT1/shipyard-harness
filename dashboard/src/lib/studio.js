@@ -19,6 +19,7 @@ export const studio = {
   approve: (id, stage) => call('POST', `/api/studio/${id}/approve`, { stage }),
   skipUi: id => call('POST', `/api/studio/${id}/skip-ui`),
   reopen: (id, stage) => call('POST', `/api/studio/${id}/reopen`, { stage }),
+  setWorkflow: (id, workflow) => call('PUT', `/api/studio/${id}/workflow`, { workflow }),
   create: (id, body) => call('POST', `/api/studio/${id}/create`, body),
   remove: id => call('DELETE', `/api/studio/${id}`),
 };

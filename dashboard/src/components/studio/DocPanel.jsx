@@ -6,6 +6,8 @@ import { AdviceCard, Mockups } from './MockupViewer.jsx';
 import CreateProject from './CreateProject.jsx';
 import Build from './Build.jsx';
 import { APPROVE_LABEL, studio } from '../../lib/studio.js';
+import { STEP_LABEL, ROLE_LABEL, defaultApproverRole } from '../../lib/review.js';
+import { configSummary, modelLabel } from '../../lib/workflow.js';
 
 export default function DocPanel({ s, tab, act, onOpenProject }) {
   return (
@@ -21,6 +23,7 @@ export default function DocPanel({ s, tab, act, onOpenProject }) {
           <DocStage s={s} stage="system" act={act} empty="AI kiến trúc sư đang chuẩn bị đề xuất công nghệ và kiến trúc hệ thống.">
             {s.docs.advice && <AdviceCard advice={s.docs.advice} />}
             {s.docs.adviceError && <p className="m-err">{s.docs.adviceError}</p>}
+            {s.docs.workflow && <WorkflowSummary workflow={s.docs.workflow} error={s.docs.workflowError} />}
             {s.docs.architecture && <Markdown text={s.docs.architecture} />}
           </DocStage>
         )}
@@ -100,5 +103,29 @@ function DocStage({ s, stage, act, empty, children }) {
         )}
       </div>
     </>
+  );
+}
+
+/** The project's feature workflow as the architect proposed it (changed in the chat or at "Tạo dự án"). */
+function WorkflowSummary({ workflow, error }) {
+  const running = workflow.filter(w => w.mode !== 'SKIP');
+  return (
+    <section className="st-wf-sum" aria-label="Quy trình làm tính năng đề xuất">
+      <h3>Quy trình làm tính năng</h3>
+      <ol>
+        {running.map(w => {
+          const sum = configSummary(w.config);
+          const role = w.approverRole || defaultApproverRole(w.step);
+          return (
+            <li key={w.step}>
+              <b>{STEP_LABEL[w.step]}</b>
+              <span>{modelLabel(w.config)} · {w.mode === 'AUTO' ? 'tự qua khi xanh' : `${ROLE_LABEL[role] || role} duyệt`}{sum ? ` · ${sum}` : ''}</span>
+            </li>
+          );
+        })}
+      </ol>
+      {error && <p className="m-err">{error}</p>}
+      <p className="faint">Nhắn AI để đổi (model, giới hạn phút, ai duyệt, bỏ bước…); bước Tạo dự án cho sửa từng ô.</p>
+    </section>
   );
 }

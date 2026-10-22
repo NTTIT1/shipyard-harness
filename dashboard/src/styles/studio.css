@@ -1226,3 +1226,11 @@
   .st-roadmap li > :last-child { grid-column: 2 }
 }
 @media (max-width: 600px) { .st-roadmap li { align-items: start } .st-roadmap li::before { padding-top: 2px } }
+
+/* Workflow inside the studio: summary at "Thiết kế hệ thống", header + hint at "Tạo dự án". */
+.st-wf-sum { margin: 16px 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px }
+.st-wf-sum h3 { margin: 0 0 8px; font-size: 14px }
+.st-wf-sum ol { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 4px }
+.st-wf-sum li span { color: var(--text-muted); margin-left: 6px; font-size: 13px }
+.st-wf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px }
+.st-wf-hint { margin: 0 0 8px; color: var(--text-muted); font-size: 13px }
