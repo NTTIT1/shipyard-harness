@@ -24,6 +24,7 @@ public final class Dtos {
                              Instant createdAt, Instant updatedAt, String kind, List<String> workflow) {}
 
     /** One step of a project's workflow: mode REQUIRED | AUTO | SKIP, plus configured approver role/id. */
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     public record WorkflowStep(String step, String mode, String approverRole, String approverId) {
         public WorkflowStep(String step, String mode) { this(step, mode, null, null); }
     }

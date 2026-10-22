@@ -1,20 +1,23 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { GripVertical, Lock, ChevronUp, ChevronDown, Layers, ListOrdered, UserCheck } from 'lucide-react';
+import { GripVertical, Lock, ChevronUp, ChevronDown, Layers, ListOrdered, UserCheck, SlidersHorizontal, Plus } from 'lucide-react';
+import Button from '../ui/Button.jsx';
 import { STEP_LABEL, GATE_MODES, MOVABLE, moveTo, moveStep, WORKFLOW_PRESETS, defaultApproverRole, APPROVER_ROLE_OPTIONS } from '../../lib/review.js';
 import { platform } from '../../lib/platform.js';
+import WorkflowCanvas from './WorkflowCanvas.jsx';
+import WorkflowStepInspector from './WorkflowStepInspector.jsx';
 
 export const ENTERPRISE_11_STEPS = [
-  { id: 'step-1', phase: 'BA', stepNo: 1, label: 'Business Analyst', subLabel: 'Đặc tả và làm rõ', dep: 'Không · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', desc: 'Phân tích yêu cầu, bóc tách nghiệp vụ và viết tài liệu đặc tả User Stories (ba.md).' },
-  { id: 'step-2', phase: 'BA', stepNo: 2, label: 'BA review đặc tả', subLabel: 'Con người phê duyệt', dep: '1 · bước bắt đầu từ 0', roleType: 'Con người phê duyệt', type: 'gate', desc: 'BA Lead hoặc Product Owner kiểm tra, góp ý hoặc duyệt bản đặc tả nghiệp vụ.' },
-  { id: 'step-3', phase: 'ARCH', stepNo: 3, label: 'Solution Architect', subLabel: 'Thiết kế giải pháp', dep: '2 · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', desc: 'Thiết kế giải pháp hệ thống, lược đồ CSDL, chia task và API contract (plan.md).' },
-  { id: 'step-4', phase: 'ARCH', stepNo: 4, label: 'Lead review thiết kế', subLabel: 'Con người phê duyệt', dep: '3 · bước bắt đầu từ 0', roleType: 'Con người phê duyệt', type: 'gate', desc: 'Tech Lead thẩm định thiết kế kỹ thuật, đánh giá rủi ro và phê duyệt kiến trúc.' },
-  { id: 'step-5', phase: 'DESIGN', stepNo: 5, label: 'UX Designer', subLabel: 'User flow và wireframe', dep: '4 · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', desc: 'Thiết kế hành trình người dùng (User Journey), luồng tương tác và khung Wireframe (ux-flows.md).' },
-  { id: 'step-6', phase: 'DESIGN', stepNo: 6, label: 'UI Designer', subLabel: 'UI responsive và component spec', dep: '5 · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', desc: 'Thiết kế giao diện HTML mockup responsive theo chuẩn Design System, render ảnh desktop & mobile.' },
-  { id: 'step-7', phase: 'DESIGN', stepNo: 7, label: 'Design QA', subLabel: 'Kiểm tra UI/UX độc lập', dep: '6 · bước bắt đầu từ 0', roleType: 'Kiểm tra độc lập', type: 'qa', desc: 'Kiểm tra độc lập chuẩn thiết kế: độ tương phản, khoảng cách lưới 8pt, kích thước chạm ≥44px.' },
-  { id: 'step-8', phase: 'DESIGN', stepNo: 8, label: 'Review và phê duyệt UI/UX', subLabel: 'PM / Product Owner duyệt thiết kế', dep: '7 · bước bắt đầu từ 0', roleType: 'Con người phê duyệt', type: 'gate', desc: 'PM hoặc Product Owner trực tiếp trải nghiệm mockup và phê duyệt thiết kế trước khi code.' },
-  { id: 'step-9', phase: 'DEV', stepNo: 9, label: 'Backend Developer', subLabel: 'Triển khai theo đặc tả', dep: '8 · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', desc: 'Lập trình CSDL, migration, service logic và REST APIs theo đúng kiến trúc đã duyệt.' },
-  { id: 'step-10', phase: 'DEV', stepNo: 10, label: 'Frontend Developer', subLabel: 'Phát triển theo UI/UX đã duyệt', dep: '9 · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', desc: 'Lập trình giao diện React/Vite, tích hợp API backend theo mockup đã được phê duyệt.' },
-  { id: 'step-11', phase: 'TEST', stepNo: 11, label: 'Quality Gate', subLabel: 'CI và bộ quy trình test độc lập', dep: '10 · bước bắt đầu từ 0', roleType: 'Kiểm tra tự động', type: 'qa', desc: 'Chạy CI pipeline, kiểm thử đơn vị, kiểm thử tích hợp và E2E Playwright trên trình duyệt.' },
+  { id: 'step-1', phase: 'BA', stepNo: 1, label: 'Business Analyst', subLabel: 'Đặc tả và làm rõ', dep: 'Không · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', model: 'claude:claude-3-5-sonnet', profile: 'Business Analyst', maxRetries: 2, timeoutMinutes: 30, budgetVnd: 500000, condition: 'ALWAYS', onFailure: 'ESCALATE_HUMAN', requiredInputs: ['Yêu cầu tính năng', 'Mục tiêu kinh doanh'], desc: 'Phân tích yêu cầu, bóc tách nghiệp vụ và viết tài liệu đặc tả User Stories (ba.md).' },
+  { id: 'step-2', phase: 'BA', stepNo: 2, label: 'BA review đặc tả', subLabel: 'Con người phê duyệt', dep: '1 · bước bắt đầu từ 0', roleType: 'Con người phê duyệt', type: 'gate', approverRole: 'BA', maxRetries: 1, timeoutMinutes: 60, budgetVnd: 0, condition: 'ALWAYS', onFailure: 'ESCALATE_HUMAN', requiredInputs: ['ba.md'], desc: 'BA Lead hoặc Product Owner kiểm tra, góp ý hoặc duyệt bản đặc tả nghiệp vụ.' },
+  { id: 'step-3', phase: 'ARCH', stepNo: 3, label: 'Solution Architect', subLabel: 'Thiết kế giải pháp', dep: '2 · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', model: 'claude:claude-opus-5-5', profile: 'Solution Architect', maxRetries: 2, timeoutMinutes: 45, budgetVnd: 800000, condition: 'ALWAYS', onFailure: 'ESCALATE_HUMAN', requiredInputs: ['Đặc tả được duyệt', 'Context manifest'], desc: 'Thiết kế giải pháp hệ thống, lược đồ CSDL, chia task và API contract (plan.md).' },
+  { id: 'step-4', phase: 'ARCH', stepNo: 4, label: 'Lead review thiết kế', subLabel: 'Con người phê duyệt', dep: '3 · bước bắt đầu từ 0', roleType: 'Con người phê duyệt', type: 'gate', approverRole: 'TECH_LEAD', maxRetries: 1, timeoutMinutes: 60, budgetVnd: 0, condition: 'ALWAYS', onFailure: 'ESCALATE_HUMAN', requiredInputs: ['plan.md', 'tasks.md'], desc: 'Tech Lead thẩm định thiết kế kỹ thuật, đánh giá rủi ro và phê duyệt kiến trúc.' },
+  { id: 'step-5', phase: 'DESIGN', stepNo: 5, label: 'UX Designer', subLabel: 'User flow và wireframe', dep: '4 · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', model: 'claude:claude-3-5-sonnet', profile: 'UX Designer', maxRetries: 2, timeoutMinutes: 30, budgetVnd: 400000, condition: 'ALWAYS', onFailure: 'ESCALATE_HUMAN', requiredInputs: ['ba.md', 'plan.md'], desc: 'Thiết kế hành trình người dùng (User Journey), luồng tương tác và khung Wireframe (ux-flows.md).' },
+  { id: 'step-6', phase: 'DESIGN', stepNo: 6, label: 'UI Designer', subLabel: 'UI responsive và component spec', dep: '5 · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', model: 'claude:claude-3-5-sonnet', profile: 'UI Designer', maxRetries: 2, timeoutMinutes: 30, budgetVnd: 500000, condition: 'HAS_UI', onFailure: 'ESCALATE_HUMAN', requiredInputs: ['Wireframe flow', 'Design System tokens'], desc: 'Thiết kế giao diện HTML mockup responsive theo chuẩn Design System, render ảnh desktop & mobile.' },
+  { id: 'step-7', phase: 'DESIGN', stepNo: 7, label: 'Design QA', subLabel: 'Kiểm tra UI/UX độc lập', dep: '6 · bước bắt đầu từ 0', roleType: 'Kiểm tra độc lập', type: 'qa', model: 'claude:claude-3-5-haiku', profile: 'Design QA', maxRetries: 3, timeoutMinutes: 20, budgetVnd: 200000, condition: 'HAS_UI', onFailure: 'RETRY', requiredInputs: ['Mockup spec', 'HTML mockups'], desc: 'Kiểm tra độc lập chuẩn thiết kế: độ tương phản, khoảng cách lưới 8pt, kích thước chạm ≥44px.' },
+  { id: 'step-8', phase: 'DESIGN', stepNo: 8, label: 'Review và phê duyệt UI/UX', subLabel: 'PM / Product Owner duyệt thiết kế', dep: '7 · bước bắt đầu từ 0', roleType: 'Con người phê duyệt', type: 'gate', approverRole: 'PM', maxRetries: 1, timeoutMinutes: 60, budgetVnd: 0, condition: 'HAS_UI', onFailure: 'ESCALATE_HUMAN', requiredInputs: ['Mockup spec', 'Design QA report'], desc: 'PM hoặc Product Owner trực tiếp trải nghiệm mockup và phê duyệt thiết kế trước khi code.' },
+  { id: 'step-9', phase: 'DEV', stepNo: 9, label: 'Backend Developer', subLabel: 'Triển khai theo đặc tả', dep: '8 · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', model: 'claude:claude-3-5-sonnet', profile: 'Backend Developer', maxRetries: 3, timeoutMinutes: 60, budgetVnd: 1000000, condition: 'ALWAYS', onFailure: 'ESCALATE_HUMAN', requiredInputs: ['API Contract', 'DB Migration spec'], desc: 'Lập trình CSDL, migration, service logic và REST APIs theo đúng kiến trúc đã duyệt.' },
+  { id: 'step-10', phase: 'DEV', stepNo: 10, label: 'Frontend Developer', subLabel: 'Phát triển theo UI/UX đã duyệt', dep: '9 · bước bắt đầu từ 0', roleType: 'AI Agent', type: 'agent', model: 'claude:claude-3-5-sonnet', profile: 'Frontend Developer', maxRetries: 3, timeoutMinutes: 60, budgetVnd: 1000000, condition: 'HAS_UI', onFailure: 'ESCALATE_HUMAN', requiredInputs: ['Mockup spec', 'API endpoints'], desc: 'Lập trình giao diện React/Vite, tích hợp API backend theo mockup đã được phê duyệt.' },
+  { id: 'step-11', phase: 'TEST', stepNo: 11, label: 'Quality Gate', subLabel: 'CI và bộ quy trình test độc lập', dep: '10 · bước bắt đầu từ 0', roleType: 'Kiểm tra tự động', type: 'qa', model: 'claude:claude-3-5-haiku', profile: 'Quality Gate', maxRetries: 2, timeoutMinutes: 30, budgetVnd: 300000, condition: 'ALWAYS', onFailure: 'FAIL_RUN', requiredInputs: ['Unit tests', 'E2E Playwright tests', 'CI Pipeline'], desc: 'Chạy CI pipeline, kiểm thử đơn vị, kiểm thử tích hợp và E2E Playwright trên trình duyệt.' },
 ];
 
 const STEP_DESCRIPTIONS = {
@@ -64,11 +67,12 @@ function ApproverConfig({ stepName, stepState, disabled, members, users, onChang
 }
 
 /**
- * The project's feature workflow: presets, detailed 11-step view, and 6-phase order.
+ * The project's feature workflow: visual interactive canvas + step inspector, detailed list, and 6-phase order.
  */
 export default function WorkflowEditor({ value, onChange, disabled = false, presets = true, pid = null }) {
-  const isEnterprisePreset = same(value, WORKFLOW_PRESETS.find(p => p.id === 'enterprise')?.steps);
-  const [viewMode, setViewMode] = useState(isEnterprisePreset ? 'detailed' : 'grouped'); // 'detailed' | 'grouped'
+  const [viewMode, setViewMode] = useState('canvas'); // 'canvas' | 'detailed' | 'grouped'
+  const [detailedSteps, setDetailedSteps] = useState(ENTERPRISE_11_STEPS);
+  const [activeStepId, setActiveStepId] = useState('step-1');
   const [drag, setDrag] = useState(null); // { step, startY, base, h, dy }
   const [members, setMembers] = useState([]);
   const [users, setUsers] = useState({});
@@ -93,10 +97,64 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
     onChange(value.map(x => (x.step === stepName ? { ...x, ...patch } : x)));
   };
 
-  // Sync viewMode when preset changes
-  useEffect(() => {
-    if (isEnterprisePreset) setViewMode('detailed');
-  }, [isEnterprisePreset]);
+  const phaseStateMap = Object.fromEntries(value.map(w => [w.step, w]));
+
+  const handleUpdateStep = (stepId, form) => {
+    setDetailedSteps(prev =>
+      prev.map(s => {
+        if (s.id !== stepId) return s;
+        return {
+          ...s,
+          ...form,
+          roleType: form.type === 'gate' ? 'Con người phê duyệt' : form.type === 'qa' ? 'Kiểm tra độc lập' : 'AI Agent',
+        };
+      })
+    );
+    const target = detailedSteps.find(s => s.id === stepId);
+    if (target && form.approverRole) {
+      updateStep(target.phase, { approverRole: form.approverRole, approverId: form.approverId || null });
+    }
+  };
+
+  const handleMoveStep = (stepId, direction) => {
+    const idx = detailedSteps.findIndex(s => s.id === stepId);
+    if (idx < 0) return;
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= detailedSteps.length) return;
+    const copy = [...detailedSteps];
+    const [moved] = copy.splice(idx, 1);
+    copy.splice(targetIdx, 0, moved);
+    const updated = copy.map((s, i) => ({ ...s, stepNo: i + 1 }));
+    setDetailedSteps(updated);
+  };
+
+  const handleAddStep = () => {
+    const nextNo = detailedSteps.length + 1;
+    const newStep = {
+      id: `step-${nextNo}`,
+      phase: 'DEV',
+      stepNo: nextNo,
+      label: `Tác vụ mới ${nextNo}`,
+      subLabel: 'Bước bổ sung theo yêu cầu',
+      dep: `${nextNo - 1} · bước bắt đầu từ 0`,
+      roleType: 'AI Agent',
+      type: 'agent',
+      model: 'claude:claude-3-5-sonnet',
+      profile: 'Developer',
+      maxRetries: 2,
+      timeoutMinutes: 30,
+      budgetVnd: 500000,
+      condition: 'ALWAYS',
+      onFailure: 'ESCALATE_HUMAN',
+      requiredInputs: ['Context manifest'],
+      desc: 'Tác vụ mới được bổ sung vào quy trình.',
+    };
+    setDetailedSteps(prev => [...prev, newStep]);
+    setActiveStepId(newStep.id);
+  };
+
+  const selectedStep = detailedSteps.find(s => s.id === activeStepId) || detailedSteps[0];
+  const selectedIndex = detailedSteps.findIndex(s => s.id === (selectedStep?.id || 'step-1'));
 
   const active = value.filter(w => w.mode !== 'SKIP');
   const lastMovable = value.findIndex(w => !MOVABLE.includes(w.step)) - 1;
@@ -127,72 +185,28 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
   };
 
   return (
-    <>
-      {/* Top Pipeline Flow Bar */}
-      <div className="wf-flow" aria-label="Quy trình đang chọn">
-        {viewMode === 'detailed' ? (
-          ENTERPRISE_11_STEPS.map((stepItem, i) => {
-            const phaseState = value.find(w => w.step === stepItem.phase);
-            const isSkipped = phaseState?.mode === 'SKIP';
-            return (
-              <React.Fragment key={stepItem.id}>
-                {i > 0 && <span className="wf-arrow" aria-hidden="true">→</span>}
-                <button
-                  type="button"
-                  className={`wf-chip${phaseState?.mode === 'AUTO' ? ' auto' : ''}${isSkipped ? ' skipped' : ''}`}
-                  title={`Cuộn đến bước ${stepItem.stepNo}: ${stepItem.label}`}
-                  onClick={() => {
-                    const card = listRef.current?.querySelector(`[data-step="${stepItem.id}"]`);
-                    card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                  }}>
-                  <span className="wf-chip-num">{stepItem.stepNo}.</span>
-                  <span>{stepItem.label}</span>
-                  {stepItem.type === 'gate' && <span className="wf-chip-mode"> (duyệt)</span>}
-                </button>
-              </React.Fragment>
-            );
-          })
-        ) : (
-          active.map((w, i) => (
-            <React.Fragment key={w.step}>
-              {i > 0 && <span className="wf-arrow" aria-hidden="true">→</span>}
-              <button
-                type="button"
-                className={`wf-chip${w.mode === 'AUTO' ? ' auto' : ''}`}
-                title={`Bấm để cuộn đến bước ${STEP_LABEL[w.step]}`}
-                onClick={() => {
-                  const card = listRef.current?.querySelector(`[data-step="${w.step}"]`);
-                  card?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                }}>
-                <span>{STEP_LABEL[w.step]}</span>
-                {w.mode === 'AUTO' && <span className="wf-chip-mode"> (tự duyệt)</span>}
-              </button>
-            </React.Fragment>
-          ))
-        )}
-      </div>
-
-      {/* Preset Toolbar & View Mode Switcher */}
-      {presets && !disabled && (
-        <div className="wf-presets">
-          <div className="wf-presets-group">
-            <span className="wf-presets-label">Mẫu nhanh</span>
-            {WORKFLOW_PRESETS.map(p => (
-              <button
-                key={p.id}
-                type="button"
-                title={p.desc}
-                className={`wf-preset${same(value, p.steps) ? ' on' : ''}`}
-                onClick={() => {
-                  onChange(p.steps);
-                  if (p.id === 'enterprise') setViewMode('detailed');
-                }}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-
+    <div className="wf-container">
+      {/* Top Header & Action Bar */}
+      <div className="wf-top-bar">
+        <div className="wf-top-left">
+          <span className="wf-version-pill">v1.3 · Bản nháp</span>
+          <span className="wf-main-title">Quy trình phát triển tính năng</span>
+        </div>
+        <div className="wf-top-actions">
+          {!disabled && (
+            <Button size="sm" icon={Plus} onClick={handleAddStep}>
+              Thêm bước
+            </Button>
+          )}
           <div className="wf-view-toggle">
+            <button
+              type="button"
+              className={`wf-vt-btn${viewMode === 'canvas' ? ' on' : ''}`}
+              onClick={() => setViewMode('canvas')}
+              title="Sơ đồ Canvas & Thiết lập bước">
+              <SlidersHorizontal size={13} />
+              <span>Canvas trực quan</span>
+            </button>
             <button
               type="button"
               className={`wf-vt-btn${viewMode === 'detailed' ? ' on' : ''}`}
@@ -211,13 +225,58 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Preset Toolbar */}
+      {presets && !disabled && (
+        <div className="wf-presets">
+          <div className="wf-presets-group">
+            <span className="wf-presets-label">Mẫu nhanh</span>
+            {WORKFLOW_PRESETS.map(p => (
+              <button
+                key={p.id}
+                type="button"
+                title={p.desc}
+                className={`wf-preset${same(value, p.steps) ? ' on' : ''}`}
+                onClick={() => {
+                  onChange(p.steps);
+                  if (p.id === 'enterprise') setViewMode('canvas');
+                }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
-      {/* Pipeline Cards List */}
-      <div ref={listRef} className={`gate-pipeline-list${drag ? ' wf-dragging' : ''}`} style={{ border: 'none', borderRadius: 0 }}>
-        {viewMode === 'detailed' ? (
-          // Detailed 11-step View
-          ENTERPRISE_11_STEPS.map(item => {
+      {/* Main View Area */}
+      {viewMode === 'canvas' ? (
+        <div className="wf-two-col-layout">
+          <WorkflowCanvas
+            steps={detailedSteps}
+            selectedStepId={activeStepId}
+            onSelectStep={setActiveStepId}
+            phaseStateMap={phaseStateMap}
+            disabled={disabled}
+            onAddStep={handleAddStep}
+          />
+
+          {selectedStep && (
+            <WorkflowStepInspector
+              step={selectedStep}
+              stepIndex={selectedIndex >= 0 ? selectedIndex : 0}
+              totalSteps={detailedSteps.length}
+              members={members}
+              users={users}
+              disabled={disabled}
+              onUpdateStep={handleUpdateStep}
+              onMoveStep={handleMoveStep}
+            />
+          )}
+        </div>
+      ) : viewMode === 'detailed' ? (
+        <div ref={listRef} className="gate-pipeline-list" style={{ border: 'none', borderRadius: 0 }}>
+          {detailedSteps.map(item => {
             const phaseState = value.find(w => w.step === item.phase);
             const isSkipped = phaseState?.mode === 'SKIP';
             return (
@@ -261,13 +320,13 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
                     </span>
                   )}
                 </div>
-
               </div>
             );
-          })
-        ) : (
-          // Grouped 6-phase View
-          value.map((w, idx) => {
+          })}
+        </div>
+      ) : (
+        <div ref={listRef} className={`gate-pipeline-list${drag ? ' wf-dragging' : ''}`} style={{ border: 'none', borderRadius: 0 }}>
+          {value.map((w, idx) => {
             const movable = MOVABLE.includes(w.step);
             const dragging = drag?.step === w.step;
             const offset = dragging ? drag.dy - (idx - drag.base) * drag.h : 0;
@@ -285,7 +344,7 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
                         className="wf-grip"
                         data-grip={w.step}
                         disabled={disabled}
-                        aria-label={`Kéo để đổi thứ tự bước ${STEP_LABEL[w.step]} (hoặc phím ↑ ↓)`}
+                        aria-label={`Kéo để đổi thứ tự bước ${STEP_LABEL[w.step]}`}
                         title="Kéo thả hoặc dùng phím ↑ ↓ để đổi thứ tự"
                         onPointerDown={e => onPointerDown(e, w.step, idx)}
                         onPointerMove={onPointerMove}
@@ -300,7 +359,6 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
                           className="wf-arrow-btn"
                           disabled={idx === 0}
                           title={`Chuyển bước ${STEP_LABEL[w.step]} lên trước`}
-                          aria-label={`Chuyển bước ${STEP_LABEL[w.step]} lên trước`}
                           onClick={() => onChange(moveStep(value, w.step, -1))}>
                           <ChevronUp size={12} />
                         </button>
@@ -309,7 +367,6 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
                           className="wf-arrow-btn"
                           disabled={idx >= lastMovable}
                           title={`Chuyển bước ${STEP_LABEL[w.step]} xuống sau`}
-                          aria-label={`Chuyển bước ${STEP_LABEL[w.step]} xuống sau`}
                           onClick={() => onChange(moveStep(value, w.step, 1))}>
                           <ChevronDown size={12} />
                         </button>
@@ -347,13 +404,11 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
                     ))}
                   </div>
                 </div>
-
               </div>
             );
-          })
-        )}
-      </div>
-    </>
+          })}
+        </div>
+      )}
+    </div>
   );
 }
-
