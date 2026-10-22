@@ -123,6 +123,9 @@ class Lane:
         nx = call('GET', f'{orch_url()}/internal/v1/runs/{self.run_id()}/next')
         if not isinstance(nx, dict):
             raise Rejected('orchestrator returned no next action')
+        # The run's frozen per-step settings: run-step.sh enforces them from lane state (step_guard.py).
+        if isinstance(nx.get('stepConfig'), dict):
+            self.state('set-json', 'step_config', json.dumps(nx['stepConfig'], ensure_ascii=False))
         return nx
 
 
@@ -173,6 +176,14 @@ def cmd_reopen(lane, a):
     nx = call('POST', f'{orch_url()}/internal/v1/runs/{lane.run_id()}/reopen', {'reason': text_arg(a.reason, a.reason_file)})
     lane.set(stage='role-dev', status='running', needs_action='')
     return json.dumps(nx, ensure_ascii=False)
+
+
+def cmd_fail(lane, a):
+    """A step gave up and its workflow says FAIL_RUN: stop the platform run and free the lane."""
+    reason = text_arg(a.reason, a.reason_file)
+    call('POST', f'{orch_url()}/internal/v1/runs/{lane.run_id()}/fail', {'reason': reason})
+    lane.set(status='idle', needs_action='', notes=f'quy trình dừng (FAIL_RUN): {reason[:200]}')
+    return 'failed'
 
 
 def cmd_release(lane, a):
@@ -342,7 +353,7 @@ def cmd_related(lane, a):
                      f'({r["entityName"]}) — {r["sourceTitle"]} [{r["sourceItemId"]}]' for r in rows) or '(none)'
 
 
-COMMANDS = {'create': cmd_create, 'next': cmd_next, 'reopen': cmd_reopen, 'release': cmd_release}
+COMMANDS = {'create': cmd_create, 'next': cmd_next, 'reopen': cmd_reopen, 'release': cmd_release, 'fail': cmd_fail}
 COMMANDS.update({'sync': cmd_sync, 'pack': cmd_pack, 'submit': cmd_submit,
                  'search': cmd_search, 'get': cmd_get, 'related': cmd_related})
 
@@ -366,6 +377,10 @@ def parser():
     g = r.add_mutually_exclusive_group(required=True)
     g.add_argument('--summary')
     g.add_argument('--summary-file')
+    r = sub.add_parser('fail')
+    g = r.add_mutually_exclusive_group(required=True)
+    g.add_argument('--reason')
+    g.add_argument('--reason-file')
     return p, sub
 
 

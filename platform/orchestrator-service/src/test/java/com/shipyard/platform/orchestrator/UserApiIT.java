@@ -234,4 +234,38 @@ class UserApiIT extends OrchestratorIT {
         assertThat(user("usr_owner", HttpMethod.PUT, "/api/v1/projects/" + P + "/gate-policy", Map.of("DEV", "SKIP"))
                 .getStatusCode().value()).isEqualTo(400);
     }
+
+    @Test
+    void stepConfigIsSavedFrozenIntoRunsAndHandedToTheLane() {
+        String url = "/api/v1/projects/" + P + "/workflow";
+        List<Map<String, Object>> body = new java.util.ArrayList<>();
+        for (String st : List.of("PM", "BA", "ARCH", "DESIGN", "DEV", "TEST")) {
+            Map<String, Object> w = new HashMap<>(Map.of("step", st, "mode", "REQUIRED"));
+            if (st.equals("ARCH")) w.put("config", Map.of("model", "claude:claude-opus-5-5", "timeoutMinutes", 45, "requiredInputs", List.of("spec.md")));
+            if (st.equals("TEST")) w.put("config", Map.of("condition", "PREV_PASSED", "onFailure", "FAIL_RUN", "budgetVnd", 300000));
+            body.add(w);
+        }
+        assertThat(user("usr_owner", HttpMethod.PUT, url, body).getStatusCode().value()).isEqualTo(200);
+        List<Map<String, Object>> wf = data(user("usr_ba", HttpMethod.GET, url, null));
+        assertThat((Map<String, Object>) wf.get(2).get("config")).containsEntry("timeoutMinutes", 45);
+
+        ResponseEntity<Map> r = internal(HttpMethod.POST, "/internal/v1/runs", Map.of(
+                "projectId", P, "laneRef", "host:lane7", "title", "Cấu hình", "description", "", "createdBy", "usr_owner"));
+        String id = (String) ((Map) data(r)).get("id");
+        Map<String, Object> next = data(internal(HttpMethod.GET, "/internal/v1/runs/" + id + "/next", null));
+        Map<String, Map<String, Object>> cfg = (Map<String, Map<String, Object>>) next.get("stepConfig");
+        assertThat(cfg.get("TEST")).containsEntry("onFailure", "FAIL_RUN");
+
+        // the project changes its workflow later: the running feature keeps its snapshot
+        body.get(5).put("config", Map.of("onFailure", "RETRY"));
+        user("usr_owner", HttpMethod.PUT, url, body);
+        next = data(internal(HttpMethod.GET, "/internal/v1/runs/" + id + "/next", null));
+        assertThat(((Map<String, Map<String, Object>>) next.get("stepConfig")).get("TEST")).containsEntry("onFailure", "FAIL_RUN");
+
+        body.get(2).put("config", Map.of("requiredInputs", List.of("../../etc/passwd")));
+        assertThat(user("usr_owner", HttpMethod.PUT, url, body).getStatusCode().value()).isEqualTo(400);
+
+        assertThat(internal(HttpMethod.POST, "/internal/v1/runs/" + id + "/fail", Map.of("reason", "hết ngân sách")).getStatusCode().value()).isEqualTo(200);
+        assertThat(((Map<String, Object>) data(internal(HttpMethod.GET, "/internal/v1/runs/" + id + "/next", null))).get("mode")).isEqualTo("CANCELLED");
+    }
 }

@@ -148,6 +148,27 @@ class CoreTest(OrchTestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout)['step'], 'BA')
 
+    def test_next_copies_the_frozen_step_settings_to_lane_state(self):
+        self.st('set', 'run_id=run_1')
+        cfg = {'ARCH': {'timeoutMinutes': 45, 'requiredInputs': ['spec.md']}, 'TEST': {'onFailure': 'FAIL_RUN'}}
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(step='ARCH', stepConfig=cfg))
+        r = self.orch('next')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(self.st('get', 'step_config')), cfg)
+        guard = subprocess.run(['python3', str(REPO / 'bin' / 'step_guard.py'), 'env', self.st('path'), 'plan-critic'],
+                               capture_output=True, text=True, check=True).stdout
+        self.assertIn("SG_PHASE=ARCH", guard)
+        self.assertIn("SG_TIMEOUT_MIN=45", guard)
+
+    def test_fail_stops_the_run_and_frees_the_lane(self):
+        self.st('set', 'run_id=run_1', 'status=running')
+        self.platform.routes[('POST', '/internal/v1/runs/run_1/fail')] = (200, {'id': 'run_1', 'status': 'CANCELLED'})
+        r = self.orch('fail', '--reason', 'TEST hết ngân sách')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(self.platform.requests[-1]['body'], {'reason': 'TEST hết ngân sách'})
+        self.assertEqual(self.st('get', 'status'), 'idle')
+        self.assertIn('FAIL_RUN', self.st('get', 'notes'))
+
     def test_unreachable_platform_exits_2(self):
         self.st('set', 'run_id=run_1')
         self.env['ORCHESTRATOR_URL'] = 'http://127.0.0.1:9'

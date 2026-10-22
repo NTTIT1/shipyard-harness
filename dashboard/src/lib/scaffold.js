@@ -225,9 +225,11 @@ export const SETUP_STATUS = {
 
 /** "Plan — Kiến trúc → Lập trình (tự duyệt) → Kiểm thử" for the review step. */
 export function workflowLabel(workflow) {
-  const preset = WORKFLOW_PRESETS.find(p => JSON.stringify(p.steps) === JSON.stringify(workflow));
+  const shape = w => w.map(x => `${x.step}:${x.mode}`).join();
+  const preset = WORKFLOW_PRESETS.find(p => shape(p.steps) === shape(workflow));
   const steps = workflow.filter(w => w.mode !== 'SKIP').map(w => `${STEP_LABEL[w.step]}${w.mode === 'AUTO' ? ' (tự duyệt)' : ''}`).join(' → ');
-  return preset ? `${preset.label}: ${steps}` : steps;
+  const tuned = workflow.filter(w => w.mode !== 'SKIP' && w.config && Object.keys(w.config).some(k => w.config[k] !== '' && w.config[k] != null)).length;
+  return `${preset ? `${preset.label}: ` : ''}${steps}${tuned ? ` · cấu hình riêng ở ${tuned} bước` : ''}`;
 }
 
 export const DEFAULT_WORKFLOW = WORKFLOW_PRESETS[0].steps;

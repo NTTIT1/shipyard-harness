@@ -298,4 +298,57 @@ class WorkflowTest {
         Workflow.reopenDev(r, st, "lỗi");
         assertThat(st.get(TEST).status).isEqualTo(StepStatus.SKIPPED);
     }
+
+    @Test
+    void conditionHasUiSkipsAnyStepWhenTheFeatureHasNoUi() {
+        Run r = new Run();
+        r.stepConfig = Map.of("TEST", Map.of("condition", "HAS_UI"));
+        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, DEV, TEST), Set.of(PM, BA));
+        r.hasUi = false;
+        Workflow.submit(r, st, ARCH); Workflow.decide(r, st, ARCH, approve());
+        Workflow.submit(r, st, DEV); Workflow.decide(r, st, DEV, approve());
+        assertThat(st.get(TEST).skipReason).isEqualTo("has_ui=false");
+        assertThat(r.status).isEqualTo(RunStatus.RELEASING);
+    }
+
+    @Test
+    void conditionPrevPassedSkipsAfterAFailedCheck() {
+        Run r = new Run();
+        r.stepConfig = Map.of("TEST", Map.of("condition", "PREV_PASSED"));
+        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, DEV, TEST), Set.of(PM, BA, ARCH, DESIGN));
+        Workflow.submit(r, st, DEV);
+        st.get(DEV).reportedFailure = true;   // e.g. ci=fail, approved by a human anyway
+        Workflow.decide(r, st, DEV, approve());
+        assertThat(st.get(TEST).status).isEqualTo(StepStatus.SKIPPED);
+        assertThat(st.get(TEST).skipReason).isEqualTo("prev_failed");
+
+        Run g = new Run();
+        g.stepConfig = Map.of("TEST", Map.of("condition", "PREV_PASSED"));
+        Map<Step, RunStep> st2 = custom(g, List.of(PM, BA, ARCH, DESIGN, DEV, TEST), Set.of(PM, BA, ARCH, DESIGN));
+        Workflow.submit(g, st2, DEV); Workflow.decide(g, st2, DEV, approve());
+        assertThat(g.currentStep).as("green DEV → TEST runs").isEqualTo(TEST);
+    }
+
+    @Test
+    void failStopsAnOpenRun() {
+        Workflow.fail(run);
+        assertThat(run.status).isEqualTo(RunStatus.CANCELLED);
+        assertThatThrownBy(() -> Workflow.fail(run)).isInstanceOf(ConflictException.class);
+    }
+
+    @Test
+    void stepConfigIsBoundedAndCleaned() {
+        Map<String, Object> c = StepConfig.normalize(ARCH, new java.util.HashMap<>(Map.of(
+                "model", "claude:claude-opus-5-5", "maxRetries", 2, "timeoutMinutes", "45", "budgetVnd", 800000,
+                "condition", "ALWAYS", "onFailure", "RETRY", "requiredInputs", List.of("spec.md", "docs/architecture.md", "spec.md"),
+                "parallelGroup", "x")));
+        assertThat(c).containsEntry("timeoutMinutes", 45).containsEntry("requiredInputs", List.of("spec.md", "docs/architecture.md"))
+                .doesNotContainKey("parallelGroup");
+        assertThatThrownBy(() -> StepConfig.normalize(ARCH, Map.of("model", "rm -rf /"))).isInstanceOf(BadRequestException.class);
+        assertThatThrownBy(() -> StepConfig.normalize(ARCH, Map.of("maxRetries", 99))).isInstanceOf(BadRequestException.class);
+        assertThatThrownBy(() -> StepConfig.normalize(ARCH, Map.of("requiredInputs", List.of("../secrets.env")))).isInstanceOf(BadRequestException.class);
+        assertThatThrownBy(() -> StepConfig.normalize(ARCH, Map.of("requiredInputs", List.of("/etc/passwd")))).isInstanceOf(BadRequestException.class);
+        assertThatThrownBy(() -> StepConfig.normalize(DEV, Map.of("condition", "HAS_UI"))).isInstanceOf(BadRequestException.class);
+        assertThatThrownBy(() -> StepConfig.normalize(TEST, Map.of("onFailure", "PANIC"))).isInstanceOf(BadRequestException.class);
+    }
 }

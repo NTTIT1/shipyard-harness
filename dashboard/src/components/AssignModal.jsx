@@ -4,6 +4,8 @@ import Modal from './Modal.jsx';
 import StepModels from './StepModels.jsx';
 import { fetchProviders, fetchSpecs, assignLane, saveLaneModelDefaults } from '../lib/api.js';
 import { STEPS, STEP_LABEL } from '../lib/review.js';
+import { platform } from '../lib/platform.js';
+import { workflowModels } from '../lib/workflow.js';
 
 const isFree = l => !l.session_running && ['idle', 'down', '', undefined].includes(l.status);
 
@@ -30,15 +32,23 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
     }).catch(e => setError(e.message));
   }, []);
 
+  // Models the lane's project chose per step in its workflow pre-fill the lane's own defaults.
+  const [projModels, setProjModels] = useState({});
+  useEffect(() => {
+    const pid = lanes.find(l => l.lane === lane)?.run_project_id;
+    if (!pid) { setProjModels({}); return; }
+    platform.workflow(pid).then(w => setProjModels(workflowModels(w)), () => setProjModels({}));
+  }, [lane, lanes]);
+
   useEffect(() => {
     if (lane == null) return;
     if (info) {
       const laneModels = (info.lane_defaults || {})[String(lane)] || info.defaults;
-      setModels(laneModels);
+      setModels({ ...laneModels, ...projModels });
       setGates(laneModels.gates || {});
     }
     fetchSpecs(lane).then(d => { setSpecs(d.specs); setSpec(d.specs[0] || ''); }).catch(() => setSpecs([]));
-  }, [lane, info]);
+  }, [lane, info, projModels]);
 
   const submit = async () => {
     setBusy(true); setError('');
@@ -87,6 +97,7 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
             <summary>
               <span className="am-adv-title">Tuỳ chỉnh AI & quy trình cho tính năng này</span>
               <span className="am-adv-sum">
+                {Object.keys(projModels).length ? `model theo quy trình dự án (${Object.keys(projModels).length} bước) · ` : ''}
                 {hasLaneCustom ? `cấu hình riêng Lane ${lane}` : 'mặc định chung'}
                 {' · '}{Object.values(gates).filter(Boolean).length ? `${Object.values(gates).filter(Boolean).length} bước đổi quy trình` : 'quy trình theo dự án'}
               </span>

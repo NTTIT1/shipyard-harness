@@ -1,432 +1,169 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowUp, ArrowDown, Save, Cpu, UserCheck, ShieldCheck, Tag, Plus, X, Layers } from 'lucide-react';
-import Button from '../ui/Button.jsx';
-import { APPROVER_ROLE_OPTIONS, defaultApproverRole } from '../../lib/review.js';
+import React, { useState } from 'react';
+import { ArrowUp, ArrowDown, Plus, X } from 'lucide-react';
+import ModelSelect from '../ModelSelect.jsx';
+import { STEP_LABEL, GATE_MODES, MOVABLE, APPROVER_ROLE_OPTIONS, defaultApproverRole } from '../../lib/review.js';
+import { CONDITIONS, ON_FAILURE, KNOWN_INPUTS, PHASE_WORK, validInput, configProblem } from '../../lib/workflow.js';
 
-export const AVAILABLE_MODELS = [
-  { id: 'claude:claude-3-5-sonnet', name: 'Claude 3.5 Sonnet (Anthropic)', desc: 'Mạnh mẽ nhất về code và logic đặc tả' },
-  { id: 'claude:claude-opus-5-5', name: 'Claude 3 Opus (Anthropic)', desc: 'Tư duy sâu cho kiến trúc hệ thống và giải pháp' },
-  { id: 'claude:claude-3-5-haiku', name: 'Claude 3.5 Haiku (Anthropic)', desc: 'Rất nhanh và tiết kiệm chi phí, tối ưu cho QA' },
-  { id: 'openai:gpt-4o', name: 'GPT-4o (OpenAI)', desc: 'Đa phương thức và xử lý tổng quát' },
-  { id: 'openai:gpt-4o-mini', name: 'GPT-4o Mini (OpenAI)', desc: 'Nhỏ gọn, nhanh cho các bước phụ trợ' },
-  { id: 'google:gemini-1.5-pro', name: 'Gemini 1.5 Pro (Google)', desc: 'Context window cực lớn cho tài liệu dày' },
-  { id: 'deepseek:deepseek-chat', name: 'DeepSeek V3 (DeepSeek)', desc: 'Chi phí cực thấp, hiệu năng lập trình cao' },
-];
-
-const PRESET_INPUTS = [
-  'Đặc tả được duyệt',
-  'Context manifest',
-  'API Contract',
-  'Mockup spec',
-  'Test report',
-  'DB Migration spec',
-  'Wireframe flow',
-];
-
-export default function WorkflowStepInspector({
-  step,
-  stepIndex,
-  totalSteps,
-  members = [],
-  users = {},
-  disabled = false,
-  onUpdateStep,
-  onMoveStep,
-}) {
-  const [form, setForm] = useState(() => ({
-    label: step.label || '',
-    subLabel: step.subLabel || '',
-    type: step.type || 'agent',
-    model: step.model || 'claude:claude-3-5-sonnet',
-    profile: step.profile || step.label || '',
-    approverRole: step.approverRole || defaultApproverRole(step.phase),
-    approverId: step.approverId || '',
-    maxRetries: step.maxRetries ?? 2,
-    timeoutMinutes: step.timeoutMinutes ?? 30,
-    budgetVnd: step.budgetVnd ?? 500000,
-    dep: step.dep || (stepIndex === 0 ? 'Không · bước bắt đầu từ 0' : `${stepIndex} · bước bắt đầu từ 0`),
-    parallelGroup: step.parallelGroup || '',
-    condition: step.condition || 'ALWAYS',
-    onFailure: step.onFailure || 'ESCALATE_HUMAN',
-    requiredInputs: step.requiredInputs || ['Đặc tả được duyệt', 'Context manifest'],
-  }));
-
-  const [customInputTag, setCustomInputTag] = useState('');
-  const [savedNotice, setSavedNotice] = useState('');
-
-  // Sync form state when active step changes
-  useEffect(() => {
-    setForm({
-      label: step.label || '',
-      subLabel: step.subLabel || '',
-      type: step.type || 'agent',
-      model: step.model || 'claude:claude-3-5-sonnet',
-      profile: step.profile || step.label || '',
-      approverRole: step.approverRole || defaultApproverRole(step.phase),
-      approverId: step.approverId || '',
-      maxRetries: step.maxRetries ?? 2,
-      timeoutMinutes: step.timeoutMinutes ?? 30,
-      budgetVnd: step.budgetVnd ?? 500000,
-      dep: step.dep || (stepIndex === 0 ? 'Không · bước bắt đầu từ 0' : `${stepIndex} · bước bắt đầu từ 0`),
-      parallelGroup: step.parallelGroup || '',
-      condition: step.condition || 'ALWAYS',
-      onFailure: step.onFailure || 'ESCALATE_HUMAN',
-      requiredInputs: step.requiredInputs || ['Đặc tả được duyệt', 'Context manifest'],
-    });
-    setSavedNotice('');
-  }, [step.id, stepIndex]);
-
-  const handleChange = (field, val) => {
-    setForm(prev => ({ ...prev, [field]: val }));
-    setSavedNotice('');
+/**
+ * Settings of one workflow step. Every field is stored on the project, frozen into each run and
+ * enforced: the model by the lane, the guardrails by run-step.sh, the condition by the orchestrator.
+ * Edits go to the page's draft; "Lưu quy trình" saves them.
+ */
+export default function WorkflowStepInspector({ item, index, value, onChange, info, members = [], users = {}, disabled = false }) {
+  const [custom, setCustom] = useState('');
+  if (!item) return null;
+  const step = item.step;
+  const cfg = item.config || {};
+  const set = patch => onChange(value.map(w => (w.step === step ? { ...w, ...patch } : w)));
+  const setCfg = patch => set({ config: { ...cfg, ...patch } });
+  const inputs = cfg.requiredInputs || [];
+  const toggleInput = p => setCfg({ requiredInputs: inputs.includes(p) ? inputs.filter(x => x !== p) : [...inputs, p] });
+  const addCustom = () => {
+    const p = custom.trim();
+    if (!validInput(p) || inputs.includes(p)) return;
+    setCfg({ requiredInputs: [...inputs, p] });
+    setCustom('');
   };
-
-  const handleSave = e => {
-    e?.preventDefault();
-    onUpdateStep(step.id, form);
-    setSavedNotice('Đã lưu cấu hình bước!');
-    setTimeout(() => setSavedNotice(''), 3000);
+  const move = dir => {
+    const i = value.findIndex(w => w.step === step), j = i + dir;
+    if (j < 0 || !MOVABLE.includes(value[j]?.step)) return;
+    const out = [...value];
+    [out[i], out[j]] = [out[j], out[i]];
+    onChange(out);
   };
-
-  const toggleTag = tag => {
-    setForm(prev => {
-      const exists = prev.requiredInputs.includes(tag);
-      return {
-        ...prev,
-        requiredInputs: exists
-          ? prev.requiredInputs.filter(t => t !== tag)
-          : [...prev.requiredInputs, tag],
-      };
-    });
-  };
-
-  const addCustomTag = e => {
-    e.preventDefault();
-    const t = customInputTag.trim();
-    if (t && !form.requiredInputs.includes(t)) {
-      setForm(prev => ({ ...prev, requiredInputs: [...prev.requiredInputs, t] }));
-      setCustomInputTag('');
-    }
-  };
-
-  const eligibleMembers = members.filter(m =>
-    m.roles?.includes(form.approverRole) || m.roles?.includes('OWNER') || m.roles?.includes('MAINTAINER')
-  );
+  const movable = MOVABLE.includes(step);
+  const lastMovable = value.findIndex(w => !MOVABLE.includes(w.step)) - 1;
+  const role = item.approverRole || defaultApproverRole(step);
+  const eligible = members.filter(m => m.roles?.includes(role) || m.roles?.includes('OWNER') || m.roles?.includes('MAINTAINER'));
+  const problem = configProblem(step, cfg);
+  const id = k => `wfi-${step}-${k}`;
+  const skipped = item.mode === 'SKIP';
 
   return (
-    <div className="wf-inspector-card">
-      <div className="wf-inspector-header">
-        <div className="wf-inspector-title-wrap">
-          <h3 className="wf-inspector-title">
-            Thiết lập bước {stepIndex + 1}
-          </h3>
-          <span className="wf-inspector-phase-tag">
-            {step.phase} · {step.id}
+    <section className="wfi" aria-labelledby={id('title')}>
+      <header className="wfi-head">
+        <div>
+          <h3 id={id('title')} className="wfi-title">{index + 1}. {STEP_LABEL[step]}</h3>
+          <ul className="wfi-work">
+            {PHASE_WORK[step].map(([who, what]) => <li key={who}><b>{who}</b> — {what}</li>)}
+          </ul>
+        </div>
+        {movable && !disabled && (
+          <span className="wfi-move">
+            <button type="button" className="wf-move-btn" aria-label={`Đưa ${STEP_LABEL[step]} lên trước`} disabled={index === 0} onClick={() => move(-1)}><ArrowUp size={14} aria-hidden="true" /></button>
+            <button type="button" className="wf-move-btn" aria-label={`Đưa ${STEP_LABEL[step]} xuống sau`} disabled={index >= lastMovable} onClick={() => move(1)}><ArrowDown size={14} aria-hidden="true" /></button>
           </span>
+        )}
+      </header>
+
+      <fieldset className="wfi-group">
+        <legend>Sau khi AI làm xong</legend>
+        <div className="wf-mode" role="radiogroup" aria-label={`Chế độ bước ${STEP_LABEL[step]}`}>
+          {GATE_MODES.filter(g => !(step === 'DEV' && g.id === 'SKIP')).map(g => (
+            <label key={g.id} className={item.mode === g.id ? 'on' : ''}>
+              <input type="radio" name={id('mode')} checked={item.mode === g.id} disabled={disabled} onChange={() => set({ mode: g.id })} />
+              {g.label}
+            </label>
+          ))}
         </div>
-        {savedNotice && <span className="wf-inspector-saved-pill" role="status">{savedNotice}</span>}
-      </div>
-
-      <form className="wf-inspector-form" onSubmit={handleSave}>
-        {/* Tên bước */}
-        <div className="wf-form-group">
-          <label className="wf-form-label" htmlFor="inp-step-name">
-            Tên bước <span className="req-star">*</span>
-          </label>
-          <input
-            id="inp-step-name"
-            type="text"
-            className="wf-form-input"
-            disabled={disabled}
-            value={form.label}
-            onChange={e => handleChange('label', e.target.value)}
-            placeholder="Ví dụ: Business Analyst, Solution Architect..."
-          />
-        </div>
-
-        {/* Loại xử lý */}
-        <div className="wf-form-group">
-          <label className="wf-form-label" htmlFor="sel-step-type">
-            Loại xử lý
-          </label>
-          <select
-            id="sel-step-type"
-            className="wf-form-select"
-            disabled={disabled}
-            value={form.type}
-            onChange={e => handleChange('type', e.target.value)}>
-            <option value="agent">Agent (AI tự động xử lý)</option>
-            <option value="gate">Con người phê duyệt (Gate)</option>
-            <option value="qa">Kiểm tra độc lập / Quality Gate</option>
-          </select>
-        </div>
-
-        {/* Cấu hình Agent (Model AI & Profile) hoặc Gate (Vai trò duyệt & Người phụ trách) */}
-        {form.type === 'agent' ? (
-          <div className="wf-form-grid-2">
-            <div className="wf-form-group">
-              <label className="wf-form-label" htmlFor="sel-model-ai">
-                Model AI chỉ định <span className="req-star">*</span>
-              </label>
-              <select
-                id="sel-model-ai"
-                className="wf-form-select"
-                disabled={disabled}
-                value={form.model}
-                onChange={e => handleChange('model', e.target.value)}>
-                {AVAILABLE_MODELS.map(m => (
-                  <option key={m.id} value={m.id} title={m.desc}>
-                    {m.name}
-                  </option>
-                ))}
+        {item.mode === 'REQUIRED' && (
+          <div className="wfi-row">
+            <label className="wfi-field" htmlFor={id('role')}>Vai trò duyệt
+              <select id={id('role')} className="msel" disabled={disabled} value={role} onChange={e => set({ approverRole: e.target.value, approverId: null })}>
+                {APPROVER_ROLE_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
-            </div>
-
-            <div className="wf-form-group">
-              <label className="wf-form-label" htmlFor="inp-agent-profile">
-                Agent profile / Persona <span className="req-star">*</span>
-              </label>
-              <input
-                id="inp-agent-profile"
-                type="text"
-                className="wf-form-input"
-                disabled={disabled}
-                value={form.profile}
-                onChange={e => handleChange('profile', e.target.value)}
-                placeholder="Ví dụ: Business Analyst..."
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="wf-form-grid-2">
-            <div className="wf-form-group">
-              <label className="wf-form-label" htmlFor="sel-approver-role">
-                Vai trò phê duyệt <span className="req-star">*</span>
-              </label>
-              <select
-                id="sel-approver-role"
-                className="wf-form-select"
-                disabled={disabled}
-                value={form.approverRole}
-                onChange={e => handleChange('approverRole', e.target.value)}>
-                {APPROVER_ROLE_OPTIONS.map(opt => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.label}
-                  </option>
-                ))}
+            </label>
+            <label className="wfi-field" htmlFor={id('who')}>Người duyệt
+              <select id={id('who')} className="msel" disabled={disabled || !eligible.length} value={item.approverId || ''} onChange={e => set({ approverId: e.target.value || null })}>
+                <option value="">Bất kỳ ai có vai trò này</option>
+                {eligible.map(m => <option key={m.userId} value={m.userId}>{users[m.userId]?.name || users[m.userId]?.email || m.userId}</option>)}
               </select>
-            </div>
-
-            <div className="wf-form-group">
-              <label className="wf-form-label" htmlFor="sel-approver-user">
-                Người phụ trách / Chỉ định
-              </label>
-              <select
-                id="sel-approver-user"
-                className="wf-form-select"
-                disabled={disabled || eligibleMembers.length === 0}
-                value={form.approverId}
-                onChange={e => handleChange('approverId', e.target.value)}>
-                <option value="">Bất kỳ ai có vai trò {form.approverRole}</option>
-                {eligibleMembers.map(m => {
-                  const u = users[m.userId];
-                  const name = u?.name || u?.email || m.userId;
-                  return (
-                    <option key={m.userId} value={m.userId}>
-                      {name} ({m.roles?.join(', ')})
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+            </label>
           </div>
         )}
+        {skipped && <p className="wfi-hint">Bước không chạy; bước sau làm từ yêu cầu gốc và tài liệu đã có.</p>}
+      </fieldset>
 
-        {/* Hàng: Vòng thử tối đa & Giới hạn phút */}
-        <div className="wf-form-grid-2">
-          <div className="wf-form-group">
-            <label className="wf-form-label" htmlFor="inp-retries">
-              Vòng thử tối đa
-            </label>
-            <input
-              id="inp-retries"
-              type="number"
-              min="1"
-              max="10"
-              className="wf-form-input tabular-nums"
-              disabled={disabled}
-              value={form.maxRetries}
-              onChange={e => handleChange('maxRetries', parseInt(e.target.value, 10) || 1)}
-            />
-          </div>
+      {!skipped && (
+        <>
+          <fieldset className="wfi-group">
+            <legend>Model AI</legend>
+            {info ? (
+              <ModelSelect id={id('model')} value={cfg.model || ''} info={info} openhands={step === 'DEV' || step === 'TEST'}
+                emptyLabel="Mặc định của lane" label={`Model AI — ${STEP_LABEL[step]}`} onChange={v => setCfg({ model: v })} />
+            ) : <p className="wfi-hint">Đang tải danh sách model…</p>}
+            <p className="wfi-hint">
+              {step === 'DEV'
+                ? 'Claude = phiên chính của lane tự code; OpenHands = code trong hộp kín qua cổng LiteLLM.'
+                : 'Chọn sẵn khi giao việc cho lane của dự án; từng tính năng vẫn đổi được ở Giao việc.'}
+            </p>
+          </fieldset>
 
-          <div className="wf-form-group">
-            <label className="wf-form-label" htmlFor="inp-timeout">
-              Giới hạn phút
-            </label>
-            <input
-              id="inp-timeout"
-              type="number"
-              min="5"
-              max="240"
-              step="5"
-              className="wf-form-input tabular-nums"
-              disabled={disabled}
-              value={form.timeoutMinutes}
-              onChange={e => handleChange('timeoutMinutes', parseInt(e.target.value, 10) || 30)}
-            />
-          </div>
-        </div>
+          <fieldset className="wfi-group">
+            <legend>Giới hạn</legend>
+            <div className="wfi-row wfi-row-3">
+              <label className="wfi-field" htmlFor={id('time')}>Giới hạn phút
+                <input id={id('time')} type="number" inputMode="numeric" min="1" max="480" placeholder="Không giới hạn" disabled={disabled}
+                  value={cfg.timeoutMinutes ?? ''} onChange={e => setCfg({ timeoutMinutes: e.target.value === '' ? undefined : Number(e.target.value) })} />
+              </label>
+              <label className="wfi-field" htmlFor={id('budget')}>Ngân sách (₫)
+                <input id={id('budget')} type="number" inputMode="numeric" min="0" step="50000" placeholder="Không giới hạn" disabled={disabled}
+                  value={cfg.budgetVnd ?? ''} onChange={e => setCfg({ budgetVnd: e.target.value === '' ? undefined : Number(e.target.value) })} />
+              </label>
+              <label className="wfi-field" htmlFor={id('retries')}>Số vòng thử lại
+                <input id={id('retries')} type="number" inputMode="numeric" min="0" max="5" placeholder="0" disabled={disabled}
+                  value={cfg.maxRetries ?? ''} onChange={e => setCfg({ maxRetries: e.target.value === '' ? undefined : Number(e.target.value) })} />
+              </label>
+            </div>
+            <div className="wfi-row">
+              <label className="wfi-field" htmlFor={id('cond')}>Điều kiện chạy
+                <select id={id('cond')} className="msel" disabled={disabled || step === 'DEV'} value={cfg.condition || 'ALWAYS'} onChange={e => setCfg({ condition: e.target.value })}>
+                  {CONDITIONS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </label>
+              <label className="wfi-field" htmlFor={id('fail')}>Khi AI lỗi / quá giờ / vượt ngân sách
+                <select id={id('fail')} className="msel" disabled={disabled} value={cfg.onFailure || 'ESCALATE_HUMAN'} onChange={e => setCfg({ onFailure: e.target.value })}>
+                  {ON_FAILURE.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <p className="wfi-hint">
+              {step === 'DEV'
+                ? 'Code trong phiên chính: số vòng thử = số vòng tự sửa khi CI/e2e đỏ (mặc định 3); giới hạn phút và ngân sách được kiểm tra trước mỗi vòng.'
+                : 'Mỗi lần AI chạy bị cắt ở giới hạn phút; vượt ngân sách thì không chạy thêm. Thử lại chỉ áp dụng khi chọn "Tự thử lại".'}
+            </p>
+          </fieldset>
 
-        {/* Hàng: Ngân sách VND & Phụ thuộc bước */}
-        <div className="wf-form-grid-2">
-          <div className="wf-form-group">
-            <label className="wf-form-label" htmlFor="inp-budget">
-              Ngân sách VND
-            </label>
-            <input
-              id="inp-budget"
-              type="number"
-              step="50000"
-              min="0"
-              className="wf-form-input tabular-nums"
-              disabled={disabled}
-              value={form.budgetVnd}
-              onChange={e => handleChange('budgetVnd', parseInt(e.target.value, 10) || 0)}
-            />
-          </div>
-
-          <div className="wf-form-group">
-            <label className="wf-form-label" htmlFor="inp-deps">
-              Phụ thuộc bước (chỉ số, cách nhau dấu phẩy)
-            </label>
-            <input
-              id="inp-deps"
-              type="text"
-              className="wf-form-input"
-              disabled={disabled}
-              value={form.dep}
-              onChange={e => handleChange('dep', e.target.value)}
-              placeholder="Ví dụ: 0, 1 hoặc Không"
-            />
-          </div>
-        </div>
-
-        {/* Nhóm chạy song song */}
-        <div className="wf-form-group">
-          <label className="wf-form-label" htmlFor="inp-parallel">
-            Nhóm chạy song song (tùy chọn)
-          </label>
-          <input
-            id="inp-parallel"
-            type="text"
-            className="wf-form-input"
-            disabled={disabled}
-            value={form.parallelGroup}
-            onChange={e => handleChange('parallelGroup', e.target.value)}
-            placeholder="Ví dụ: parallel-dev, parallel-qa..."
-          />
-        </div>
-
-        {/* Hàng: Điều kiện & Khi không đạt */}
-        <div className="wf-form-grid-2">
-          <div className="wf-form-group">
-            <label className="wf-form-label" htmlFor="sel-condition">
-              Điều kiện
-            </label>
-            <select
-              id="sel-condition"
-              className="wf-form-select"
-              disabled={disabled}
-              value={form.condition}
-              onChange={e => handleChange('condition', e.target.value)}>
-              <option value="ALWAYS">Luôn chạy</option>
-              <option value="HAS_UI">Khi có giao diện (has_ui = true)</option>
-              <option value="PREV_PASSED">Khi bước trước đạt chuẩn</option>
-            </select>
-          </div>
-
-          <div className="wf-form-group">
-            <label className="wf-form-label" htmlFor="sel-on-fail">
-              Khi không đạt
-            </label>
-            <select
-              id="sel-on-fail"
-              className="wf-form-select"
-              disabled={disabled}
-              value={form.onFailure}
-              onChange={e => handleChange('onFailure', e.target.value)}>
-              <option value="ESCALATE_HUMAN">Chuyển con người</option>
-              <option value="RETRY">Tự thử lại theo vòng thử</option>
-              <option value="FAIL_RUN">Dừng quy trình</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Đầu vào bắt buộc (Tags) */}
-        <div className="wf-form-group">
-          <label className="wf-form-label">
-            Đầu vào bắt buộc
-          </label>
-          <div className="wf-tags-selector">
-            {PRESET_INPUTS.map(tag => {
-              const active = form.requiredInputs.includes(tag);
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  className={`wf-tag-pill${active ? ' on' : ''}`}
-                  disabled={disabled}
-                  onClick={() => toggleTag(tag)}>
-                  {active && <span className="wf-tag-check">✓</span>}
-                  <span>{tag}</span>
+          <fieldset className="wfi-group">
+            <legend>Đầu vào bắt buộc</legend>
+            <div className="wfi-chips">
+              {KNOWN_INPUTS.map(k => {
+                const on = inputs.includes(k.path);
+                return (
+                  <button key={k.path} type="button" className={`wfi-chip${on ? ' on' : ''}`} aria-pressed={on} disabled={disabled}
+                    title={k.path} onClick={() => toggleInput(k.path)}>{k.label}</button>
+                );
+              })}
+              {inputs.filter(p => !KNOWN_INPUTS.some(k => k.path === p)).map(p => (
+                <span key={p} className="wfi-chip on mono">{p}
+                  {!disabled && <button type="button" className="wfi-chip-x" aria-label={`Bỏ ${p}`} onClick={() => toggleInput(p)}><X size={12} aria-hidden="true" /></button>}
+                </span>
+              ))}
+            </div>
+            {!disabled && (
+              <div className="wfi-row wfi-add">
+                <input aria-label="Thêm đường dẫn file đầu vào" placeholder="Đường dẫn khác, vd backend/openapi.yaml" value={custom}
+                  onChange={e => setCustom(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }} />
+                <button type="button" className="btn btn-sm btn-secondary" disabled={!validInput(custom.trim())} onClick={addCustom}>
+                  <Plus size={14} aria-hidden="true" /><span>Thêm</span>
                 </button>
-              );
-            })}
-          </div>
-          {/* Custom tag add input */}
-          <div className="wf-custom-tag-row">
-            <input
-              type="text"
-              className="wf-form-input sm"
-              placeholder="+ Thêm đầu vào tùy chỉnh..."
-              value={customInputTag}
-              disabled={disabled}
-              onChange={e => setCustomInputTag(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') addCustomTag(e); }}
-            />
-            <Button size="sm" disabled={disabled || !customInputTag.trim()} onClick={addCustomTag}>
-              Thêm
-            </Button>
-          </div>
-        </div>
-
-        {/* Action Buttons & Note */}
-        <div className="wf-inspector-actions">
-          <div className="wf-inspector-btn-row">
-            <Button variant="primary" icon={Save} disabled={disabled} onClick={handleSave}>
-              Lưu cấu hình
-            </Button>
-            <Button
-              size="sm"
-              icon={ArrowUp}
-              disabled={disabled || stepIndex <= 0}
-              onClick={() => onMoveStep(step.id, -1)}>
-              Di chuyển lên
-            </Button>
-            <Button
-              size="sm"
-              icon={ArrowDown}
-              disabled={disabled || stepIndex >= totalSteps - 1}
-              onClick={() => onMoveStep(step.id, 1)}>
-              Di chuyển xuống
-            </Button>
-          </div>
-          <p className="wf-inspector-footnote">
-            Thay đổi chỉ áp dụng bản nháp: run đã bắt đầu giữ snapshot.
-          </p>
-        </div>
-      </form>
-    </div>
+              </div>
+            )}
+            <p className="wfi-hint">Thiếu file nào thì bước dừng trước khi tốn token. AI chỉ được dặn đọc đúng các file này. Tên không có “/” nằm trong thư mục spec của tính năng.</p>
+          </fieldset>
+        </>
+      )}
+      {problem && <p className="m-err" role="alert">{problem}</p>}
+    </section>
   );
 }

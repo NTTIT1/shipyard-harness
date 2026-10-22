@@ -7,6 +7,7 @@
 #   state.sh <N> append key '<json>'         # append a JSON value to an array key
 #   state.sh <N> get [key]                   # print whole JSON, or one key
 #   state.sh <N> activate <slug>             # set .active + rename _pending if needed
+#   state.sh <N> path                        # print the active state file's path
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_common.sh"
 require_lane "${1:-}"
@@ -163,5 +164,6 @@ PY
       cat "$FILE"
     fi
     ;;
-  *) die "unknown action '$ACTION' (init|set|set-json|append|get|activate)";;
+  path) echo "$FILE" ;;
+  *) die "unknown action '$ACTION' (init|set|set-json|append|get|activate|path)";;
 esac

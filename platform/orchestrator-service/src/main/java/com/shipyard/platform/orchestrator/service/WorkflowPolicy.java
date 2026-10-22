@@ -6,6 +6,7 @@ import com.shipyard.platform.orchestrator.domain.GateMode;
 import com.shipyard.platform.orchestrator.domain.RunKind;
 import com.shipyard.platform.orchestrator.domain.Step;
 import com.shipyard.platform.orchestrator.domain.Workflow;
+import com.shipyard.platform.orchestrator.domain.StepConfig;
 import com.shipyard.platform.orchestrator.entity.GatePolicy;
 import com.shipyard.platform.orchestrator.repository.GatePolicyRepository;
 import org.springframework.stereotype.Service;
@@ -38,7 +39,8 @@ public class WorkflowPolicy {
             String defRole = s == Step.DESIGN ? "PM" : s.requiredRole();
             String role = (p != null && p.approverRole != null && !p.approverRole.isBlank()) ? p.approverRole : defRole;
             String approverId = p != null ? p.approverId : null;
-            out.add(new WorkflowStep(s.name(), (p == null || p.mode == null ? GateMode.REQUIRED : p.mode).name(), role, approverId));
+            out.add(new WorkflowStep(s.name(), (p == null || p.mode == null ? GateMode.REQUIRED : p.mode).name(), role, approverId,
+                    p == null || p.config == null ? Map.of() : p.config));
         }
         return out;
     }
@@ -68,6 +70,7 @@ public class WorkflowPolicy {
             if (stepBody != null) {
                 p.approverRole = stepBody.approverRole();
                 p.approverId = stepBody.approverId();
+                p.config = StepConfig.normalize(s, stepBody.config());
             }
             out.add(p);
         }

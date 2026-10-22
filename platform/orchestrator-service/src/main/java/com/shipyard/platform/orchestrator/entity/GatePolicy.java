@@ -18,6 +18,8 @@ public class GatePolicy {
     public Integer position;
     public String approverRole;
     public String approverId;
+    /** StepConfig settings (model, maxRetries, timeoutMinutes, budgetVnd, condition, onFailure, requiredInputs). */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.Map<String, Object> config;
 
     public GatePolicy() {}
 

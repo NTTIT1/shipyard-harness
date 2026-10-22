@@ -25,8 +25,9 @@ public final class Dtos {
 
     /** One step of a project's workflow: mode REQUIRED | AUTO | SKIP, plus configured approver role/id. */
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
-    public record WorkflowStep(String step, String mode, String approverRole, String approverId) {
-        public WorkflowStep(String step, String mode) { this(step, mode, null, null); }
+    public record WorkflowStep(String step, String mode, String approverRole, String approverId, Map<String, Object> config) {
+        public WorkflowStep(String step, String mode) { this(step, mode, null, null, null); }
+        public WorkflowStep(String step, String mode, String approverRole, String approverId) { this(step, mode, approverRole, approverId, null); }
     }
 
     public record ImageRef(String path, String caption) {}
@@ -36,8 +37,10 @@ public final class Dtos {
 
     public record SubmitResult(String revisionId, int revisionNo, String approvalId, boolean autoApproved) {}
 
+    /** stepConfig: the run's frozen per-step settings, which the lane harness enforces. */
     public record NextAction(String mode, String step, int revision, String feedback,
-                             Map<String, String> editedDocuments, Map<String, Map<String, String>> priorApproved) {}
+                             Map<String, String> editedDocuments, Map<String, Map<String, String>> priorApproved,
+                             Map<String, Map<String, Object>> stepConfig) {}
 
     public record ReasonRequest(String reason) {}
 

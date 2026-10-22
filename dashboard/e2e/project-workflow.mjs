@@ -46,8 +46,35 @@ try {
   await shot(p, 'wf1-default');
 
   await p.getByRole('button', { name: 'Plan → Code → Test' }).click();
-  ok(await p.locator('.wf-chip > span:not(.wf-chip-mode)').allTextContents().then(t => t.join(' → ')) === 'Plan — Kiến trúc → Lập trình → Kiểm thử', 'preset shows Plan → Code → Test');
-  // fine-tune: bring PM back (approved automatically) and DRAG it above Plan
+  ok(await p.locator('.wfc-node .wfc-name').allTextContents().then(t => t.join(' → ')) === 'Plan — Kiến trúc → Lập trình → Kiểm thử', 'canvas shows Plan → Code → Test');
+  ok(await p.locator('.wfc-skip').count() === 3, 'left-out steps listed under the canvas');
+
+  // Canvas + inspector: click Plan, give it its own model and guardrails
+  await p.locator('.wfc-node', { hasText: 'Plan — Kiến trúc' }).click();
+  await p.locator('.wfi-title', { hasText: 'Plan — Kiến trúc' }).waitFor();
+  const ins = p.locator('.wfi');
+  await ins.getByLabel('Model AI — Plan — Kiến trúc').selectOption('claude:claude-opus-5-5');
+  await ins.getByLabel('Giới hạn phút').fill('45');
+  await ins.getByLabel('Ngân sách (₫)').fill('800000');
+  await ins.getByLabel('Khi AI lỗi / quá giờ / vượt ngân sách').selectOption('RETRY');
+  await ins.getByLabel('Số vòng thử lại').fill('2');
+  await ins.getByRole('button', { name: 'Spec (PM)' }).click();
+  await ins.getByLabel('Thêm đường dẫn file đầu vào').fill('docs/architecture.md');
+  await ins.getByRole('button', { name: 'Thêm', exact: true }).click();
+  ok(await p.locator('.wfc-node.on .wfc-sum').textContent() === '45 phút · thử lại 2 lần · trần 800.000 ₫ · 2 đầu vào', 'the node summarises its guardrails');
+  // TEST: only after a green DEV, and stop the whole run when it fails
+  await p.locator('.wfc-node', { hasText: 'Kiểm thử' }).click();
+  await ins.getByLabel('Điều kiện chạy').selectOption('PREV_PASSED');
+  await ins.getByLabel('Khi AI lỗi / quá giờ / vượt ngân sách').selectOption('FAIL_RUN');
+  ok(await p.locator('.wfc-node', { hasText: 'Lập trình' }).click().then(() => ins.getByLabel('Điều kiện chạy').isDisabled()), 'Code always runs (condition locked)');
+  await shot(p, 'wf2-canvas');
+  await p.getByRole('tab', { name: 'Bảng chi tiết' }).click();
+  ok(await p.locator('.wfe-table tbody tr').count() === 6, 'detailed table lists every step');
+  ok(await p.locator('.wfe-table').getByText('AI phản biện plan').count() === 1, 'table shows what the lane really runs');
+  await shot(p, 'wf2-table');
+
+  // 6 phases: bring PM back (approved automatically) and DRAG it above Plan
+  await p.getByRole('tab', { name: '6 giai đoạn' }).click();
   await p.getByRole('radiogroup', { name: 'Chế độ bước PM — Yêu cầu' }).getByText('Tự duyệt').click();
   const grip = p.locator('[data-grip="PM"]');
   const box = await grip.boundingBox();
@@ -73,10 +100,15 @@ try {
 
   const wf1 = (await api('GET', `/api/platform/projects/${pid}/workflow`)).body.data;
   ok(wf1.map(w => `${w.step}:${w.mode}`).join() === 'PM:AUTO,ARCH:REQUIRED,BA:SKIP,DESIGN:SKIP,DEV:AUTO,TEST:AUTO', 'saved order and modes');
+  const arch = wf1.find(w => w.step === 'ARCH').config;
+  const sorted = o => JSON.stringify(Object.fromEntries(Object.entries(o).sort()));
+  ok(sorted(arch) === sorted({ model: 'claude:claude-opus-5-5', maxRetries: 2, timeoutMinutes: 45, budgetVnd: 800000, onFailure: 'RETRY', requiredInputs: ['spec.md', 'docs/architecture.md'] }),
+    `ARCH settings saved on the project (${JSON.stringify(arch)})`);
+  ok(wf1.find(w => w.step === 'TEST').config.condition === 'PREV_PASSED', 'TEST condition saved');
 
   await p.reload(); await p.waitForSelector('.sb-user');
   await openWorkflow();
-  ok(await p.locator('.wf-chip > span:not(.wf-chip-mode)').allTextContents().then(t => t.join(' → ')) === 'PM — Yêu cầu → Plan — Kiến trúc → Lập trình → Kiểm thử', 'after reload the page shows the saved workflow');
+  ok(await p.locator('.wfc-node .wfc-name').allTextContents().then(t => t.join(' → ')) === 'PM — Yêu cầu → Plan — Kiến trúc → Lập trình → Kiểm thử', 'after reload the canvas shows the saved workflow');
   await shot(p, 'wf4-after-reload');
 
   // A new feature run (what a lane does at /ship-feature start) follows the project's workflow.
@@ -85,6 +117,8 @@ try {
     body: JSON.stringify({ projectId: pid, laneRef: 'e2e:lane9', title: 'thử quy trình', description: '', createdBy: 'e2e' }) })).json();
   ok(run.data.currentStep === 'PM', `the run starts at PM (${run.data.currentStep})`);
   ok(run.data.workflow.join() === 'PM,ARCH,BA,DESIGN,DEV,TEST', 'the run froze the workflow order');
+  const nx = await (await fetch(`${ORCH}/internal/v1/runs/${run.data.id}/next`, { headers: { 'X-Service-Token': token } })).json();
+  ok(nx.data.stepConfig.ARCH.timeoutMinutes === 45 && nx.data.stepConfig.TEST.onFailure === 'FAIL_RUN', 'the lane receives the frozen step settings');
 
   const bad = await api('PUT', `/api/platform/projects/${pid}/workflow`, wf1.map(w => (w.step === 'DEV' ? { ...w, mode: 'SKIP' } : w)));
   ok(bad.status === 400, 'skipping DEV is refused by the server');

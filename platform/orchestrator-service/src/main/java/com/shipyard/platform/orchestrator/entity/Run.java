@@ -23,6 +23,8 @@ public class Run {
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.Map<String, String> gateOverrides;
     /** Step order frozen at creation (feature runs); steps left out are SKIPPED with reason "workflow". */
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.List<String> workflow;
+    /** Per-step settings frozen at creation: step name -> StepConfig map. */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.Map<String, java.util.Map<String, Object>> stepConfig;
     @Version public long version;
     public Instant createdAt = Instant.now();
     public Instant updatedAt = Instant.now();

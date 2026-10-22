@@ -53,8 +53,8 @@ const wf = (...pairs) => pairs.map(([step, mode]) => ({ step, mode }));
  * writes plan.md + tasks.md. Auto steps only pass green submissions; a red test waits for a human.
  */
 export const WORKFLOW_PRESETS = [
-  { id: 'enterprise', label: 'Doanh nghiệp (11 bước)',
-    desc: 'BA đặc tả → Review BA → Giải pháp ARCH → Review Lead → UX Flow → UI Mockup → Design QA → Duyệt UI → Backend Dev → Frontend Dev → Quality Gate.',
+  { id: 'enterprise', label: 'Doanh nghiệp',
+    desc: 'BA → Kiến trúc → Thiết kế UI → PM chốt phạm vi → Code → Test, bước nào cũng có người duyệt.',
     steps: wf(['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['PM', 'REQUIRED'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
   { id: 'full', label: 'Đầy đủ', desc: 'PM → BA → Plan → Thiết kế UI → Code → Test, bước nào cũng có người duyệt.',
     steps: wf(['PM', 'REQUIRED'], ['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
@@ -86,6 +86,23 @@ export function workflowProblem(workflow) {
   if (MOVABLE.some(s => order.indexOf(s) > dev)) return 'Các bước tài liệu phải đứng trước Lập trình.';
   if (order.indexOf('TEST') < dev) return 'Kiểm thử phải đứng sau Lập trình.';
   if (workflow.find(w => w.step === 'DEV').mode === 'SKIP') return 'Không thể bỏ bước Lập trình.';
+  for (const w of workflow) {
+    const why = stepConfigProblem(w.step, w.config);
+    if (why) return `${STEP_LABEL[w.step]}: ${why}`;
+  }
+  return '';
+}
+
+// Mirrors lib/workflow.js configProblem (kept here so review.js has no import cycle).
+function stepConfigProblem(step, cfg = {}) {
+  if (!cfg) return '';
+  const n = k => (cfg[k] === '' || cfg[k] == null ? null : Number(cfg[k]));
+  if (n('maxRetries') != null && !(n('maxRetries') >= 0 && n('maxRetries') <= 5)) return 'số vòng thử từ 0 đến 5';
+  if (n('timeoutMinutes') != null && !(n('timeoutMinutes') >= 1 && n('timeoutMinutes') <= 480)) return 'giới hạn từ 1 đến 480 phút';
+  if (n('budgetVnd') != null && !(n('budgetVnd') >= 0)) return 'ngân sách phải ≥ 0';
+  const bad = (cfg.requiredInputs || []).find(p => !/^[A-Za-z0-9._/@-]{1,200}$/.test(p) || p.includes('..') || p.startsWith('/'));
+  if (bad) return `đường dẫn không hợp lệ: ${bad}`;
+  if (step === 'DEV' && cfg.condition && cfg.condition !== 'ALWAYS') return 'bước Code luôn chạy';
   return '';
 }
 export const ROLE_LABEL = { PM: 'PM', BA: 'BA', TECH_LEAD: 'Tech Lead', DESIGNER: 'Designer', DEVELOPER: 'Developer', TESTER: 'Tester',

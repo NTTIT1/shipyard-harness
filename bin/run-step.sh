@@ -7,7 +7,11 @@
 #   run-step.sh <N> <step> <prompt-file>
 # Model: state models.<step> -> config/models.json defaults.<step> -> Opus. Effort likewise (effort.<step>).
 # Token usage of every run is appended to run/lane<N>/usage.jsonl (dashboard → Chi phí).
-# Exit: 0 done · 2 provider/gateway/claude error · 3 no verdict line · 64 usage
+# Workflow guardrails (the project's per-step settings, frozen into the run; bin/step_guard.py): required
+# inputs must exist, the step's VND budget must not be spent, each AI run is cut at the step's minute
+# limit, failures are retried when the step says RETRY, and FAIL_RUN stops the platform run.
+# Exit: 0 done · 2 provider/gateway/claude error (escalate to a human) · 3 no verdict line · 4 run stopped
+# (FAIL_RUN) · 64 usage
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_common.sh"
 CODE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -47,6 +51,42 @@ STATE_FILE="$(lane_state_file "$N")"
 RESOLVED="$(python3 "$CODE_ROOT/bin/step_model.py" "$STATE_FILE" "$HARNESS_ROOT/config/models.json" "$STEP" "$N")"
 MODEL="${RESOLVED%%$'\t'*}"; EFFORT="${RESOLVED#*$'\t'}"
 PROVIDER="${MODEL%%:*}"; MID="${MODEL#*:}"
+# Workflow guardrails for this step (SG_PHASE, SG_MAX_RETRIES, SG_TIMEOUT_MIN, SG_BUDGET_VND, SG_ON_FAILURE, SG_INPUTS).
+eval "$(python3 "$CODE_ROOT/bin/step_guard.py" env "$STATE_FILE" "$STEP")"
+SPEC_REL="$(python3 -c 'import json,sys
+try: print(json.load(open(sys.argv[1])).get("spec_dir") or "")
+except Exception: print("")' "$STATE_FILE")"
+RUN_ID="$(python3 -c 'import json,sys
+try: print(json.load(open(sys.argv[1])).get("run_id") or "")
+except Exception: print("")' "$STATE_FILE")"
+# A step that cannot go on: FAIL_RUN stops the platform run (exit 4), anything else waits for a human (exit 2).
+give_up() {  # <reason>
+  local why="$1"
+  if [ "$SG_ON_FAILURE" = "FAIL_RUN" ] && [ -n "$RUN_ID" ]; then
+    local rf; rf="$(mktemp)"; printf 'Bước %s (%s): %s\n' "$SG_PHASE" "$STEP" "$why" > "$rf"
+    if bash "$CODE_ROOT/bin/orch.sh" "$N" fail --reason-file "$rf" >/dev/null 2>&1; then
+      rm -f "$rf"; echo "ROLE-STEP: BLOCKED quy trình đã dừng (FAIL_RUN): $why"
+      [ "$(type -t finish_step)" = function ] && finish_step 4 "" "FAIL_RUN: $why"
+      exit 4
+    fi
+    rm -f "$rf"
+  fi
+  echo "ROLE-STEP: BLOCKED $why — cần người xử lý"
+  [ "$(type -t finish_step)" = function ] && finish_step 2 "" "$why"
+  exit 2
+}
+if [ -n "$SG_INPUTS" ]; then
+  # shellcheck disable=SC2086
+  MISSING="$(printf '%s\n' "$SG_INPUTS" | xargs -d '\n' python3 "$CODE_ROOT/bin/step_guard.py" inputs "$(lane_dir "$N")" "$SPEC_REL" || true)"
+  [ -z "$MISSING" ] || give_up "thiếu đầu vào bắt buộc: $(printf '%s' "$MISSING" | paste -sd, -)"
+fi
+if [ -n "$SG_PHASE" ]; then
+  WHY="$(python3 "$CODE_ROOT/bin/step_guard.py" check "$HARNESS_ROOT" "$N" "$STATE_FILE" "$SG_PHASE" || true)"
+  # The time limit of a headless step is enforced per run below; here only the budget can stop it up front.
+  case "$WHY" in vượt*) give_up "$WHY" ;; esac
+fi
+[ -n "$SG_TIMEOUT_MIN" ] && export OPENHANDS_TIMEOUT="$((SG_TIMEOUT_MIN * 60))"
+
 # DEV implementation engine: "openhands:<gateway model>" runs OpenHands in a sandbox container;
 # anything else means the lane's main Claude session implements DEV itself (ship-feature Stage 1).
 if [ "$STEP" = "dev" ]; then
@@ -98,15 +138,28 @@ cd "$(lane_dir "$N")"
 # Project AI-team rules for this step's role (.shipyard/team.json on the integration branch).
 TEAM_RULES="$(python3 "$CODE_ROOT/bin/team_rules.py" "$PWD" "$STEP" "${INTEGRATION_BRANCH:-development}" 2>/dev/null || true)"
 [ -n "$TEAM_RULES" ] && ARGS+=(--append-system-prompt "$TEAM_RULES")
-ERRF="$(mktemp)"; trap 'rm -f "$ERRF"' EXIT
-set +e
-RAW="$("${CLAUDE_BIN:-claude}" "${ARGS[@]}" "$(cat "$PROMPT_FILE")" 2>"$ERRF" </dev/null)"; RC=$?
-set -e
-# Token accounting (dashboard → Chi phí); also for failed runs, which still spent tokens.
-printf '%s' "$RAW" | python3 "$CODE_ROOT/bin/usage_record.py" "$HARNESS_ROOT" "$N" "$STEP" "$MODEL" "$EFFORT" "$STATE_FILE" || true
-if [ "$RC" -ne 0 ]; then
-  # With --output-format json a failing claude usually reports on STDOUT, not stderr.
-  ERRTXT="$(python3 - "$RAW" <<'PY'
+ERRF="$(mktemp)"; PROMPT_RUN="$(mktemp)"; trap 'rm -f "$ERRF" "$PROMPT_RUN"' EXIT
+cp "$PROMPT_FILE" "$PROMPT_RUN"
+if [ -n "$SG_INPUTS" ]; then
+  # Only what the workflow says this step needs: fewer files read, fewer tokens.
+  { printf '\n\n## Đầu vào bắt buộc của bước này (quy trình dự án)\nĐọc đúng các file này (tên không có "/" nằm trong %s); không cần đọc tài liệu khác của tính năng trừ khi thiếu thông tin:\n' "${SPEC_REL:-SPEC_DIR}"
+    printf '%s\n' "$SG_INPUTS" | sed 's/^/- /'; } >> "$PROMPT_RUN"
+fi
+
+# One AI run → sets RC, RESULT, LAST, FAIL ("" = done with a verdict).
+run_once() {
+  RESULT=""; LAST=""; FAIL=""
+  local raw rc tcmd=()
+  [ -n "$SG_TIMEOUT_MIN" ] && tcmd=(timeout --foreground --kill-after=30 "${SG_TIMEOUT_MIN}m")
+  set +e
+  raw="$("${tcmd[@]}" "${CLAUDE_BIN:-claude}" "${ARGS[@]}" "$(cat "$PROMPT_RUN")" 2>"$ERRF" </dev/null)"; rc=$?
+  set -e
+  # Token accounting (dashboard → Chi phí); also for failed runs, which still spent tokens.
+  printf '%s' "$raw" | python3 "$CODE_ROOT/bin/usage_record.py" "$HARNESS_ROOT" "$N" "$STEP" "$MODEL" "$EFFORT" "$STATE_FILE" || true
+  if [ "$rc" -eq 124 ]; then FAIL="quá giới hạn ${SG_TIMEOUT_MIN} phút"; return; fi
+  if [ "$rc" -ne 0 ]; then
+    # With --output-format json a failing claude usually reports on STDOUT, not stderr.
+    FAIL="$(python3 - "$raw" <<'PY'
 import json, sys
 try:
     d = json.loads(sys.argv[1])
@@ -115,11 +168,11 @@ except Exception:
     print("")
 PY
 )"
-  [ -n "$ERRTXT" ] || ERRTXT="$(tail -c 400 "$ERRF" | tr '\n' ' ')"
-  [ -n "$ERRTXT" ] || ERRTXT="claude exited $RC"
-  finish_step 2 "" "claude exited $RC: $ERRTXT"
-fi
-PARSED="$(python3 - "$RAW" <<'PY'
+    [ -n "$FAIL" ] || FAIL="$(tail -c 400 "$ERRF" | tr '\n' ' ')"
+    FAIL="claude exited $rc: ${FAIL:-no message}"; return
+  fi
+  local parsed kind body
+  parsed="$(python3 - "$raw" <<'PY'
 import json, sys
 try:
     d = json.loads(sys.argv[1])
@@ -131,13 +184,35 @@ if d.get("is_error") or d.get("subtype") != "success":
 print("OK\t" + json.dumps(res))
 PY
 )"
-KIND="${PARSED%%$'\t'*}"; BODY="${PARSED#*$'\t'}"
-[ "$KIND" = "OK" ] || finish_step 2 "" "$BODY"
-RESULT="$(python3 -c 'import json,sys;print(json.loads(sys.argv[1]))' "$BODY")"
-printf '%s\n' "$RESULT"
+  kind="${parsed%%$'\t'*}"; body="${parsed#*$'\t'}"
+  if [ "$kind" != "OK" ]; then FAIL="$body"; return; fi
+  RESULT="$(python3 -c 'import json,sys;print(json.loads(sys.argv[1]))' "$body")"
+  LAST="$(printf '%s\n' "$RESULT" | awk 'NF{l=$0} END{print l}')"
+  if [ -n "$VERDICT_RE" ] && ! printf '%s\n' "$LAST" | grep -Eq "$VERDICT_RE"; then
+    FAIL="model did not end with a ${VERDICT_RE#^} line"; NOVERDICT=1
+  fi
+}
 
-LAST="$(printf '%s\n' "$RESULT" | awk 'NF{l=$0} END{print l}')"
-if [ -n "$VERDICT_RE" ]; then
-  printf '%s\n' "$LAST" | grep -Eq "$VERDICT_RE" || finish_step 3 "" "model did not end with a ${VERDICT_RE#^} line"
+TRIES=1
+[ "$SG_ON_FAILURE" = "RETRY" ] && TRIES=$((SG_MAX_RETRIES + 1))
+NOVERDICT=0
+for ((TRY = 1; TRY <= TRIES; TRY++)); do
+  if [ "$TRY" -gt 1 ] && [ -n "$SG_PHASE" ]; then
+    WHY="$(python3 "$CODE_ROOT/bin/step_guard.py" check "$HARNESS_ROOT" "$N" "$STATE_FILE" "$SG_PHASE" || true)"
+    case "$WHY" in vượt*) give_up "$WHY" ;; esac
+    echo "harness: run-step: $STEP thử lại lần $TRY/$TRIES sau lỗi: $FAIL" >&2
+  fi
+  NOVERDICT=0
+  run_once
+  [ -z "$FAIL" ] && break
+done
+if [ -n "$FAIL" ]; then
+  if [ "$SG_ON_FAILURE" = "FAIL_RUN" ] || [ "$SG_ON_FAILURE" = "RETRY" ]; then
+    give_up "$FAIL${TRIES:+ (sau $TRIES lần chạy)}"
+  fi
+  [ -n "$RESULT" ] && printf '%s\n' "$RESULT"
+  [ "$NOVERDICT" = 1 ] && finish_step 3 "" "$FAIL"
+  finish_step 2 "" "$FAIL"
 fi
+printf '%s\n' "$RESULT"
 finish_step 0 "$LAST" ""

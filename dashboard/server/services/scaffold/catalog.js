@@ -137,7 +137,14 @@ const WF_DOCS = ['PM', 'BA', 'ARCH', 'DESIGN'];
 /** The project's feature workflow chosen in the wizard (same rules as the orchestrator). */
 export function validateWorkflow(w) {
   if (!Array.isArray(w) || w.length !== WF_STEPS.length) throw bad('Quy trình phải có đủ 6 bước');
-  const out = w.map(x => ({ step: String(x?.step || '').toUpperCase(), mode: String(x?.mode || '').toUpperCase() }));
+  // step + mode are checked here; approver and per-step settings travel to the orchestrator, which
+  // validates them strictly (StepConfig) when the workflow is saved on the new project.
+  const out = w.map(x => ({
+    step: String(x?.step || '').toUpperCase(), mode: String(x?.mode || '').toUpperCase(),
+    ...(x?.approverRole ? { approverRole: String(x.approverRole).slice(0, 40) } : {}),
+    ...(x?.approverId ? { approverId: String(x.approverId).slice(0, 40) } : {}),
+    ...(x?.config && typeof x.config === 'object' && !Array.isArray(x.config) ? { config: x.config } : {}),
+  }));
   const order = out.map(x => x.step);
   if (WF_STEPS.some(st => !order.includes(st))) throw bad('Quy trình phải có đủ 6 bước');
   if (out.some(x => !['REQUIRED', 'AUTO', 'SKIP'].includes(x.mode))) throw bad('Chế độ bước phải là REQUIRED, AUTO hoặc SKIP');

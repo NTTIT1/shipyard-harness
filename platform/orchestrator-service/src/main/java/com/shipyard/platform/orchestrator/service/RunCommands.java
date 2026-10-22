@@ -71,9 +71,11 @@ public class RunCommands {
             // The project's workflow, with this feature's choices (gateOverrides) on top.
             List<Step> order = new ArrayList<>();
             Set<Step> skipped = EnumSet.noneOf(Step.class);
+            run.stepConfig = new LinkedHashMap<>();
             for (WorkflowStep w : workflows.of(run.projectId)) {
                 Step s = Step.parse(w.step());
                 order.add(s);
+                if (w.config() != null && !w.config().isEmpty()) run.stepConfig.put(s.name(), w.config());
                 String mode = run.gateOverrides != null && run.gateOverrides.containsKey(s.name()) ? run.gateOverrides.get(s.name()) : w.mode();
                 if (GateMode.SKIP.name().equals(mode)) skipped.add(s);
             }
@@ -92,6 +94,7 @@ public class RunCommands {
         StepRequirements.validateSubmission(step, req.summary(), req.documents(), images.size(), req.meta(), req.hasUi());
         if (step == Step.ARCH) run.hasUi = req.hasUi();
         int revisionNo = Workflow.submit(run, st, step);
+        st.get(step).reportedFailure = reportsFailure(req.meta());
 
         StepRevision rev = new StepRevision();
         rev.id = Ids.newId("rev");
@@ -194,6 +197,24 @@ public class RunCommands {
         runs.flush();
         steps.flush();
         return queries.next(runId);
+    }
+
+    /** A step failed for good and its workflow says FAIL_RUN: the run stops (like a reviewer's CANCEL). */
+    public RunSummary fail(String runId, String reason) {
+        Run run = queries.lockRun(runId);
+        Workflow.fail(run);
+        Map<String, Object> p = new LinkedHashMap<>();
+        p.put("projectId", run.projectId);
+        p.put("runId", run.id);
+        p.put("runTitle", run.title);
+        p.put("step", run.currentStep == null ? "" : run.currentStep.name());
+        p.put("revisionNo", 0);
+        p.put("action", "FAIL_RUN");
+        p.put("feedback", "Quy trình dừng tự động: " + (reason == null ? "" : reason.trim()));
+        p.put("decidedAsRole", "AUTO");
+        p.put("edits", List.of());
+        outbox.enqueue("HUMAN_FEEDBACK", p);
+        return RunQueries.summary(run);
     }
 
     public RunSummary release(String runId, String summary) {

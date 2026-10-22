@@ -4,6 +4,7 @@ import Button from '../ui/Button.jsx';
 import WorkflowEditor from './WorkflowEditor.jsx';
 import { platform } from '../../lib/platform.js';
 import { workflowProblem } from '../../lib/review.js';
+import { cleanConfig } from '../../lib/workflow.js';
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -21,7 +22,7 @@ export default function ProjectGatesTab({ pid, canManage }) {
   const save = async () => {
     setBusy(true); setErr('');
     try {
-      const w = await platform.setWorkflow(pid, draft);
+      const w = await platform.setWorkflow(pid, draft.map(x => ({ ...x, config: cleanConfig(x.step, x.config) })));
       setSaved(w); setDraft(w);
       setNotice('Đã lưu. Quy trình mới áp dụng cho các tính năng giao từ bây giờ; tính năng đang chạy giữ quy trình cũ.');
     } catch (e) { setErr(e.message); }
@@ -76,9 +77,10 @@ export default function ProjectGatesTab({ pid, canManage }) {
         )}
 
         <div className="pj-card-footnote">
-          Kéo biểu tượng <b>⋮⋮</b> để đổi thứ tự các bước. <b>Cần người duyệt</b>: AI làm xong thì dừng chờ người có vai trò hoặc thành viên được chỉ định duyệt.
-          {' '}<b>Tự duyệt</b>: tự qua khi kết quả xanh — test hoặc CI đỏ thì vẫn dừng chờ người. <b>Bỏ bước</b>: bước không chạy, bước sau làm từ yêu cầu gốc.
-          {' '}Code chỉ bắt đầu khi mọi bước đứng trước đã qua. Khi giao việc, từng lane / tính năng vẫn có thể chọn khác.
+          Bấm một bước trên sơ đồ để đặt người duyệt, model AI và giới hạn của bước đó. Cấu hình được lưu cho dự án;
+          mỗi tính năng khi bắt đầu giữ nguyên bản cấu hình lúc đó (đổi quy trình không ảnh hưởng tính năng đang chạy).
+          {' '}<b>Tự duyệt</b> chỉ cho qua khi CI/test xanh. Lane áp dụng thật: giới hạn phút, ngân sách, thử lại, dừng quy trình,
+          thiếu file đầu vào thì dừng trước khi tốn token.
         </div>
       </div>
     </div>

@@ -58,7 +58,11 @@ try {
   ok((await p.inputValue('#wz-req')).includes('1000 user'), 'requirements carried to the architect');
   await next.click();
   ok(await m.locator('.wf-preset.on').textContent() === 'Plan → Code → Test', 'advised workflow pre-selected');
-  ok(await m.locator('.wf-chip > span:not(.wf-chip-mode)').allTextContents().then(t => t.join(' → ')) === 'Plan — Kiến trúc → Lập trình → Kiểm thử', 'only Plan → Code → Test runs');
+  ok(await m.locator('.wfc-node .wfc-name').allTextContents().then(t => t.join(' → ')) === 'Plan — Kiến trúc → Lập trình → Kiểm thử', 'only Plan → Code → Test runs');
+  // This project's own settings, chosen while creating it: Plan has a 30-minute limit and must read the request.
+  await m.locator('.wfc-node', { hasText: 'Plan — Kiến trúc' }).click();
+  await m.locator('.wfi').getByLabel('Giới hạn phút').fill('30');
+  await m.locator('.wfi').getByRole('button', { name: 'Yêu cầu gốc' }).click();
   await shot(p, 'ad2-workflow');
   await next.click();
   const aiTeam = m.getByRole('checkbox', { name: /AI Manager/ });
@@ -109,6 +113,8 @@ try {
   ok(run.data.currentStep === 'ARCH' && run.data.workflow[0] === 'ARCH', 'a feature of this project starts at Plan (its workflow)');
   const wf = (await api('GET', `/api/platform/projects/${projectId}/workflow`)).body.data;
   ok(wf.filter(w => w.mode !== 'SKIP').map(w => `${w.step}:${w.mode}`).join() === 'ARCH:REQUIRED,DEV:AUTO,TEST:AUTO', 'project workflow saved at creation');
+  const archCfg = wf.find(w => w.step === 'ARCH').config;
+  ok(archCfg.timeoutMinutes === 30 && archCfg.requiredInputs?.[0] === 'request.md', `step settings chosen in the wizard saved on the project (${JSON.stringify(archCfg)})`);
   await p.reload(); await p.waitForSelector('.sb-user');
   await shot(p, 'ad5-done');
 } finally {

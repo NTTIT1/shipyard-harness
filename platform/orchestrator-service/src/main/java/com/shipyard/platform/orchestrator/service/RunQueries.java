@@ -56,12 +56,12 @@ public class RunQueries {
                     .ifPresent(r -> prior.put(s.step.name(), r.approvedDocuments));
         }
         if (run.currentStep == null) {
-            return new NextAction(mode.name(), null, 0, null, null, prior);
+            return new NextAction(mode.name(), null, 0, null, null, prior, run.stepConfig == null ? Map.of() : run.stepConfig);
         }
         RunStep active = st.get(run.currentStep);
         int revision = mode == NextMode.WAIT ? active.currentRevision : active.currentRevision + 1;
         return new NextAction(mode.name(), run.currentStep.name(), revision,
-                active.pendingFeedback, active.pendingEdits, prior);
+                active.pendingFeedback, active.pendingEdits, prior, run.stepConfig == null ? Map.of() : run.stepConfig);
     }
 
     public static RunSummary summary(Run r) {

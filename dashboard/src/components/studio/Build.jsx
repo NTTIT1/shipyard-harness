@@ -6,6 +6,8 @@ import AddLaneModal from '../AddLaneModal.jsx';
 import { fetchLanes, assignLane } from '../../lib/api.js';
 import { lanesOf, freeLanesOf, featureRequirement } from '../../lib/studio.js';
 import { laneStatus, stageLabel } from '../../lib/laneview.js';
+import { platform } from '../../lib/platform.js';
+import { workflowModels } from '../../lib/workflow.js';
 
 export default function Build({ s, onOpenProject }) {
   const [lanes, setLanes] = useState([]);
@@ -31,7 +33,9 @@ export default function Build({ s, onOpenProject }) {
     setMsg('');
     const lane = free[0];
     try {
-      await assignLane(lane.lane, { requirement: featureRequirement(f, s.project) });
+      // The project's workflow decides the model of each step (the lane's defaults fill the rest).
+      const models = await platform.workflow(pid).then(workflowModels, () => ({}));
+      await assignLane(lane.lane, { requirement: featureRequirement(f, s.project), ...(Object.keys(models).length ? { models } : {}) });
       setAssigned(a => ({ ...a, [i]: lane.lane }));
       setMsg(`Đã giao "${f.title}" cho lane ${lane.lane} — lane bắt đầu theo quy trình của dự án (Plan → Code → …).`);
     } catch (e) { setMsg(e.message); }

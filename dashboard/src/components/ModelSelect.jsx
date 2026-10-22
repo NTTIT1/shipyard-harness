@@ -3,7 +3,7 @@ import React from 'react';
 // <select> of "<provider>:<model>" values: Claude first, then every configured
 // provider that has a model list. A value that is no longer offered (provider
 // removed, model gone) stays visible as "(không còn)" instead of silently changing.
-export default function ModelSelect({ value, onChange, info, claudeOnly, openhands, label }) {
+export default function ModelSelect({ value, onChange, info, claudeOnly, openhands, label, emptyLabel, id }) {
   const groups = [{ id: 'claude', label: 'Claude', models: info.claude_models.map(m => [m.id, m.label]) }];
   if (!claudeOnly) {
     for (const [id, p] of Object.entries(info.providers)) {
@@ -16,9 +16,10 @@ export default function ModelSelect({ value, onChange, info, claudeOnly, openhan
       .flatMap(([id, p]) => p.models.map(m => [`${id}/${m}`, `OpenHands · ${p.label} · ${m}`]));
     if (oh.length) groups.push({ id: 'openhands', label: 'OpenHands — hộp kín', models: oh });
   }
-  const offered = groups.some(g => g.models.some(([m]) => `${g.id}:${m}` === value));
+  const offered = (emptyLabel && !value) || groups.some(g => g.models.some(([m]) => `${g.id}:${m}` === value));
   return (
-    <select className="msel" aria-label={label} value={value} onChange={e => onChange(e.target.value)}>
+    <select className="msel" id={id} aria-label={label} value={value || ''} onChange={e => onChange(e.target.value)}>
+      {emptyLabel && <option value="">{emptyLabel}</option>}
       {!offered && <option value={value}>(không còn) {value}</option>}
       {groups.map(g => (
         <optgroup key={g.id} label={g.label}>

@@ -41,6 +41,11 @@ public class InternalRunController {
         return ApiResponse.ok(commands.reopen(runId, req.reason()));
     }
 
+    @PostMapping("/{runId}/fail")
+    public ApiResponse<RunSummary> fail(@PathVariable String runId, @RequestBody ReasonRequest req) {
+        return ApiResponse.ok(commands.fail(runId, req.reason()));
+    }
+
     @PostMapping("/{runId}/release")
     public ApiResponse<RunSummary> release(@PathVariable String runId, @RequestBody ReleaseRequest req) {
         return ApiResponse.ok(commands.release(runId, req.summary()));

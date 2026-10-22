@@ -140,9 +140,8 @@ public final class Workflow {
             for (Step before : order(run, steps)) {
                 if (before == Step.DEV) break;
                 RunStep b = steps.get(before);
-                boolean ok = b.status == StepStatus.APPROVED
-                        || (b.status == StepStatus.SKIPPED && (SKIP_WORKFLOW.equals(b.skipReason)
-                            || (before == Step.DESIGN && Boolean.FALSE.equals(run.hasUi))));
+                // skipped by the workflow, by has_ui=false or by a condition — all decided, not pending
+                boolean ok = b.status == StepStatus.APPROVED || (b.status == StepStatus.SKIPPED && b.skipReason != null);
                 if (!ok) throw new ConflictException("DEV cannot start: " + before + " is not approved");
             }
         }
@@ -162,6 +161,19 @@ public final class Workflow {
         if (!leftOut(steps.get(Step.TEST))) steps.get(Step.TEST).status = StepStatus.PENDING;
         run.currentStep = Step.DEV;
         run.status = RunStatus.RUNNING;
+    }
+
+    /** The lane gave up on the active step and the workflow says FAIL_RUN. */
+    public static void fail(Run run) {
+        requireOpen(run);
+        run.status = RunStatus.CANCELLED;
+    }
+
+    /** The step's configured condition (StepConfig.condition), ALWAYS when none. */
+    static String condition(Run run, Step s) {
+        Map<String, Object> c = run.stepConfig == null ? null : run.stepConfig.get(s.name());
+        Object v = c == null ? null : c.get("condition");
+        return v instanceof String str ? str : "ALWAYS";
     }
 
     public static void release(Run run) {
@@ -184,6 +196,15 @@ public final class Workflow {
         return revise ? NextMode.REVISE : NextMode.WORK;
     }
 
+    private static boolean previousFailed(List<Step> order, Map<Step, RunStep> steps, Step s) {
+        for (int i = order.indexOf(s) - 1; i >= 0; i--) {
+            RunStep prev = steps.get(order.get(i));
+            if (prev.status == StepStatus.SKIPPED) continue;
+            return prev.reportedFailure;
+        }
+        return false;
+    }
+
     private static boolean leftOut(RunStep s) {
         return s.status == StepStatus.SKIPPED && SKIP_WORKFLOW.equals(s.skipReason);
     }
@@ -192,9 +213,16 @@ public final class Workflow {
         List<Step> order = order(run, steps);
         for (Step s : order.subList(order.indexOf(after) + 1, order.size())) {
             if (leftOut(steps.get(s))) continue;
-            if (s == Step.DESIGN && Boolean.FALSE.equals(run.hasUi)) {
+            String cond = condition(run, s);
+            if ((s == Step.DESIGN || cond.equals("HAS_UI")) && Boolean.FALSE.equals(run.hasUi)) {
                 steps.get(s).status = StepStatus.SKIPPED;
                 steps.get(s).skipReason = "has_ui=false";
+                continue;
+            }
+            // "Chỉ khi bước trước đạt": the last step that actually ran reported a failed check.
+            if (cond.equals("PREV_PASSED") && previousFailed(order, steps, s)) {
+                steps.get(s).status = StepStatus.SKIPPED;
+                steps.get(s).skipReason = "prev_failed";
                 continue;
             }
             activate(run, steps, s);

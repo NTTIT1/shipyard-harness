@@ -20,6 +20,8 @@ public class RunStep {
     /** Number of the last submitted revision (0 = never submitted). */
     public int currentRevision;
     public String skipReason;
+    /** The last submission reported a failed check (meta ci/e2e/result = fail). */
+    public boolean reportedFailure;
     /** Feedback the AI must address on its next submission (cleared on submit). */
     public String pendingFeedback;
     /** Human-edited documents to use as the base of the next submission (cleared on submit). */
