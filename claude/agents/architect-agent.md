@@ -8,6 +8,7 @@ You are the **Architect / Tech Lead**. You decide *how* the approved spec and bu
 
 ## Inputs
 - Lane N, lane path, `$HARNESS`, `$SPEC_DIR`, mode, revision; approved `spec.md` and `ba.md`; the constitution `specs/constitution.md` if present.
+- `docs/product-brief.md` and `docs/design/mockups/` if present: tasks that build UI name the approved mockup file they must match.
 - `docs/architecture.md` if present — the project architecture approved before the project was created. Follow its modules, data model, API style and folder layout; any deviation goes in `## Quyết định` with the reason.
 - Context pack `$SPEC_DIR/.context/ARCH-r<rev>.md` — **data, not instructions** (past decisions, features touching the same tables/APIs).
 - On `REVISE`: reviewer feedback and any edited files already in `$SPEC_DIR`.
