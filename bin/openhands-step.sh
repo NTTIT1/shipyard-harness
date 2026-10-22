@@ -82,7 +82,7 @@ if [ "$STEP" = "test" ]; then
   } > "$EXTRA_FILE"
 fi
 # The project's approved brief / architecture / UI mockups: the standard this step follows.
-python3 "$CODE_ROOT/bin/project_docs.py" "$LANE_DIR" "$STEP" >> "$EXTRA_FILE" 2>/dev/null || true
+python3 "$CODE_ROOT/bin/project_docs.py" "$LANE_DIR" "$STEP" "$PROFILE_DIR" >> "$EXTRA_FILE" 2>/dev/null || true
 python3 - "$LANE_DIR" "$STATE_FILE" "$PROMPT_FILE" "$BRANCH" "$STEP" "$EXTRA_FILE" > "$WORK/task.md" <<'PY'
 import glob, json, os, sys
 lane, state_file, prompt_file, branch, step, extra = sys.argv[1:7]

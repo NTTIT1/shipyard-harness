@@ -145,12 +145,12 @@ ERRF="$(mktemp)"; PROMPT_RUN="$(mktemp)"; trap 'rm -f "$ERRF" "$PROMPT_RUN"' EXI
 cp "$PROMPT_FILE" "$PROMPT_RUN"
 if [ -n "$SG_INPUTS" ]; then
   # Only what the workflow says this step needs: fewer files read, fewer tokens.
-  { printf '\n\n## Đầu vào bắt buộc của bước này (quy trình dự án)\nĐọc đúng các file này (tên không có "/" nằm trong %s); không cần đọc tài liệu khác của tính năng trừ khi thiếu thông tin:\n' "${SPEC_REL:-SPEC_DIR}"
+  { printf '\n\n## Đầu vào bắt buộc của bước này (quy trình dự án)\nĐọc đúng các file này (tên không có "/" nằm trong %s); không cần đọc tài liệu khác của tính năng trừ khi thiếu thông tin (tài liệu dự án đã duyệt bên dưới vẫn là chuẩn phải theo):\n' "${SPEC_REL:-SPEC_DIR}"
     printf '%s\n' "$SG_INPUTS" | sed 's/^/- /'; } >> "$PROMPT_RUN"
 fi
 # What humans approved before any code (studio: brief, architecture, UI mockups) is the standard
 # every step follows; each step is told how (bin/project_docs.py).
-python3 "$CODE_ROOT/bin/project_docs.py" "$(lane_dir "$N")" "$STEP" >> "$PROMPT_RUN" 2>/dev/null || true
+python3 "$CODE_ROOT/bin/project_docs.py" "$(lane_dir "$N")" "$STEP" "$PROFILE_DIR" >> "$PROMPT_RUN" 2>/dev/null || true
 
 # One AI run → sets RC, RESULT, LAST, FAIL ("" = done with a verdict).
 run_once() {

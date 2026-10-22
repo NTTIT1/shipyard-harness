@@ -77,6 +77,28 @@ function validateApp(a, role) {
   return app;
 }
 
+/** A file or folder inside the repo (Vietnamese names allowed; never outside, never shell syntax). */
+const repoPath = (v, what) => {
+  const s = String(v ?? '').trim().replace(/\/+$/, '');
+  if (!s) return '';
+  if (s.length > 200 || s.startsWith('/') || s.startsWith('-') || s.split('/').includes('..') || /[\0-\x1f"'`$\\]/.test(s)) {
+    throw bad(`${what}: đường dẫn tương đối trong repo, vd docs/yeu-cau.md`);
+  }
+  return s;
+};
+
+/** Where the repo keeps its documents (requirements, architecture, UI design, mockups, others). */
+export function validateDocs(d = {}) {
+  const other = (Array.isArray(d.other) ? d.other : String(d.other || '').split('\n')).map(x => String(x).trim()).filter(Boolean);
+  if (other.length > 20) throw bad('Tối đa 20 tài liệu khác');
+  return {
+    brief: repoPath(d.brief, 'Tài liệu yêu cầu'), architecture: repoPath(d.architecture, 'Tài liệu kiến trúc'),
+    design: repoPath(d.design, 'Hướng dẫn thiết kế'), mockups: repoPath(d.mockups, 'Thư mục mockup / ảnh thiết kế'),
+    other: other.map(x => repoPath(x, 'Tài liệu khác')),
+  };
+}
+export const hasDocs = docs => !!docs && !!(docs.brief || docs.architecture || docs.design || docs.mockups || docs.other?.length);
+
 /** KEY=VALUE lines (or [{key, value}]) the app needs; values may use the lane's $VARIABLES. */
 export function parseEnv(input) {
   const rows = Array.isArray(input) ? input : String(input || '').split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'))
@@ -110,7 +132,7 @@ export function validateImport(b = {}) {
   return {
     name, slug, source, branch, backend, frontend, db,
     migrate: oneLine(b.migrate, 500, 'Lệnh migrate'), seed: oneLine(b.seed, 500, 'Lệnh seed'),
-    env: parseEnv(b.env), image, testPaths: oneLine(b.testPaths, 300, 'File test'),
+    env: parseEnv(b.env), image, testPaths: oneLine(b.testPaths, 300, 'File test'), docs: validateDocs(b.docs),
     workflow: b.workflow == null ? null : validateWorkflow(b.workflow),
     aiTeam: b.aiTeam !== false, note: oneLine(String(b.note || '').replace(/\s*\n\s*/g, ' '), 2000, 'Lưu ý cho AI Manager'),
   };
@@ -123,6 +145,7 @@ export function importWarnings(spec) {
   if (spec.backend && !usesPort(spec.backend.run)) out.push('Lệnh chạy backend không dùng $PORT — các lane sẽ tranh cùng một cổng.');
   if (spec.frontend && !usesPort(spec.frontend.run)) out.push('Lệnh chạy frontend không dùng $PORT — các lane sẽ tranh cùng một cổng.');
   if (spec.backend && !spec.backend.test && !(spec.frontend?.test)) out.push('Chưa có lệnh test — lane không có gì để kiểm tra trước khi mở PR.');
+  if (!hasDocs(spec.docs)) out.push('Chưa khai báo tài liệu nào (yêu cầu, kiến trúc, thiết kế) — lane chỉ có code và mô tả từng tính năng để làm theo.');
   if (spec.db === 'postgresql' && !spec.env.length) out.push('Ứng dụng đọc kết nối DB qua biến nào? Thêm ở "Biến môi trường" (vd DB_HOST=$DB_HOST).');
   return out;
 }
@@ -205,6 +228,8 @@ export function importProfileFiles(spec, { projectId = '' } = {}) {
       '',
     ].join('\n'),
     'hooks/_env.sh': envFile(spec),
+    // Where this project keeps what its people approved; bin/project_docs.py hands it to every lane step.
+    ...(hasDocs(spec.docs) ? { 'project-docs.json': `${JSON.stringify({ ...spec.docs, other: spec.docs.other }, null, 2)}\n` } : {}),
     'hooks/bootstrap.sh': HEAD('bootstrap: install dependencies') + (each((_, a) => a.install && inDir(a.dir, a.install)) || 'echo "bootstrap: no install command"\n'),
     'hooks/boot.sh': HEAD('boot: start this lane\'s apps in the background, then return') + each((role, a) => (role === 'backend'
       ? `harness_spawn api ${at(a.dir)} env PORT="$API_PORT" bash -c ${sq(runLine(a.run))}\n`
@@ -251,7 +276,8 @@ export function writeImportProfile(harnessRoot, spec, opts = {}) {
 function teamNote(spec) {
   const app = (role, a) => a && `${role} (${a.dir}): ${a.tech}; cài: ${a.install || '—'}; chạy: ${a.run}; build: ${a.build || '—'}; test: ${a.test || '—'}`;
   return [spec.note, 'Thông tin dự án do người nhập:', app('Backend', spec.backend), app('Frontend', spec.frontend),
-    `Database: ${spec.db}`, spec.migrate && `Migrate: ${spec.migrate}`].filter(Boolean).join(' · ').slice(0, 2000);
+    `Database: ${spec.db}`, spec.migrate && `Migrate: ${spec.migrate}`,
+    hasDocs(spec.docs) && `Tài liệu đã duyệt (luật phải dựa theo): ${[spec.docs.brief, spec.docs.architecture, spec.docs.design, spec.docs.mockups, ...spec.docs.other].filter(Boolean).join(', ')}`].filter(Boolean).join(' · ').slice(0, 2000);
 }
 
 /** Branches of a repo before cloning (git ls-remote), so the person picks the integration branch. */
@@ -297,6 +323,18 @@ export function createImporter({ root, harnessRoot = HARNESS_ROOT, run = runCmd,
           const seen = fs.readdirSync(d).filter(f => /^(package\.json|pom\.xml|build\.gradle(\.kts)?|composer\.json|pyproject\.toml|requirements\.txt|go\.mod|Gemfile|Cargo\.toml|.*\.csproj|.*\.sln)$/.test(f));
           log(`${label} ${a.dir}: ${a.tech}${seen.length ? ` (thấy ${seen.join(', ')})` : ''}`);
         }
+        // Declared documents must exist: a lane silently missing them would build without the standard.
+        const d = spec.docs || {};
+        const missing = [['Tài liệu yêu cầu', d.brief, 'file'], ['Tài liệu kiến trúc', d.architecture, 'file'], ['Hướng dẫn thiết kế', d.design, 'file'],
+          ['Thư mục mockup', d.mockups, 'dir'], ...(d.other || []).map(x => ['Tài liệu khác', x, 'any'])]
+          .filter(([, p, kind]) => {
+            if (!p) return false;
+            const f = path.join(j.dir, p);
+            if (!fs.existsSync(f)) return true;
+            return kind === 'file' ? !fs.statSync(f).isFile() : kind === 'dir' ? !fs.statSync(f).isDirectory() : false;
+          });
+        if (missing.length) throw bad(`Không thấy trong nhánh ${spec.branch}: ${missing.map(([l, p]) => `${l} "${p}"`).join(', ')}`);
+        if (hasDocs(d)) log(`Tài liệu cho lane: ${[d.brief, d.architecture, d.design, d.mockups && `${d.mockups}/`, ...(d.other || [])].filter(Boolean).join(', ')}`);
         for (const w of importWarnings(spec)) log(`⚠ ${w}`);
       },
       profile() {

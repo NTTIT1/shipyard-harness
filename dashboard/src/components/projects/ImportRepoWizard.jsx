@@ -122,6 +122,7 @@ export default function ImportRepoWizard({ onClose, onCreated }) {
               <AppCard role="frontend" title="Frontend (web riêng)" app={form.frontend} onChange={p => setApp('frontend', p)} onImage={() => {}} />
             </div>
           )}
+          {cur === 'docs' && <DocsStep docs={form.docs} onChange={patch => set({ docs: { ...form.docs, ...patch } })} />}
           {cur === 'env' && <EnvStep form={form} set={set} />}
           {cur === 'workflow' && (
             <div className="wz-fields">
@@ -234,6 +235,33 @@ function AppCard({ role, title, app, onChange, onImage }) {
   );
 }
 
+function DocsStep({ docs, onChange }) {
+  const field = (k, label, placeholder, hint) => (
+    <div className="form-field">
+      <label className="form-label" htmlFor={`imp-doc-${k}`}>{label}</label>
+      <input id={`imp-doc-${k}`} className="mono" value={docs[k]} maxLength={200} placeholder={placeholder} onChange={e => onChange({ [k]: e.target.value })} />
+      {hint && <p className="wz-hint">{hint}</p>}
+    </div>
+  );
+  return (
+    <div className="wz-fields">
+      <p className="wz-hint">Tài liệu dự án đã có trong repo (đường dẫn trong repo). Mọi bước của lane — PM, BA, kiến trúc, thiết kế, code, test — sẽ đọc
+        và <b>làm đúng theo</b> các tài liệu này: giao diện giống mockup, code theo kiến trúc, nghiệp vụ theo yêu cầu. Khi clone, Shipyard kiểm tra từng file có thật.</p>
+      {field('brief', 'Yêu cầu sản phẩm / nghiệp vụ', 'vd docs/yeu-cau.md hoặc README.md')}
+      {field('architecture', 'Kiến trúc hệ thống', 'vd docs/architecture.md')}
+      {field('design', 'Hướng dẫn thiết kế giao diện (màu, font, thành phần)', 'vd docs/design/design.md')}
+      {field('mockups', 'Thư mục mockup / ảnh thiết kế đã duyệt', 'vd docs/design/mockups', 'File .html, .png, .jpg, .svg, .pdf trong thư mục này là các màn hình chuẩn.')}
+      <div className="form-field">
+        <label className="form-label" htmlFor="imp-doc-other">Tài liệu khác (mỗi dòng một đường dẫn)</label>
+        <textarea id="imp-doc-other" className="mono" rows={3} value={docs.other} onChange={e => onChange({ other: e.target.value })}
+          placeholder={'vd docs/api.md\ndocs/quy-tac-nghiep-vu.md'} />
+      </div>
+      <p className="wz-hint">Chưa có tài liệu thì để trống — lane làm theo code hiện có và mô tả của từng tính năng. Sau này thêm tài liệu: ghi vị trí vào
+        <code> .shipyard/docs.json</code> trong repo (các khoá brief, architecture, design, mockups, other).</p>
+    </div>
+  );
+}
+
 function EnvStep({ form, set }) {
   return (
     <div className="wz-fields">
@@ -299,6 +327,12 @@ function Review({ form, warnings }) {
       </div>
       {app('Backend', form.backend)}
       {app('Frontend', form.frontend)}
+      <div className="wz-advice-sec"><b>Tài liệu lane phải theo</b>
+        {[form.docs.brief, form.docs.architecture, form.docs.design, form.docs.mockups && `${form.docs.mockups}/`, ...form.docs.other.split('\n')].map(x => x.trim()).filter(Boolean).length
+          ? <ul className="mono imp-cmds">{[['yêu cầu', form.docs.brief], ['kiến trúc', form.docs.architecture], ['thiết kế', form.docs.design], ['mockup', form.docs.mockups && `${form.docs.mockups}/`],
+              ...form.docs.other.split('\n').map(x => ['khác', x.trim()])].filter(([, p]) => p).map(([k, p]) => <li key={k + p}>{k}: {p}</li>)}</ul>
+          : <span className="faint"> — chưa khai báo</span>}
+      </div>
       {warnings.length > 0 && (
         <div className="wz-err imp-warn" role="status">
           <AlertTriangle size={16} aria-hidden="true" />

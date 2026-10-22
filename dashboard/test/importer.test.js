@@ -16,6 +16,7 @@ const FORM = {
   frontend: { dir: 'web', tech: 'Vue 3 + Vite', install: 'npm ci', run: 'npx vite --port $PORT', healthPath: '/', build: 'npm run build', test: '' },
   db: 'postgresql', migrate: 'php artisan migrate --force', seed: '',
   env: 'DB_CONNECTION=pgsql\nDB_DATABASE=$DB_NAME\nAPP_KEY="base64:abc$def"\n# comment',
+  docs: { brief: 'docs/yêu cầu.md', architecture: '', design: '', mockups: 'design/screens', other: ['docs/api.md'] },
   workflow: null, aiTeam: false,
 };
 
@@ -38,6 +39,8 @@ describe('import form', () => {
     expect(bad({ backend: { ...FORM.backend, run: 'a\nrm -rf /' } })).toThrow(/một dòng/);
     expect(bad({ backend: { ...FORM.backend, tech: '' } })).toThrow(/công nghệ/);
     expect(bad({ backend: null, frontend: null })).toThrow(/ít nhất một/);
+    expect(bad({ docs: { brief: '../secret.md' } })).toThrow(/Tài liệu yêu cầu/);
+    expect(bad({ docs: { other: ['ok.md', 'a$(id).md'] } })).toThrow(/Tài liệu khác/);
     expect(() => parseEnv('PATH=/x')).toThrow(/lane quản lý/);
     expect(() => parseEnv('1BAD=x')).toThrow(/không hợp lệ/);
   });
@@ -95,6 +98,10 @@ describe('lane profile from the form', () => {
     expect(lines).toContain('web npm run build PORT= DB=shop_l2_test/postgresql://u:p@localhost:5432/shop_l2_test');
     expect(lines).toContain('api php artisan migrate --force PORT= DB=shop_l2/postgresql://u:p@localhost:5432/shop_l2');
     expect(files['hooks/_env.sh']).toContain('export APP_KEY="base64:abc\\$def"');
+    // Where the project keeps its approved documents: read by bin/project_docs.py for every lane step.
+    expect(JSON.parse(files['project-docs.json'])).toEqual({ brief: 'docs/yêu cầu.md', architecture: '', design: '', mockups: 'design/screens', other: ['docs/api.md'] });
+    expect(importProfileFiles(validateImport({ ...FORM, docs: {} }))['project-docs.json']).toBeUndefined();
+    expect(importWarnings(validateImport({ ...FORM, docs: {} })).join(' ')).toContain('Chưa khai báo tài liệu');
   });
 });
 
@@ -107,6 +114,9 @@ describe('import job', () => {
     repo = path.join(tmp, 'origin'); harness = path.join(tmp, 'harness');
     fs.mkdirSync(path.join(repo, 'api'), { recursive: true }); fs.mkdirSync(path.join(repo, 'web'));
     fs.writeFileSync(path.join(repo, 'api', 'composer.json'), '{}'); fs.writeFileSync(path.join(repo, 'web', 'package.json'), '{}');
+    fs.mkdirSync(path.join(repo, 'docs')); fs.mkdirSync(path.join(repo, 'design', 'screens'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'docs', 'yêu cầu.md'), '# Yêu cầu'); fs.writeFileSync(path.join(repo, 'docs', 'api.md'), '# API');
+    fs.writeFileSync(path.join(repo, 'design', 'screens', '01-kho.png'), 'png');
     git(repo, 'init', '-q', '-b', 'main'); git(repo, 'add', '-A'); git(repo, 'commit', '-q', '-m', 'init'); git(repo, 'branch', 'development');
     registered = []; setupCalls = [];
   });
@@ -133,6 +143,14 @@ describe('import job', () => {
     expect(setupCalls[0]).toMatchObject({ projectId: 'proj_7', adopt: true, branch: 'development', provider: 'host', dir });
     expect(setupCalls[0].note).toContain('Giữ chuẩn PSR-12');
     expect(setupCalls[0].note).toContain('php artisan test');
+    expect(setupCalls[0].note).toContain('docs/yêu cầu.md');
+    expect(done.log.join('\n')).toContain('Tài liệu cho lane: docs/yêu cầu.md, design/screens/, docs/api.md');
+    // A lane step of this project gets those documents (bin/project_docs.py with the import profile).
+    const sec = spawnSync('python3', [path.resolve('../bin/project_docs.py'), dir, 'dev', path.join(harness, 'profiles', 'ban-hang-cu')], { encoding: 'utf8' }).stdout;
+    expect(sec).toContain('`docs/yêu cầu.md` — yêu cầu sản phẩm');
+    expect(sec).toContain('`01-kho.png`');
+    expect(sec).toContain('`docs/api.md` — tài liệu khác');
+    expect(sec).toContain('design/screens/');
     expect(fs.existsSync(path.join(dir, '.shipyard', 'team.json'))).toBe(true);
     expect(fs.statSync(path.join(harness, 'config', 'imports', 'ban-hang-cu.json')).mode & 0o777).toBe(0o600);
     expect(readImport(harness, 'ban-hang-cu').backend.tech).toBe('Laravel 11 / PHP 8.3');
@@ -146,6 +164,18 @@ describe('import job', () => {
 
     // The same slug cannot be imported twice.
     expect(() => make().start(spec, me, 'tok')).toThrow(/tồn tại|Đã nhập/);
+  });
+
+  it('a declared document that is not in the repo stops the import', async () => {
+    const spec = validateImport({ ...FORM, source: { provider: 'local', url: repo }, docs: { brief: 'docs/khong-co.md', mockups: 'docs/api.md' } });
+    const im = make();
+    const j = im.start(spec, me, 'tok');
+    await im.wait(j.id);
+    const f = im.get(j.id);
+    expect(f).toMatchObject({ status: 'failed', stage: 'check' });
+    expect(f.error).toContain('Tài liệu yêu cầu "docs/khong-co.md"');
+    expect(f.error).toContain('Thư mục mockup "docs/api.md"');   // a file is not a folder
+    im.discard(j.id);
   });
 
   it('a missing app folder fails at the check; the failed import can be discarded', async () => {

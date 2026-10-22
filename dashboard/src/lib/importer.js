@@ -69,6 +69,7 @@ export const emptyApp = enabled => ({ enabled, dir: '', tech: '', install: '', r
 export const emptyForm = () => ({
   name: '', slug: '', slugTouched: false, source: { provider: 'url', url: '' }, branch: '', branches: null,
   backend: emptyApp(true), frontend: emptyApp(false), db: 'postgresql', migrate: '', seed: '', env: '', image: '', testPaths: '',
+  docs: { brief: '', architecture: '', design: '', mockups: '', other: '' },
   workflow: null, aiTeam: true, note: '',
 });
 
@@ -84,12 +85,14 @@ export function toBody(f) {
     name: f.name.trim(), slug: f.slug.trim(), source: { provider: f.source.provider, url: f.source.url.trim() }, branch: f.branch,
     backend: app(f.backend), frontend: app(f.frontend), db: f.db, migrate: f.migrate, seed: f.seed, env: f.env,
     image: f.image.trim(), testPaths: f.testPaths, workflow: f.workflow, aiTeam: f.aiTeam, note: f.note,
+    docs: { ...f.docs, other: f.docs.other.split('\n').map(x => x.trim()).filter(Boolean) },
   };
 }
 
 export const IMPORT_STEPS = [
   { id: 'repo', label: 'Kho Git' },
   { id: 'apps', label: 'Ứng dụng' },
+  { id: 'docs', label: 'Tài liệu' },
   { id: 'env', label: 'Database & môi trường' },
   { id: 'workflow', label: 'Quy trình' },
   { id: 'review', label: 'Xem lại' },
@@ -115,6 +118,11 @@ export function importStepProblem(step, f) {
   if (step === 'apps') {
     if (!f.backend.enabled && !f.frontend.enabled) return 'Bật ít nhất một ứng dụng';
     return appProblem(f.backend, 'Backend') || appProblem(f.frontend, 'Frontend');
+  }
+  if (step === 'docs') {
+    const all = [f.docs.brief, f.docs.architecture, f.docs.design, f.docs.mockups, ...f.docs.other.split('\n')].map(x => x.trim()).filter(Boolean);
+    const bad = all.find(p => p.startsWith('/') || p.split('/').includes('..') || /["'`$\\]/.test(p));
+    if (bad) return `"${bad}": đường dẫn tương đối trong repo, vd docs/yeu-cau.md`;
   }
   if (step === 'env') {
     const bad = f.env.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).find(l => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(l));

@@ -20,6 +20,9 @@ const src = fs.mkdtempSync(path.join(os.tmpdir(), 'import-src-'));
 const git = (...a) => spawnSync('git', ['-C', src, '-c', 'user.name=t', '-c', 'user.email=t@x', '-c', 'commit.gpgsign=false', ...a], { encoding: 'utf8' });
 fs.mkdirSync(path.join(src, 'server'));
 fs.writeFileSync(path.join(src, 'server', 'app.py'), 'import http.server, os\nhttp.server.HTTPServer(("", int(os.environ["PORT"])), http.server.SimpleHTTPRequestHandler).serve_forever()\n');
+fs.mkdirSync(path.join(src, 'tai-lieu', 'man-hinh'), { recursive: true });
+fs.writeFileSync(path.join(src, 'tai-lieu', 'yeu-cau.md'), '# Yêu cầu kho\n');
+fs.writeFileSync(path.join(src, 'tai-lieu', 'man-hinh', '01-ton-kho.png'), 'png');
 git('init', '-q', '-b', 'main'); git('add', '-A'); git('commit', '-q', '-m', 'init'); git('branch', 'development');
 
 const b = await chromium.launch({ executablePath: process.env.CHROME_BIN || '/usr/bin/google-chrome' });
@@ -55,6 +58,11 @@ try {
   await m.locator('#imp-backend-test').fill('python3 -m py_compile app.py');
   await shot(p, 'imp2-apps');
   await m.getByRole('button', { name: 'Tiếp' }).click();
+  // Documents: where THIS repo keeps what lanes must follow.
+  await m.locator('#imp-doc-brief').fill('tai-lieu/yeu-cau.md');
+  await m.locator('#imp-doc-mockups').fill('tai-lieu/man-hinh');
+  await shot(p, 'imp2b-docs');
+  await m.getByRole('button', { name: 'Tiếp' }).click();
   await m.getByText('Không dùng').click();
   await m.getByRole('button', { name: 'Tiếp' }).click();
   await m.getByRole('checkbox', { name: /AI Manager/ }).uncheck();
@@ -65,7 +73,7 @@ try {
   // Go back and fix it (the stepper's done steps are clickable).
   await m.getByRole('button', { name: /Ứng dụng/ }).click();
   await m.locator('#imp-backend-run').fill('PORT=$PORT python3 app.py');
-  for (let i = 0; i < 3; i++) await m.getByRole('button', { name: 'Tiếp' }).click();
+  for (let i = 0; i < 4; i++) await m.getByRole('button', { name: 'Tiếp' }).click();
   ok(await m.getByText('không dùng $PORT').count() === 0, 'warning gone after the fix');
   await m.getByRole('button', { name: 'Nhập dự án' }).click();
   await m.locator('.wz-done').waitFor({ timeout: 60_000 });
@@ -73,6 +81,10 @@ try {
   const imp = JSON.parse(fs.readFileSync(path.join(HARNESS, 'config', 'imports', `${slug}.json`), 'utf8'));
   ok(imp.backend.run === 'PORT=$PORT python3 app.py', 'the form is kept for the lane profile');
   const boot = fs.readFileSync(path.join(HARNESS, 'profiles', slug, 'hooks', 'boot.sh'), 'utf8');
+  const docs = JSON.parse(fs.readFileSync(path.join(HARNESS, 'profiles', slug, 'project-docs.json'), 'utf8'));
+  ok(docs.brief === 'tai-lieu/yeu-cau.md' && docs.mockups === 'tai-lieu/man-hinh', 'declared documents saved for the lanes');
+  const sec = spawnSync('python3', [path.join(HARNESS, 'bin', 'project_docs.py'), path.join(WS, slug), 'design', path.join(HARNESS, 'profiles', slug)], { encoding: 'utf8' }).stdout;
+  ok(sec.includes('tai-lieu/yeu-cau.md') && sec.includes('01-ton-kho.png') && sec.includes('không vẽ lại'), 'a lane design step would be told to follow them');
   ok(boot.includes(`harness_spawn api "$LANE_DIR/server" env PORT="$API_PORT" bash -c 'PORT=$PORT python3 app.py'`), 'boot hook runs the person\'s command on the lane port');
   const list = (await api('GET', '/api/platform/projects')).body;
   projectId = (list.data || list).find(x => x.slug === slug)?.id;

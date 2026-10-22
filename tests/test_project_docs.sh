@@ -28,7 +28,28 @@ assert_contains "$(pd qc-local)" "so từng màn hình với mockup" "browser QC
 assert_contains "$(pd plan-critic)" "docs/architecture.md" "sub-steps map to their phase"
 assert_eq "" "$(pd ticketer)" "steps without a phase get nothing"
 
-# 4. run-step.sh hands the section to the headless step
+# 4. a project that keeps its documents elsewhere: the repo's .shipyard/docs.json, then the lane profile
+mkdir -p "$L/.shipyard" "$L/tai-lieu/man-hinh" "$TMPH/prof"
+echo "# YC" > "$L/tai-lieu/yeu-cau.md"; echo png > "$L/tai-lieu/man-hinh/01-trang-chu.png"
+printf '{"brief":"tai-lieu/yeu-cau.md","mockups":"tai-lieu/man-hinh"}' > "$L/.shipyard/docs.json"
+out="$(pd dev)"
+assert_contains "$out" "\`tai-lieu/yeu-cau.md\` — yêu cầu sản phẩm" "repo docs.json moves the brief"
+assert_contains "$out" "01-trang-chu.png" "image mockups listed"
+assert_contains "$out" "tai-lieu/man-hinh/" "rules point at this project's mockup folder"
+assert_eq "0" "$(printf '%s' "$out" | grep -c 'docs/design/mockups')" "default mockup path no longer mentioned"
+printf '{"architecture":"tai-lieu/yeu-cau.md","other":["../../etc/passwd","tai-lieu/man-hinh"]}' > "$TMPH/prof/project-docs.json"
+out="$(python3 "$REPO/bin/project_docs.py" "$L" arch "$TMPH/prof")"
+assert_contains "$out" "\`tai-lieu/yeu-cau.md\` — kiến trúc" "the profile (import form) wins"
+assert_eq "0" "$(printf '%s' "$out" | grep -c passwd)" "never a path outside the repo"
+# the lane's own profile is found from the lane number (multi-project lanes)
+mkdir -p "$HARNESS_ROOT/profiles/du-an-x" "$HARNESS_ROOT/config/lanes"
+cp "$TMPH/prof/project-docs.json" "$HARNESS_ROOT/profiles/du-an-x/"
+echo 'PROFILE=du-an-x' > "$HARNESS_ROOT/config/lanes/lane2.env"
+assert_contains "$(bash "$REPO/bin/project-docs.sh" 2 arch)" "\`tai-lieu/yeu-cau.md\` — kiến trúc" "project-docs.sh uses lane 2's profile"
+rm -f "$HARNESS_ROOT/config/lanes/lane2.env"
+rm -rf "$L/.shipyard" "$L/tai-lieu"
+
+# 5. run-step.sh hands the section to the headless step
 export CLAUDE_BIN="$TMPH/fakebin/claude"
 cat > "$CLAUDE_BIN" <<'FAKE'
 #!/usr/bin/env bash
