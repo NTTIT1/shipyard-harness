@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { spawnSync } from 'child_process';
 import { query as sdkQuery } from '@anthropic-ai/claude-agent-sdk';
 import { HARNESS_ROOT, LANES_ROOT } from './config.js';
-import { readProviders } from './providers.js';
+import { readProviders, claudeEnv, claudeAuthFailed, CLAUDE_AUTH_ERR } from './providers.js';
 import { recordSessionResult, recordRateLimit, readLaneContext } from './usage.js';
 
 // One Agent SDK session per lane, driving /ship-feature. Streaming input keeps the
@@ -18,6 +18,8 @@ let deps = {
   claudeBin: process.env.CLAUDE_BIN || path.join(process.env.HOME || '', '.local/bin/claude'),
   laneContext: readLaneContext,
   teamRules: readTeamRules,
+  claudeEnv,
+  authFailed: claudeAuthFailed,
 };
 
 /** bin/team_rules.py output for a lane checkout ('' when the project has no AI team or on error). */
@@ -132,6 +134,14 @@ export function startSession(n, { model, effort, prompt, resume }) {
     permissionMode: 'auto',
     pathToClaudeCodeExecutable: deps.claudeBin,
     canUseTool: (name, inp, opts) => canUseTool(n, name, inp, opts),
+    // The person's own login, or the Anthropic API key when "Nhà cung cấp AI" says so.
+    env: deps.claudeEnv(),
+  };
+  const usesKey = !!options.env.ANTHROPIC_API_KEY;
+  const keyFailed = text => {
+    if (!usesKey || !CLAUDE_AUTH_ERR.test(String(text || ''))) return;
+    deps.authFailed(String(text).slice(0, 300));
+    emit(n, { kind: 'system', text: 'API key Anthropic lỗi (sai key hoặc hết tiền) — dừng phiên rồi mở lại sẽ chạy bằng tài khoản đăng nhập.' });
   };
   if (effort) options.effort = effort;
   if (resume) options.resume = resume;
@@ -149,10 +159,12 @@ export function startSession(n, { model, effort, prompt, resume }) {
           fs.writeFileSync(sessionFile(n), JSON.stringify({ session_id: m.session_id, model, effort: effort || '', started_at: new Date().toISOString() }) + '\n');
         }
         try { trackUsage(n, m); } catch { /* accounting must never break the lane */ }
+        if (m.type === 'result' && m.is_error) keyFailed(m.result);
         for (const ev of simplify(m)) emit(n, ev);
       }
     } catch (e) {
       if (!live.get(n)?.stopping) emit(n, { kind: 'system', text: `lỗi phiên: ${e.message}` });
+      keyFailed(e.message);
     } finally {
       clearPending(n);
       live.delete(n);

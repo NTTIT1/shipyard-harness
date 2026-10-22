@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { spawn, spawnSync } from 'child_process';
+import { claudeAuthKey, claudeAuthFailed, CLAUDE_AUTH_ERR } from '../providers.js';
 
 export const SLUG_RE = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
 
@@ -14,11 +15,35 @@ export function childEnv(extra = {}) {
   return { ...env, CI: '1', NO_COLOR: '1', npm_config_yes: 'true', ...extra };
 }
 
+const isClaude = cmd => path.basename(String(cmd)) === 'claude' || (!!process.env.CLAUDE_BIN && cmd === process.env.CLAUDE_BIN);
+
+/**
+ * Like runRaw; a Claude Code process runs on the account "Nhà cung cấp AI" chooses (login, or the
+ * Anthropic API key), and is rerun on the login when the key turns out invalid or out of credit.
+ */
+export async function run(cmd, args, opts = {}) {
+  if (!isClaude(cmd) || opts.env) return runRaw(cmd, args, opts);
+  const key = claudeAuthKey();
+  const base = childEnv(opts.extraEnv);
+  if (!key) return runRaw(cmd, args, { ...opts, env: base });
+  let out = '';
+  const log = l => { if (!l.startsWith('$ ')) out += `${l}\n`; (opts.log || (() => {}))(l); };
+  try {
+    await runRaw(cmd, args, { ...opts, log, env: { ...base, ANTHROPIC_API_KEY: key } });
+    if (!/"is_error"\s*:\s*true/.test(out) || !CLAUDE_AUTH_ERR.test(out)) return;
+  } catch (e) {
+    if (!CLAUDE_AUTH_ERR.test(`${out}\n${e.message}`)) throw e;
+  }
+  claudeAuthFailed(out.split('\n').reverse().find(l => CLAUDE_AUTH_ERR.test(l))?.slice(0, 300) || 'API key lỗi');
+  (opts.log || (() => {}))('API key Anthropic lỗi — chạy lại bằng tài khoản đăng nhập');
+  return runRaw(cmd, args, { ...opts, env: base });
+}
+
 /**
  * Run a command (argv array, never a shell string). Output lines go to `log`.
  * Rejects with the tail of the output when it exits non-zero or times out.
  */
-export function run(cmd, args, { cwd, log = () => {}, timeoutMs = 10 * 60_000, env, extraEnv, signal } = {}) {
+export function runRaw(cmd, args, { cwd, log = () => {}, timeoutMs = 10 * 60_000, env, extraEnv, signal } = {}) {
   return new Promise((resolve, reject) => {
     log(`$ ${[cmd, ...args].join(' ')}`);
     const child = spawn(cmd, args, { cwd, env: env || childEnv(extraEnv), stdio: ['ignore', 'pipe', 'pipe'] });

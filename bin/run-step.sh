@@ -116,7 +116,10 @@ ARGS=(-p --output-format json --permission-mode "${STEP_PERMISSION_MODE:-auto}")
 if [ "$PROVIDER" = "claude" ]; then
   # The Claude branch must run on the machine's own login, never an inherited gateway.
   unset ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN ANTHROPIC_SMALL_FAST_MODEL \
-        ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL
+        ANTHROPIC_DEFAULT_HAIKU_MODEL ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL ANTHROPIC_API_KEY
+  # The person's own login unless "Nhà cung cấp AI" says to use the Anthropic API key when there is one.
+  CLAUDE_KEY="$(python3 "$CODE_ROOT/bin/claude_auth.py" key "$HARNESS_ROOT" 2>/dev/null || true)"
+  [ -n "$CLAUDE_KEY" ] && echo "harness: run-step: $STEP chạy bằng API key Anthropic" >&2
   ARGS+=(--model "$MID")
   [ -n "$EFFORT" ] && ARGS+=(--effort "$EFFORT")
 else
@@ -152,7 +155,9 @@ run_once() {
   local raw rc tcmd=()
   [ -n "$SG_TIMEOUT_MIN" ] && tcmd=(timeout --foreground --kill-after=30 "${SG_TIMEOUT_MIN}m")
   set +e
-  raw="$("${tcmd[@]}" "${CLAUDE_BIN:-claude}" "${ARGS[@]}" "$(cat "$PROMPT_RUN")" 2>"$ERRF" </dev/null)"; rc=$?
+  # The key only lives in this subshell's environment (never on a command line).
+  raw="$([ -n "${CLAUDE_KEY:-}" ] && export ANTHROPIC_API_KEY="$CLAUDE_KEY"
+         "${tcmd[@]}" "${CLAUDE_BIN:-claude}" "${ARGS[@]}" "$(cat "$PROMPT_RUN")" 2>"$ERRF" </dev/null)"; rc=$?
   set -e
   # Token accounting (dashboard → Chi phí); also for failed runs, which still spent tokens.
   printf '%s' "$raw" | python3 "$CODE_ROOT/bin/usage_record.py" "$HARNESS_ROOT" "$N" "$STEP" "$MODEL" "$EFFORT" "$STATE_FILE" || true
@@ -204,6 +209,13 @@ for ((TRY = 1; TRY <= TRIES; TRY++)); do
   fi
   NOVERDICT=0
   run_once
+  if [ -n "$FAIL" ] && [ -n "${CLAUDE_KEY:-}" ] && python3 "$CODE_ROOT/bin/claude_auth.py" is-auth-error "$FAIL"; then
+    # The API key is invalid or out of credit: back to the person's own login, key skipped for an hour.
+    python3 "$CODE_ROOT/bin/claude_auth.py" fail "$HARNESS_ROOT" "$FAIL" || true
+    echo "harness: run-step: API key lỗi ($FAIL) — chạy lại bằng tài khoản đăng nhập" >&2
+    CLAUDE_KEY=""
+    run_once
+  fi
   [ -z "$FAIL" ] && break
 done
 if [ -n "$FAIL" ]; then

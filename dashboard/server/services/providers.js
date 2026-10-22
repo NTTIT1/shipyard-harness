@@ -81,7 +81,69 @@ function writeSecretJson(p, doc) {
 
 export function readProviders() {
   const doc = readJson(providersPath(), {});
-  return { providers: doc.providers || {}, gateway_key: doc.gateway_key || '' };
+  const out = { providers: doc.providers || {}, gateway_key: doc.gateway_key || '' };
+  if (doc.claude_auth === 'api_key') out.claude_auth = 'api_key';
+  return out;
+}
+
+// Which account Claude Code runs on — same rules as bin/claude_auth.py (lanes use that one):
+// 'login' (default) = the machine's own Claude login; 'api_key' = the Anthropic API key from this page
+// when there is a usable one, back to the login for an hour after the key fails.
+const CLAUDE_AUTH_FAIL_TTL = 3600_000;
+export const CLAUDE_AUTH_ERR = /invalid (x-)?api.?key|authentication_error|credit balance is too low|API Error: 401/i;
+const authFailPath = () => path.join(root(), 'run', 'claude_auth_fail.json');
+
+export function setClaudeAuth(mode) {
+  if (!['login', 'api_key'].includes(mode)) throw new Error('claude_auth phải là login hoặc api_key');
+  const doc = readProviders();
+  if (mode === 'api_key') doc.claude_auth = 'api_key'; else delete doc.claude_auth;
+  if (!doc.gateway_key) doc.gateway_key = 'sk-gw-' + crypto.randomBytes(24).toString('hex');
+  writeSecretJson(providersPath(), doc);
+  if (mode === 'login') fs.rmSync(authFailPath(), { force: true });
+  return claudeAuthStatus();
+}
+
+/** The key Claude Code should use now ('' = the login). Never logged or sent to the browser. */
+export function claudeAuthKey(now = Date.now()) {
+  let doc;
+  try { doc = readProviders(); } catch { return ''; }   // unreadable config: the login, never a crash
+  if (doc.claude_auth !== 'api_key') return '';
+  const key = doc.providers.anthropic?.api_key || '';
+  if (!key.startsWith('sk-ant-api')) return '';
+  const failed = readJson(authFailPath(), {});
+  if (failed.at && now - failed.at * 1000 < CLAUDE_AUTH_FAIL_TTL) return '';
+  return key;
+}
+
+export function claudeAuthFailed(reason) {
+  fs.mkdirSync(path.dirname(authFailPath()), { recursive: true });
+  fs.writeFileSync(authFailPath(), JSON.stringify({ at: Date.now() / 1000, reason: String(reason || '').slice(0, 300) }));
+}
+
+/** For the page: the chosen mode and what is actually used right now, with why. */
+export function claudeAuthStatus(now = Date.now()) {
+  const doc = readProviders();
+  const mode = doc.claude_auth === 'api_key' ? 'api_key' : 'login';
+  const key = doc.providers.anthropic?.api_key || '';
+  const failed = readJson(authFailPath(), {});
+  let using = 'login', why = '';
+  if (mode === 'api_key') {
+    if (!key) why = 'Chưa nhập API key Anthropic — đang dùng tài khoản đăng nhập.';
+    else if (!key.startsWith('sk-ant-api')) why = 'Claude Code chỉ nhận key dạng sk-ant-api… — đang dùng tài khoản đăng nhập.';
+    else if (failed.at && now - failed.at * 1000 < CLAUDE_AUTH_FAIL_TTL) {
+      why = `Key vừa lỗi (${failed.reason || 'không rõ'}) — tạm dùng tài khoản đăng nhập tới ${new Date(failed.at * 1000 + CLAUDE_AUTH_FAIL_TTL).toLocaleTimeString('vi-VN')}.`;
+    } else using = 'api_key';
+  }
+  return { mode, using, why };
+}
+
+/** Environment for a Claude Code process: the key when it should be used, never an inherited one. */
+export function claudeEnv(base = process.env) {
+  const env = { ...base };
+  delete env.ANTHROPIC_API_KEY;
+  const key = claudeAuthKey();
+  if (key) env.ANTHROPIC_API_KEY = key;
+  return env;
 }
 
 function assertOneLine(v, what) {

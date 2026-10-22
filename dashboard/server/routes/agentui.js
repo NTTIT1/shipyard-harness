@@ -28,6 +28,7 @@ const num = req => parseInt(req.params.n, 10);
 
 router.get('/api/providers', wrap(async () => ({
   catalog: P.CATALOG, claude_models: P.CLAUDE_MODELS, steps: P.STEPS,
+  claude_auth: P.claudeAuthStatus(),
   providers: P.publicProviders(), defaults: P.readModelDefaults(),
   lane_defaults: P.readAllLaneDefaults(),
   feature_models: P.readFeatureModels(),
@@ -38,6 +39,7 @@ router.put('/api/providers', wrap(async req => {
   if (await gatewayStatus()) restartGatewayInBackground();
   return { providers: P.publicProviders() };
 }));
+router.put('/api/providers/claude-auth', wrap(async req => ({ claude_auth: P.setClaudeAuth(String(req.body?.mode || '')) })));
 router.post('/api/providers/:id/test', wrap(async req => {
   const models = await P.listModels(req.params.id);
   P.setProviderModels(req.params.id, models);

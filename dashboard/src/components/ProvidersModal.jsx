@@ -4,7 +4,7 @@ import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Modal from './Modal.jsx';
 import StepModels from './StepModels.jsx';
-import { fetchProviders, saveProviders, testProvider, saveModelDefaults, saveLaneModelDefaults, restartGateway } from '../lib/api.js';
+import { fetchProviders, saveProviders, testProvider, saveClaudeAuth, saveModelDefaults, saveLaneModelDefaults, restartGateway } from '../lib/api.js';
 
 export default function ProvidersModal({ lanes = [], onClose }) {
   const [info, setInfo] = useState(null);
@@ -73,6 +73,13 @@ export default function ProvidersModal({ lanes = [], onClose }) {
     } catch (e) { setError(e.message); setBusy(false); }
   };
 
+  // Applies at once: the next AI run (lane step, lane session, studio) uses the chosen account.
+  const setAuth = async mode => {
+    setError('');
+    try { const r = await saveClaudeAuth(mode); setInfo(i => ({ ...i, claude_auth: r.claude_auth })); }
+    catch (e) { setError(e.message); }
+  };
+
   const gw = async () => {
     setMsg(m => ({ ...m, _gw: 'đang khởi động lại…' }));
     try { const r = await restartGateway(); setMsg(m => ({ ...m, _gw: r.ok ? 'đã chạy' : `lỗi: ${r.output}` })); await load(); }
@@ -104,10 +111,23 @@ export default function ProvidersModal({ lanes = [], onClose }) {
       buttons={[{ label: 'Đóng', fn: onClose, disabled: busy }, { label: busy ? 'Đang lưu…' : 'Lưu', cls: 'add', fn: save, disabled: busy || !info }]}>
       {!info ? <p className="m-text">Đang tải…</p> : (
         <>
-          <div className="prov-row">
-            <span className="prov-name">Claude</span>
-            <span className="prov-ok"><Check size={13} strokeWidth={2} aria-hidden="true" /> dùng tài khoản Claude đã đăng nhập trên máy</span>
-          </div>
+          <fieldset className="prov-auth">
+            <legend className="prov-name">Claude chạy bằng</legend>
+            {[
+              ['login', 'Tài khoản Claude đăng nhập trên máy', 'Mặc định. Không dùng API key.'],
+              ['api_key', 'API key Anthropic khi có', 'Có key hợp lệ (sk-ant-api…) thì dùng key; chưa có key, key sai hoặc hết tiền thì tự quay về tài khoản đăng nhập.'],
+            ].map(([id, label, hint]) => (
+              <label key={id} className={`prov-auth-opt${info.claude_auth?.mode === id ? ' on' : ''}`}>
+                <input type="radio" name="claude-auth" checked={(info.claude_auth?.mode || 'login') === id} onChange={() => setAuth(id)} />
+                <span><b>{label}</b><small>{hint}</small></span>
+              </label>
+            ))}
+            <p className={info.claude_auth?.using === 'api_key' ? 'prov-ok' : 'prov-msg'} role="status">
+              <Check size={13} strokeWidth={2} aria-hidden="true" />{' '}
+              Đang dùng: {info.claude_auth?.using === 'api_key' ? 'API key Anthropic' : 'tài khoản đăng nhập trên máy'}
+              {info.claude_auth?.why ? ` — ${info.claude_auth.why}` : ''}
+            </p>
+          </fieldset>
           {Object.entries(info.providers).map(([id, p]) => (
             <div className="prov-row" key={id}>
               <span className="prov-name">{p.label}</span>

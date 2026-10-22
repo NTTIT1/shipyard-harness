@@ -204,6 +204,14 @@ table.rv a { display: inline-flex; align-items: center; gap: 4px }
 .prov-name { width: 130px; font-weight: 600; font-size: 13px }
 .prov-in { flex: 1 1 200px; min-width: 0 }
 .prov-ok { display: inline-flex; align-items: center; gap: 6px; color: var(--ok-text); font-size: 12.5px }
+.prov-auth { margin: 0; padding: 8px 0 10px; border: 0; border-bottom: 1px solid var(--border); display: grid; gap: 6px; min-width: 0 }
+.prov-auth legend { padding: 0; margin-bottom: 6px }
+.prov-auth-opt { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer }
+.prov-auth-opt.on { border-color: var(--accent); background: var(--accent-soft) }
+.prov-auth-opt input { margin-top: 3px }
+.prov-auth-opt span { display: grid; gap: 2px; font-size: 13px }
+.prov-auth-opt small { color: var(--text-muted); font-size: 12px }
+.prov-auth p { margin: 2px 0 0 }
 .prov-msg { color: var(--text-faint); font-size: 12px }
 .chat { display: flex; flex-direction: column; gap: 8px; min-width: 0 }
 .chat-log { max-height: 460px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px }
