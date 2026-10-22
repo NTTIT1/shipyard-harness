@@ -13,6 +13,7 @@
 /config/models.json
 /config/leak-terms.txt
 /config/lanes/
+/config/imports/
 # per-project profiles are local to each install; only the template ships
 /profiles/*
 !/profiles/_template/

@@ -1,367 +1,287 @@
-# Parallel Feature Harness
+# Shipyard — xưởng AI làm phần mềm song song
 
-Build, QC, and ship multiple features in parallel in isolated lanes—full app clones with dedicated ports, databases, and Redis instances. Describe a feature in a sentence, and `/ship-feature` takes it from implementation to delivery while leaving your own checkout untouched.
+Shipyard biến một ý tưởng hoặc một repo có sẵn thành phần mềm chạy được, do **một đội AI** làm
+(PM, BA, kiến trúc sư, thiết kế, lập trình, kiểm thử) và **con người duyệt** ở những bước quan trọng.
+Mỗi tính năng được làm trong một **lane** riêng (bản clone đầy đủ của dự án, có cổng, database, phiên
+AI riêng), nên nhiều tính năng chạy song song mà không giẫm chân nhau. Mọi thứ điều khiển trên
+**dashboard** tiếng Việt; repo của bạn chỉ nhận pull request — con người merge.
+
+![Sơ đồ tổng thể](docs/so-do-tong-the.png)
 
 ```
-intake → plan → implement → CI gates + dev preflight → e2e → code review
-→ browser QC → senior GO/NO-GO → open PR (base development) + ticket → CI watch
-→ watch PR → (human merges) → dev QC → done — or follow-up fix PR and around again
+Ý tưởng / repo có sẵn ─► dự án (tài liệu đã duyệt + quy trình riêng)
+   └─► lộ trình tính năng ─► giao cho lane rảnh
+         PM ─► BA ─► Kiến trúc ─► Thiết kế UI ─► Code ─► Test        (bước nào chạy, ai duyệt: theo quy trình dự án)
+         └─► CI + e2e ─► review code ─► QC trình duyệt ─► GO/NO-GO ─► PR vào nhánh tích hợp ─► người merge
 ```
-
-PRs base on and target `development`; a **human** merges them. The harness never
-pushes `development` — it validates the feature branch, publishes the PR only
-after every gate passes, then verifies the deployed result post-merge and opens
-follow-up fix PRs until dev is clean.
-
-The harness is **project-agnostic**: everything stack-specific lives in a
-**profile** (`profiles/<name>/`, scaffolded from `profiles/_template` — profiles
-stay local to each install and are never committed). To run it against your own
-repo, see [Adopting for your own project](#adopting-for-your-own-project).
 
 ---
 
-## Setup
+## Bắt đầu một dự án — ba cách
 
-### Prerequisites
-
-| Tool | Why |
-|---|---|
-| **git**, **Docker** | clone/branch/merge lanes; the one shared Postgres + Redis all lanes use |
-| **Node ≥ 18** | the dashboard + the Playwright MCP servers (browser QC). The newest ≥18 is auto-selected at runtime, so multiple Node versions coexist fine |
-| **gh** (authenticated) | PRs, CI status, the review loop |
-| **python3** | `bin/` helper scripts (stdlib only) |
-| **flock** | cross-lane locking (macOS: `brew install flock`; Linux: usually preinstalled) |
-| **Claude Code** | runs `/ship-feature` + `/review-prs`. The installer auto-adds the **superpowers** plugin; `code-review` is built in |
-| **your app's toolchain** | whatever your repo builds/tests with — invoked through your profile's hooks, never by the harness |
-
-Your app repo must already clone, install, and run locally on its own — the
-harness builds on top of it.
-
-### Configure — the config files
-
-Everything you set lives in `config/`:
-
-- **`config/local.env`** — machine-local topology (untracked; create the file).
-  Set at least `PROFILE` and `SOURCE_REPO`; use `${VAR:-…}` fills so explicit
-  env exports still win:
-  ```bash
-  PROFILE="${PROFILE:-myapp}"                    # uses profiles/myapp/
-  SOURCE_REPO="${SOURCE_REPO:-$HOME/work/myapp}" # the app repo lanes clone from
-  LANES_ROOT="${LANES_ROOT:-$HOME/work}"         # where laneN/ clones are created
-  DB_PREFIX="${DB_PREFIX:-myapp_l}"              # lane N DB = myapp_l<N>
-  ```
-  Shared defaults (ports, Postgres/Redis endpoints, `COMPOSE_FILE`) live in the
-  tracked `config/lanes.env`; override them here only if they clash.
-- **`config/secrets.env`** — credentials (gitignored). Copy the example and fill
-  it in:
-  ```bash
-  cp config/secrets.env.example config/secrets.env
-  ```
-  | Key | For |
-  |---|---|
-  | `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` | the local seed account each lane DB gets (also the qc-local login) |
-  | `DEV_QC_PASSWORD` | per-lane dev-QC accounts (dev-site QC integration) |
-  | `TRACKER_EMAIL` / `TRACKER_PASSWORD` | tracker login (ticketer integration) |
-  | `QC_UPLOAD_FIXTURES_DIR` | absolute path to upload fixtures; blank = skip upload scenarios |
-
-  Your app's own LLM/API keys stay in your repo's `backend/.env` — each lane's
-  `.env` is seeded from it with `DATABASE_URL` / `REDIS_URL` / `UPLOAD_DIR`
-  rewritten per lane, so isolation holds.
-
-### One-time setup
-
-Run from the harness repo root:
-
-```bash
-bin/db-shared-up.sh             # shared Postgres + Redis (one set for all lanes)
-bin/install-claude-assets.sh    # copy skills + agents into ~/.claude (+ superpowers plugin)
-bin/dashboard.sh start          # → http://127.0.0.1:8090
-```
-
-**Share the dashboard on the LAN:** add `DASHBOARD_HOST="${DASHBOARD_HOST:-0.0.0.0}"` to
-`config/local.env`, run `bin/platform.sh start` (it writes a per-machine JWT secret to
-`run/platform/jwt-secret`; the dashboard refuses LAN binding while the public dev secret or
-`DASHBOARD_AUTH=off` is in use), then `bin/dashboard.sh restart` — it prints the LAN URLs.
-Open the port if a firewall is on (`sudo ufw allow from <subnet> to any port 8090 proto tcp`).
-Only the dashboard is exposed; the platform services and gateway stay on 127.0.0.1 behind it.
-Accounts are created by an admin under **Người dùng** (self-registration is off).
-
-> `install-claude-assets.sh` *copies* the skills/agents (it bakes in install-time
-> paths), so **re-run it after editing any source skill/agent** and **restart open
-> Claude sessions** — skills, agents, and plugins load at session start.
-
-### Add a lane
-
-Click **+ Add lane** in the dashboard top bar — it provisions the next free lane
-end to end (clone → deps → DB → MCP config → agents). Or from a terminal:
-
-```bash
-bin/lane-bootstrap.sh 1     # run from a terminal so it can prompt for the dev-QC account
-```
-
-Lanes 1–9 are supported; 3–5 live at once is typical. Each runs its own API
-(`:800N`) and frontend (`:300N`).
-
-### Run a feature
-
-```bash
-cd ../lane1 && claude
-# /ship-feature "Add a CSV export button to the reports table"
-```
-
-Answer the opening questions once, then watch the dashboard. The lane runs
-unattended and only stops on a genuine blocker (an escalated senior NO-GO, an
-ambiguous merge conflict) — the reason shows in the card's **notes**.
-
----
-
-## Usage
-
-### Multiple features at once
-
-Open a separate terminal/session per lane — they're fully isolated and run in
-parallel:
-
-```bash
-# Terminal 1                          # Terminal 2
-cd ../lane1 && claude                 cd ../lane2 && claude
-# /ship-feature "Feature A"          # /ship-feature "Feature B"
-```
-
-Prefer a front door? `bin/lane-assign.sh "Feature A"` reserves + boots the next
-free lane and prints the exact `cd … && claude` + `/ship-feature` to run.
-
-### Review open PRs instead — `/review-prs`
-
-Dedicate a lane to reviewing PRs:
-
-```bash
-cd ../lane4 && claude
-# /review-prs
-```
-
-After a short scope Q&A it polls open PRs and posts substantive feedback on any
-that are new, have new commits, or have new discussion aimed at it — never
-merging, pushing, or closing. A per-lane cursor means it never re-reviews
-unchanged PRs. The dashboard shows a **review-history table** for that lane
-instead of the pipeline map.
-
-### Switching features on a lane
-
-When a feature is done: click **🧹 clear** (archive its state + reset the status
-fields), then **⟳ reset** if the next feature needs a clean branch + fresh DB,
-then assign the new one (`cd ../laneN && claude` → `/ship-feature "…"`). Cleared
-features stay browsable in the proof gallery's feature picker.
-
-### Manual testing & lifecycle
-
-Each lane's live app is at `http://localhost:300N` (log in with your seed
-account) — open several at once. Lane lifecycle is on the dashboard card buttons
-(see [Features](#features)) or the [CLI](#cli-reference). Lanes serve production
-builds (no hot reload), so after hand-editing a lane run `bin/lane-up.sh N` to
-rebuild.
-
-> **Resource note:** heavy steps (FE build, e2e, the integration push) are
-> serialized across lanes; dev-site QC runs in parallel. Idle lanes are light
-> (~340 MB each) — run fewer if memory is tight. Don't `docker compose stop` the
-> shared DB while lanes are up.
-
----
-
-## Features
-
-### Pipeline map
-
-Click any lane card to see its pipeline map — every stage, color-coded:
-
-| Color | Meaning |
-|---|---|
-| **Green** | Done — stage completed successfully |
-| **Blue** | Current — running now |
-| **Amber** | Passed without evidence — worth verifying it ran |
-| **Gray** | Pending — not reached yet |
-| **Red dashed** | Fail path — leads to fix-on-branch, then re-entry |
-
-### Lane cards & actions
-
-Each card shows, at a glance: **feature title** and current **stage** with a
-progress bar, a **⏱ time-on-phase** timer, **stack health** (api/fe up/down),
-the **gate decision** (GO / NO-GO / pending), **git branch + latest commit**,
-**CI status**, **PR / ticket / test-URL** links, a **heartbeat** with per-lane
-liveness (**DEAD** — loud red — when a running/watching lane stops reporting;
-calm **idle** when an old heartbeat is expected), and **notes**.
-
-All lane management is on the card — no CLI needed for day-to-day use:
-
-| Button | What it does |
-|---|---|
-| **▶ up** | Boot/rebuild the lane stack (api + worker + frontend) |
-| **■ down** | Stop the lane (kills processes, frees ports); code + DB preserved |
-| **🧹 clear** | Archive the feature's state and reset status fields — the "done with this feature" tidy-up |
-| **♻ agents** | Re-push current harness templates into the lane (agents + MCP config). Use after editing harness files |
-| **🔑 creds** | Set/change the lane's dev-QC account, then re-embed it in the agents + re-seed sessions |
-| **⟳ reset** | Clean integration branch + fresh DB seed (confirms first) |
-| **🗑 remove** | Delete the lane entirely — clone + DBs + state (confirms first) |
-| **＋ add lane** | (top bar) provision the next free lane |
-
-> After **♻ agents** or **🔑 creds**, restart that lane's Claude session — agents
-> and MCP servers load at session start.
-
-### QC proof gallery
-
-The selected lane's panel shows thumbnails of every screenshot the QC agents
-captured, grouped per feature and per phase:
-
-- **qc-local** — the local browser-QC agent (against the lane's feature-branch stack)
-- **qc-dev** — the background dev-site QC agent (against the deployed dev site)
-- Click a thumbnail for a full-size lightbox; click **+N** for the full gallery
-- A **🎫 task report** link appears once the ticketer agent has written one
-- The **feature picker** switches the whole detail panel to a past feature's
-  archived state (final stage, gate, PR/ticket links) while the lane keeps running
-
-### PR review mode
-
-When a lane is running `/review-prs`, clicking its card shows a **review-history
-table** (PR # · action · when · summary) instead of the pipeline map.
-
-> Want the visuals? `docs/screenshots/regenerate.cjs` captures the dashboard
-> views from YOUR running install (they're kept out of git).
-
----
-
-## Adopting for your own project
-
-Everything stack-specific lives in one **profile** at `profiles/<name>/`. `bin/`,
-`dashboard/`, and the skills/agents stay generic; profiles are untracked, so
-your project's specifics never enter this repo. A profile has five parts:
-
-| File | What |
-|---|---|
-| `profile.env` | stack shape — DB driver, API path, service dirs, branch names, compose service names |
-| `hooks/` | 7 small scripts the engine calls for stack-specific steps (below) |
-| `integrations.env` | optional tracker / dev-site-QC / CI-deploy-wait toggles (off ⇒ that stage is skipped) |
-| `review-checks.md` | stack-specific senior-gate / PR-review checks (empty ⇒ generic review) |
-| `tracker-notes.md` | provider login + idempotency notes for the ticketer (empty ⇒ plain email+password login) |
-
-**The fast path** — in a Claude Code session, run **`/harness-adapt`**. It
-inspects your repo (package managers, framework, build/test/migrate commands,
-compose services, branches), drafts `profiles/<name>/` from `_template`, asks you
-to confirm what it can't infer, validates with `harness-doctor`, and dry-runs a
-lane. By hand: `cp -R profiles/_template profiles/myapp`, fill `profile.env`, and
-replace each hook's TODO stub (each stub documents a worked example inline).
-
-Then set `PROFILE` + `SOURCE_REPO` in `config/local.env` and validate until clean:
-
-```bash
-bin/harness-doctor.sh myapp     # fix every ✗ (stub hooks, missing config) → 0 errors
-```
-
-### Hook contract
-
-Before calling any hook, the engine exports a stable env contract — use these in
-your hooks: `LANE` / `LANE_DIR`, `API_PORT` / `FE_PORT`, `DATABASE_URL` /
-`REDIS_URL` / `UPLOAD_DIR`, `DB_NAME`, `API_BASE` / `FE_URL`, `RUN_DIR` /
-`LOG_DIR`, `PROFILE_DIR` / `SOURCE_REPO` / `HARNESS_ROOT`, plus everything in your
-`profile.env`. Two helpers are available: `harness_spawn <name> <workdir> <cmd…>`
-(background a service with detached stdio + pid/log tracking — use in `boot`) and
-`die <msg>`.
-
-| Hook | Must do | Notes |
+| Cách | Dùng khi | Ở đâu trên dashboard |
 |---|---|---|
-| `bootstrap` | install deps in the lane clone | — |
-| `migrate` | apply DB migrations to `DATABASE_URL` | — |
-| `seed` | create the initial user/org | `SEED_USER_*` exported |
-| `boot` | build + start services, then **return** | use `harness_spawn`; `$1 == --no-build` ⇒ reuse build |
-| `health` | exit 0 only when fully ready | prefer `curl --retry` |
-| `ci-gate` | lint / test / contract; non-zero on failure | gets an isolated `TEST_DATABASE_URL` |
-| `e2e` | run e2e against the running stack, under the e2e lock | `with-lock.sh e2e -- <cmd>` |
+| **Chat ý tưởng** | Mới có ý tưởng | **Ý tưởng sản phẩm** — AI PM viết yêu cầu → AI kiến trúc sư tư vấn công nghệ + thiết kế hệ thống + đề xuất quy trình → AI thiết kế vẽ mockup → bạn duyệt từng bước trong chat → **Tạo dự án** → **Lộ trình tính năng** giao cho lane |
+| **Tạo từ khung** | Biết rõ công nghệ muốn dùng | **Dự án → Tạo dự án từ khung** — chọn ngôn ngữ, framework (Spring Boot, FastAPI, NestJS, React + Vite; fullstack backend + frontend), database, kho Git; có thể nhờ AI tư vấn, duyệt kiến trúc trước khi sinh code |
+| **Nhập repo có sẵn** | Dự án đã có code trên GitHub/GitLab/máy | **Dự án → Thêm hoặc liên kết dự án → Nhập dự án có sẵn từ Git** — bạn tự khai cách cài, chạy, build, test, kiểm tra, database, biến môi trường và **tài liệu nằm ở đâu**; Shipyard clone, kiểm tra, sinh script cho lane, đăng ký dự án và (tuỳ chọn) để AI Manager đọc code soạn luật |
 
-DB create/drop and Redis-index assignment stay harness-side (driven by your
-`PG_*` / `COMPOSE_SERVICES` / `DB_PREFIX`) — the harness assumes **Postgres +
-Redis via your repo's docker-compose**.
+Dự án mới được tạo ở `~/shipyard-workspaces/<slug>` (đổi bằng `SHIPYARD_WORKSPACES`), có hai nhánh
+`main` và `development`; nếu chọn GitHub/GitLab thì repo được tạo và push lên đó. Lỗi khi tạo dự án
+(mạng, build, tên repo trùng…) có **Thử lại** hoặc **Quay lại bước Tạo dự án** — tài liệu đã duyệt
+và quy trình vẫn giữ.
 
-### Integrations
+### Tài liệu đã duyệt là chuẩn
 
-Each is off by default; turn on what you have in `integrations.env`:
+Những gì người đã duyệt trước khi có code — yêu cầu sản phẩm, kiến trúc, hướng dẫn thiết kế, mockup —
+được đưa cho **mọi bước** của lane kèm quy tắc riêng: PM/BA không vượt phạm vi yêu cầu; thiết kế lấy
+mockup đã duyệt làm gốc, **không vẽ lại**; code làm **giống mockup** và đúng kiến trúc; test và QC trình
+duyệt so với mockup. Vị trí tài liệu:
 
-- **Tracker** (`TRACKER_ENABLED=1`) — file a ticket when the PR opens. Set
-  `TRACKER_PROVIDER`, `TRACKER_URL`, `TRACKER_PROJECT`, `TRACKER_STATUS`,
-  `TRACKER_ASSIGNEE`, `TRACKER_MCP`. Write your provider's login + issue-search
-  notes in `tracker-notes.md` (a plain email+password form needs none).
-- **Dev-site QC** (`DEV_QC_ENABLED=1`) — browser-QC the deployed dev site after
-  a human merges the PR. Set `DEV_SITE_URL`, `DEV_QC_MCP`. Each lane uses its own
-  dev account (password `DEV_QC_PASSWORD`); the account must exist on your dev server.
-- **CI deploy-wait** (`CI_WAIT_ENABLED=1`) — wait on a deploy before dev-QC. Set
-  `CI_REPO` + `CI_DEPLOY_CONTEXT` (a GitHub commit-status context; works for
-  CircleCI, GH-Actions, etc.).
-
-The QC/tracker agents drive Playwright MCP servers **by the names you set**;
-register those servers in your source project's MCP config (`harness-doctor`
-reminds you which names each enabled integration expects).
+- dự án từ chat ý tưởng: `docs/product-brief.md`, `docs/architecture.md`, `docs/design/design.md`, `docs/design/mockups/`;
+- repo nhập vào: theo đường dẫn bạn khai ở bước **Tài liệu** (Shipyard kiểm tra từng file có thật khi clone);
+- thêm/sửa sau này: ghi vị trí vào `.shipyard/docs.json` trong repo (`brief`, `architecture`, `design`, `mockups`, `other`).
 
 ---
 
-## Troubleshooting
+## Quy trình làm tính năng — mỗi dự án một quy trình
 
-| Symptom | Fix |
+Quy trình được chọn khi tạo dự án (trong wizard, trong chat ý tưởng — nhắn AI kiểu *"bước Test dùng
+Haiku, tối đa 30 phút, lỗi thì thử lại 2 lần"* — hoặc khi nhập repo) và sửa ở **Quy trình & duyệt**.
+Có mẫu nhanh (Đầy đủ, Plan → Code → Test, Tự chạy hết, Thiết kế UI → Code → Test, Chỉ Code + Test, Doanh
+nghiệp) và ba cách xem: **Sơ đồ** (bấm một bước để cấu hình), **Bảng chi tiết**, **6 giai đoạn** (kéo thả).
+
+Mỗi bước (PM, BA, Kiến trúc, Thiết kế, Code, Test) có:
+
+| Cài đặt | Hệ thống làm gì |
 |---|---|
-| Lane shows **DEAD** | a running/watching lane has no heartbeat for >10 min — its Claude likely died; `cd ../laneN && claude` to resume (tune with `DEAD_SEC=… bin/dashboard.sh restart`; `STALL_SEC` still honored as a legacy alias) |
-| Lane session missing an MCP | `bin/lane-mcp-sync.sh N`, then restart the lane's Claude session (MCPs load at start) |
-| Agent can't post a PR comment | per-lane allow-rules load at session start — restart the lane's Claude session after first provisioning |
-| Server won't boot | check `logs/laneN/{api,fe,worker}.log` |
-| `flock: command not found` | `brew install flock` (macOS) |
-| `harness-doctor` shows stub hooks | implement `profiles/<name>/hooks/*.sh` |
+| Chế độ | **Cần duyệt** (người có vai trò được chọn, hoặc một người cụ thể) · **Tự qua khi xanh** · **Bỏ qua** |
+| Model AI | Chọn sẵn khi giao việc cho lane (Claude Opus/Sonnet/Haiku, hoặc OpenHands qua cổng LiteLLM) |
+| Giới hạn phút | Lần chạy AI quá giờ bị cắt |
+| Ngân sách (₫) | Đã tiêu tới trần thì không chạy thêm |
+| Số vòng thử lại | Khi chọn "Tự thử lại" |
+| Điều kiện chạy | Luôn chạy · Chỉ khi tính năng có giao diện · Chỉ khi bước trước đạt |
+| Khi lỗi | Chuyển con người · Tự thử lại · Dừng cả quy trình |
+| Đầu vào bắt buộc | Thiếu file thì dừng trước khi tốn token; AI chỉ được dặn đọc đúng các file đó |
+
+Mỗi lần chạy **đóng băng** quy trình tại thời điểm bắt đầu — sửa quy trình chỉ áp dụng cho lần sau.
+Điều kiện chạy do orchestrator áp; giới hạn, ngân sách, thử lại, đầu vào do lane (`bin/run-step.sh`,
+`bin/step_guard.py`) áp.
+
+### Tài khoản AI
+
+**Nhà cung cấp AI → Claude chạy bằng**:
+
+- **Tài khoản Claude đăng nhập trên máy** (mặc định) — không dùng API key.
+- **API key Anthropic khi có** — có key hợp lệ (`sk-ant-api…`) thì dùng key; chưa có key, key sai hoặc hết
+  tiền thì tự quay về tài khoản đăng nhập (key bị bỏ qua 1 tiếng rồi thử lại).
+
+Bước nào chọn model **OpenHands · …** thì chạy OpenHands trong hộp kín, qua cổng LiteLLM, bằng API key của
+nhà cung cấp đó (OpenAI, Gemini, DeepSeek, Anthropic…). Key chỉ lưu trên máy (`config/providers.json`, quyền 600),
+trình duyệt chỉ thấy 4 ký tự cuối.
 
 ---
 
-## CLI reference
+## Thành phần & cổng
 
-Most operations are on the dashboard; these are for scripting or terminal use.
+| Thành phần | Cổng | Khởi động |
+|---|---|---|
+| **Dashboard** (Express + React) | 8090 | `bin/dashboard.sh start\|restart [port]` |
+| **Shipyard Platform** — api-gateway | 9080 | `bin/platform.sh start` |
+| auth · project · lane · orchestrator · context service | 9081–9085 | 〃 (Spring Boot, Java 21) |
+| Postgres + Redis của platform | 5434 / 6380 | `bin/platform.sh infra-up` (Docker) |
+| Ollama (embedding `bge-m3` cho bộ nhớ dự án) | 11434 | native hoặc container |
+| Cổng LiteLLM (OpenHands, nhà cung cấp khác) | 4000 | `bin/gateway.sh` (tự bật khi cần) |
+| Postgres + Redis cho lane | 5433 / 6379 | `bin/db-shared-up.sh` |
+| Lane N — API / frontend | `8000+N` / `3000+N` | nút **▶ up** hoặc `bin/lane-up.sh N` |
+
+- **Orchestrator** giữ quy trình, các lần chạy, cổng duyệt, và việc "Chờ tôi duyệt".
+- **Context service** là bộ nhớ dự án: bài học, phản hồi của người duyệt, đồ thị thực thể → mỗi bước nhận một
+  "context pack" gọn (xem [nguyên lý & bộ nhớ dự án](docs/nguyen-ly-hoat-dong-va-bo-nho-du-an.md)).
+- **Lane** chạy Claude Code (`/ship-feature`) cùng các agent vai trò trong `claude/agents/`.
+
+---
+
+## Cài đặt
+
+### Cần có
+
+| Công cụ | Để làm gì |
+|---|---|
+| **git**, **Docker** | lane, database dùng chung, hạ tầng platform |
+| **Java 21 + Maven** | build và chạy Shipyard Platform |
+| **Node ≥ 20** | dashboard, Playwright MCP (QC trình duyệt), dự án Node |
+| **python3** | các script trong `bin/` (chỉ thư viện chuẩn) |
+| **Claude Code** (đã đăng nhập) | phiên của lane và các bước AI |
+| **gh** (đã đăng nhập) | PR, trạng thái CI, vòng review |
+| **flock** | khoá giữa các lane (macOS: `brew install flock`) |
+| Công cụ của dự án | JDK, uv, composer… — gọi qua script lane của từng dự án |
+
+### Cấu hình — thư mục `config/`
+
+- **`config/local.env`** (không commit) — cấu hình của máy. Tối thiểu, cho dự án chính của máy:
+  ```bash
+  PROFILE="${PROFILE:-myapp}"                    # profiles/myapp/
+  SOURCE_REPO="${SOURCE_REPO:-$HOME/work/myapp}" # repo mà lane clone
+  LANES_ROOT="${LANES_ROOT:-$HOME/work}"         # nơi tạo laneN/
+  DB_PREFIX="${DB_PREFIX:-myapp_l}"              # DB của lane N = myapp_l<N>
+  ```
+  Dự án tạo/nhập trên dashboard có profile riêng; lane gắn với dự án nào thì ghi ở `config/lanes/laneN.env`.
+- **`config/secrets.env`** (không commit) — `cp config/secrets.env.example config/secrets.env`, điền tài khoản seed,
+  QC, tracker, `ADMIN_EMAIL` / `ADMIN_PASSWORD` (mặc định `admin@shipyard.local` / `admin123` — **đổi đi**).
+- API key nhà cung cấp AI và token GitHub/GitLab nhập trên dashboard, **không** ghi vào file tay hay dán vào chat.
+
+### Khởi động
 
 ```bash
-# Setup
-bin/db-shared-up.sh                    # shared Postgres + Redis
-bin/install-claude-assets.sh           # skills + agents → ~/.claude (+ superpowers)
-bin/dashboard.sh start|stop|restart    # watch UI → :8090
-bin/harness-doctor.sh [profile]        # validate a profile's config + hooks
-
-# Lanes (also on the dashboard)
-bin/lane-bootstrap.sh N                # provision lane N
-bin/lane-add.sh [--and-up]             # provision the next free lane
-bin/lane-assign.sh "feature"           # pick + boot a free lane, print the run command
-bin/lane-up.sh N [--qc] | bin/lane-down.sh N  # boot/rebuild (--qc = profile QC env) | stop a lane
-bin/lane-reset.sh N | bin/lane-remove.sh N   # clean dev + reseed | delete entirely
-bin/lane-status.sh                     # status table for all lanes
-
-# Maintenance
-bin/lane-mcp-sync.sh N|--all           # re-sync MCP config to lane(s)
-bin/lane-agents-install.sh N|--all     # regenerate per-lane agents with current creds
-bin/lane-qa-login.sh N [dev|local|all] # re-seed a lane's browser login session
+bin/platform.sh infra-up          # Postgres/Redis/RabbitMQ của platform (Docker)
+bin/platform.sh start             # 6 service (lần đầu tự build bằng Maven)
+bin/db-shared-up.sh               # Postgres + Redis dùng chung cho các lane
+bin/install-claude-assets.sh      # chép skill + agent vào ~/.claude (+ plugin superpowers)
+bin/dashboard.sh start            # → http://127.0.0.1:8090, đăng nhập bằng tài khoản admin
 ```
+
+> `install-claude-assets.sh` và `lane-agents-install.sh` **chép** skill/agent (không symlink). Sửa file trong
+> `claude/` xong thì chạy lại `bin/install-claude-assets.sh`, bấm **♻ agents** cho từng lane (hoặc
+> `bin/lane-agents-install.sh --all`) rồi **mở lại** phiên Claude của lane.
+
+**Mở dashboard cho mạng LAN:** thêm `DASHBOARD_HOST="${DASHBOARD_HOST:-0.0.0.0}"` vào `config/local.env`, chạy
+`bin/platform.sh start` (tạo JWT secret riêng của máy), rồi `bin/dashboard.sh restart` — lệnh in ra địa chỉ LAN.
+Chỉ dashboard mở ra ngoài; platform và gateway vẫn ở 127.0.0.1. Tài khoản do admin tạo ở **Người dùng**.
+
+> Khởi động lại dashboard luôn dùng `bin/dashboard.sh restart` (không chạy `node` trực tiếp — sẽ mất PROFILE).
+> Khởi động lại một service platform: `bin/platform.sh restart` (hoặc dừng pid trong `run/platform/` rồi `start`).
 
 ---
 
-## Layout & what's not in git
+## Dùng hằng ngày
 
-```
-<parent>/                  # e.g. ~/work — set by LANES_ROOT / SOURCE_REPO in config/lanes.env
-├─ <your-app-repo>/        # your app (you provide; SOURCE_REPO points here)
-├─ harness/                # this repo — engine, dashboard, skills, agents
-│   ├─ bin/                # lifecycle scripts (generic)
-│   ├─ dashboard/          # watch UI — Node + React (generic)
-│   ├─ claude/             # skill + agent templates (generic)
-│   ├─ profiles/           # per-project config: _template/ + your <name>/ (untracked)
-│   ├─ config/             # lanes.env + local.env/secrets.env (both gitignored)
-│   └─ docs/screenshots/   # regenerate.cjs — optional local dashboard screenshots
-└─ lane1/ lane2/ …         # lane clones (the harness creates these)
+| Màn hình | Để làm gì |
+|---|---|
+| **Tổng quan** · **Lanes** | Thẻ từng lane: tính năng, giai đoạn, sức khoẻ stack, nhánh, CI, PR, nhịp tim; nút ▶ up · ■ down · 🧹 clear · ♻ agents · 🔑 creds · ⟳ reset · 🗑 remove · ＋ thêm lane |
+| **Giao việc mới** | Giao một yêu cầu (hoặc spec có sẵn) cho lane; model từng bước lấy theo quy trình dự án |
+| **Chờ tôi duyệt** | Tài liệu từng bước (spec, BA, plan, thiết kế + ảnh, qc-plan) chờ bạn: duyệt, yêu cầu sửa, sửa trực tiếp |
+| **Ý tưởng sản phẩm** | Chat từ ý tưởng tới dự án và lộ trình (bản nháp ở `run/studio/`) |
+| **Dự án** | Thành viên & vai trò, **Quy trình & duyệt**, **Tính năng & model AI**, **Tài liệu đã duyệt**, **Bộ nhớ dự án**, **Kỹ năng AI & khung**, đội AI (luật do AI Manager soạn, người duyệt) |
+| **Chi phí & hạn mức** | Token và tiền theo dự án, tính năng, lane, model |
+| **Nhà cung cấp AI** | Claude chạy bằng tài khoản hay API key; key các nhà cung cấp; model mặc định từng bước / từng lane |
+
+Lane chạy không cần trông; chỉ dừng khi cần người (cổng duyệt, NO-GO, xung đột merge mơ hồ) — lý do hiện ở
+**notes** của thẻ. Mỗi lane có app thật ở `http://localhost:300N` để bạn tự thử.
+
+---
+
+## Dự án và file nằm ở đâu
+
+| Thứ | Vị trí |
+|---|---|
+| Code dự án (bản gốc lane clone từ đó) | `~/shipyard-workspaces/<slug>` |
+| Bản làm việc của lane | `$LANES_ROOT/laneN` |
+| Script lane của dự án (profile) | `profiles/<slug>/` |
+| Thông tin khai khi nhập repo | `config/imports/<slug>.json` |
+| Vị trí tài liệu của repo nhập | `profiles/<slug>/project-docs.json` (hoặc `.shipyard/docs.json` trong repo) |
+| Bản nháp chat ý tưởng | `run/studio/stu_<id>.json` + thư mục `stu_<id>/` |
+| Luật đội AI của dự án | `.shipyard/rules/*.md`, `.shipyard/team.json` trong repo dự án |
+| Ảnh QC, báo cáo | `<lane>/.playwright-mcp/proof/<tính-năng>/` |
+
+---
+
+## Profile & script lane
+
+Mọi thứ riêng của một dự án nằm trong **profile** `profiles/<name>/` (không commit; chỉ `_template` có trong git).
+Dự án tạo hoặc nhập trên dashboard có profile **tự sinh**; dự án cấu hình tay (như dự án chính của máy) thì
+chép `profiles/_template`, điền `profile.env`, viết các hook — hoặc chạy `/harness-adapt` trong Claude Code để
+nó đọc repo và soạn giúp. Kiểm tra: `bin/harness-doctor.sh <name>`.
+
+| File | Nội dung |
+|---|---|
+| `profile.env` | hình dạng stack: thư mục backend/frontend, nhánh tích hợp, image OpenHands, file test… |
+| `hooks/*.sh` | các bước riêng của dự án (bảng dưới) |
+| `integrations.env` | `PLATFORM_PROJECT_ID`, tracker, QC trên dev site, chờ deploy CI (tắt ⇒ bỏ qua bước đó) |
+| `project-docs.json` | (tuỳ chọn) vị trí tài liệu đã duyệt |
+| `review-checks.md`, `tracker-notes.md` | (tuỳ chọn) kiểm tra riêng cho review, ghi chú tracker |
+
+Trước khi gọi hook, lane export: `LANE`, `LANE_DIR`, `API_PORT`, `FE_PORT`, `DATABASE_URL`, `REDIS_URL`,
+`UPLOAD_DIR`, `DB_NAME`, `API_BASE`, `FE_URL`, `RUN_DIR`, `LOG_DIR`, `PROFILE_DIR`, `SOURCE_REPO`,
+`HARNESS_ROOT`, `PG_*`, `REDIS_*` và mọi khoá trong `profile.env`; có sẵn `harness_spawn <tên> <thư-mục> <lệnh…>`
+(chạy nền, ghi pid/log — dùng trong `boot`) và `die <thông báo>`.
+
+| Hook | Phải làm |
+|---|---|
+| `bootstrap` | cài thư viện trong bản clone của lane |
+| `migrate` | áp migration vào DB của lane |
+| `seed` | tạo dữ liệu/tài khoản ban đầu (`SEED_USER_*`) |
+| `boot` | build + chạy dịch vụ nền rồi **trả về** (`harness_spawn`; `$1 == --no-build` ⇒ dùng lại build) |
+| `health` | exit 0 khi app sẵn sàng (`curl --retry`) |
+| `ci-gate` | lint / test; lỗi ⇒ exit khác 0 (có `TEST_DATABASE_URL` riêng) |
+| `e2e` | e2e trên stack đang chạy, dưới khoá `with-lock.sh e2e -- <lệnh>` |
+
+Repo nhập vào: các hook được sinh **đúng từ lệnh bạn khai** (lệnh chạy dùng `$PORT` để mỗi lane một cổng);
+sửa trực tiếp trong `profiles/<slug>/hooks/` nếu cần (xoá dòng `SHIPYARD_GENERATED=1` trong `profile.env` để
+Shipyard không sinh lại).
+
+### Tích hợp (trong `integrations.env`, mặc định tắt)
+
+- **Tracker** (`TRACKER_ENABLED=1`) — tạo ticket khi mở PR (`TRACKER_PROVIDER`, `TRACKER_URL`, `TRACKER_PROJECT`, …).
+- **QC trên dev site** (`DEV_QC_ENABLED=1`) — sau khi người merge, QC trình duyệt trên bản đã deploy (`DEV_SITE_URL`).
+- **Chờ deploy CI** (`CI_WAIT_ENABLED=1`) — chờ một commit status (`CI_REPO`, `CI_DEPLOY_CONTEXT`) trước dev-QC.
+
+---
+
+## Xử lý sự cố
+
+| Hiện tượng | Cách xử lý |
+|---|---|
+| Lane báo **DEAD** | Phiên Claude của lane đã chết — `cd $LANES_ROOT/laneN && claude` để tiếp tục |
+| Bước AI dừng "thiếu đầu vào bắt buộc" / "vượt ngân sách" / "quá giới hạn" | Do cài đặt bước trong **Quy trình & duyệt**; bổ sung file hoặc nới giới hạn rồi chạy lại |
+| Tạo dự án lỗi `npm … ECONNRESET` | Mạng tới npm registry bị ngắt — **Thử lại** hoặc **Quay lại bước Tạo dự án** khi mạng ổn |
+| Lane của repo nhập không lên | Xem `logs/laneN/*.log`; sửa lệnh trong `profiles/<slug>/hooks/` |
+| "API key Anthropic lỗi" | Key sai/hết tiền — hệ thống tự quay về tài khoản đăng nhập; với phiên chính của lane: dừng rồi mở lại phiên |
+| Dashboard báo không kết nối được platform | `bin/platform.sh status`, rồi `bin/platform.sh start` |
+| Thiếu MCP trong phiên lane | `bin/lane-mcp-sync.sh N`, mở lại phiên Claude |
+| Sửa agent/skill mà lane không đổi | `bin/install-claude-assets.sh`, **♻ agents**, mở lại phiên |
+
+---
+
+## Lệnh CLI
+
+```bash
+# Hệ thống
+bin/platform.sh infra-up|start|stop|restart|status|build
+bin/dashboard.sh start|stop|restart [port]
+bin/db-shared-up.sh
+bin/install-claude-assets.sh
+bin/gateway.sh start|stop                 # cổng LiteLLM
+bin/harness-doctor.sh [profile]
+
+# Lane (cũng có trên dashboard)
+bin/lane-add.sh [--and-up] [--profile P --source REPO]
+bin/lane-up.sh N [--qc] | bin/lane-down.sh N
+bin/lane-reset.sh N | bin/lane-remove.sh N
+bin/lane-status.sh
+bin/lane-agents-install.sh N|--all
+bin/lane-mcp-sync.sh N|--all
+
+# Pipeline (lane dùng; hữu ích khi gỡ lỗi)
+bin/orch.sh N next|pack|submit|fail …     # nói chuyện với orchestrator
+bin/run-step.sh N <bước> <prompt-file>     # chạy một bước AI có giới hạn của quy trình
+bin/project-docs.sh N <bước>               # xem tài liệu đã duyệt mà bước đó nhận
 ```
 
-- **You edit:** `profiles/<name>/`, `config/local.env`, `config/secrets.env`.
-  That's it for a normal adoption.
-- **Generic (don't touch):** `bin/`, `dashboard/`, the skills, and the agent
-  *templates* — they read your injected config.
-- **Never committed** (gitignored): `config/local.env`, `config/secrets.env`,
-  `profiles/<name>/` (only `_template` ships), `docs/reports/` + screenshots,
-  `state/`, `run/`, `logs/`, `locks/`, and per-lane credential files inside each
-  lane clone (`<lane>/.harness-qa.env`, `<lane>/.claude/agents/*.md`). Passwords
-  and project specifics never enter git.
+Kiểm thử: `bash tests/run.sh` (script lane + dashboard), orchestrator: `mvn -f platform/pom.xml test`.
+
+---
+
+## Tài liệu chi tiết
+
+- [Hướng dẫn từ đầu đến cuối](docs/huong-dan-tu-dau-den-cuoi.md) — tạo dự án, thêm lane, giao và duyệt tính năng
+- [Hướng dẫn dashboard, lane và agent](docs/huong-dan-shipyard.md)
+- [Thiết kế hệ thống](docs/thiet-ke-he-thong.md) — service, API, cơ sở dữ liệu, luồng
+- [Nguyên lý hoạt động & bộ nhớ dự án](docs/nguyen-ly-hoat-dong-va-bo-nho-du-an.md)
+- [Các lệnh Shipyard](docs/lenh-shipyard.md)
+
+## Không bao giờ vào git
+
+`config/local.env`, `config/secrets.env`, `config/providers.json`, `config/imports/`, `profiles/<tên>/`
+(chỉ `_template`), `run/`, `state/`, `logs/`, `locks/`, ảnh chụp dashboard, và file thông tin đăng nhập trong
+từng lane (`<lane>/.harness-qa.env`, `<lane>/.claude/agents/*.md`). Mật khẩu, key và thông tin riêng của
+dự án không đi vào repo này.
