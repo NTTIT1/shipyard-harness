@@ -156,6 +156,34 @@ describe('studio', () => {
     expect(st.list(me)).toEqual([]);
   });
 
+  it('a failed project creation goes back to "Tạo dự án" with the documents kept', async () => {
+    let job = { id: 'scf_2', status: 'failed', stage: 'verify', stages: {}, stageList: [], error: 'build lỗi', project: null };
+    const discarded = [];
+    const jobs = { root: path.join(root, 'ws'), start: () => ({ id: 'scf_2' }), get: () => job, discard: id => { discarded.push(id); job = null; return { ok: true }; } };
+    const st = make([], { hasUi: false }, jobs);
+    let s = st.start(me, 'Chuỗi 5 cửa hàng cần API tồn kho');
+    await until(() => !st.isBusy(s.id));
+    st.approve(s.id, me, 'pm'); await until(() => !st.isBusy(s.id));
+    st.approve(s.id, me, 'system');
+    s = st.create(s.id, me, 'tok', { name: 'Kho', slug: 'kho-api', git: { provider: 'local' }, aiTeam: false });
+    expect(st.get(s.id, me).job).toMatchObject({ status: 'failed', error: 'build lỗi', retryable: false });
+    s = st.backToCreate(s.id, me);
+    expect(discarded).toEqual(['scf_2']);
+    expect(s).toMatchObject({ stage: 'create', project: null });
+    expect(s.docs.architecture).toContain('Lộ trình');
+    expect(s.messages.at(-1).text).toContain('chưa xong');
+    // After a dashboard restart the job is gone: only Shipyard's own half-made folder is removed.
+    s = st.create(s.id, me, 'tok', { name: 'Kho', slug: 'kho-api', git: { provider: 'local' }, aiTeam: false });
+    fs.mkdirSync(path.join(root, 'ws', 'kho-api', '.shipyard'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'ws', 'kho-api', '.shipyard', 'project.json'), JSON.stringify({ slug: 'kho-api' }));
+    s = st.backToCreate(s.id, me);
+    expect(fs.existsSync(path.join(root, 'ws', 'kho-api'))).toBe(false);
+    // A registered project is never undone from here.
+    job = { id: 'scf_3', status: 'failed', stage: 'team', project: { id: 'proj_1' } };
+    s = st.create(s.id, me, 'tok', { name: 'Kho', slug: 'kho-api', git: { provider: 'local' }, aiTeam: false });
+    expect(() => st.backToCreate(s.id, me)).toThrow(/đã được đăng ký/);
+  });
+
   it('normalizes a workflow written by the AI', () => {
     const base = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'].map(step => ({ step, mode: 'REQUIRED' }));
     const w = normalizeWorkflow({ steps: base.map(x => (x.step === 'DEV' ? { ...x, config: { model: 'bad model', condition: 'HAS_UI', maxRetries: 2 } } : x)) });

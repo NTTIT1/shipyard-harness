@@ -40,7 +40,7 @@ export default function DocPanel({ s, tab, act, onOpenProject }) {
         )}
         {tab === 'build' && (
           <div className="st-doc-content st-build-scroll">
-            <Build s={s} onOpenProject={onOpenProject} />
+            <Build s={s} act={act} onOpenProject={onOpenProject} />
           </div>
         )}
       </div>

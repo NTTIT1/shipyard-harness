@@ -1234,3 +1234,5 @@
 .st-wf-sum li span { color: var(--text-muted); margin-left: 6px; font-size: 13px }
 .st-wf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px }
 .st-wf-hint { margin: 0 0 8px; color: var(--text-muted); font-size: 13px }
+.st-fail-actions { display: grid; gap: 8px; margin: 12px 0 }
+.st-fail-log { max-height: 180px }

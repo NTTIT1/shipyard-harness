@@ -8,6 +8,7 @@ import { defaultSetupRunner } from '../services/scaffold/setup.js';
 import { defaultBlueprintRunner } from '../services/scaffold/blueprint.js';
 import { createAdvisor } from '../services/scaffold/advise.js';
 import { createStudio } from '../services/scaffold/studio.js';
+import { createImporter, validateImport, importWarnings, listBranches } from '../services/scaffold/importer.js';
 
 /** Creates the project on the platform as the calling user (who becomes OWNER). */
 export function platformRegistrar(gatewayUrl = PLATFORM_URL, fetchImpl = fetch) {
@@ -62,11 +63,14 @@ export function cachedProbe(probe = probeTools, ttlMs = 60_000, now = Date.now) 
 
 // Project wizard (spec 2026-10-19 §3–4). It runs toolchains on this host, so P1 limits it to SYS_ADMIN.
 export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cachedProbe(), providers = createProviderStore(),
-  setup = defaultSetupRunner({ providers }), blueprint = defaultBlueprintRunner(), advise = createAdvisor({ tools }), studio = null } = {}) {
+  setup = defaultSetupRunner({ providers }), blueprint = defaultBlueprintRunner(), advise = createAdvisor({ tools }), studio = null,
+  importer = null } = {}) {
   const router = Router();
   const jobs = runner || createJobRunner({ registerProject: platformRegistrar(), setWorkflow: platformWorkflowSetter(), tools,
     remotes: providers, setup, blueprint });
   const chat = studio || createStudio({ tools, jobs });
+  const imports = importer || createImporter({ root: jobs.root, providers, registerProject: platformRegistrar(),
+    setWorkflow: platformWorkflowSetter(), setup });
   // An approved architecture scaffolds the project through the job runner (same job, or rebuilt).
   blueprint.setBuilder?.((entry, architecture) => jobs.build(entry.snapshot, architecture));
   const admin = (req, res, next) => {
@@ -95,9 +99,38 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
   router.post('/api/studio/:id/approve', admin, wrapS(req => chat.approve(req.params.id, req.user, String(req.body?.stage || ''))));
   router.post('/api/studio/:id/skip-ui', admin, wrapS(req => chat.skipUi(req.params.id, req.user)));
   router.post('/api/studio/:id/reopen', admin, wrapS(req => chat.reopen(req.params.id, req.user, String(req.body?.stage || ''))));
+  router.post('/api/studio/:id/back-to-create', admin, wrapS(req => chat.backToCreate(req.params.id, req.user)));
   router.put('/api/studio/:id/workflow', admin, wrapS(req => chat.setWorkflow(req.params.id, req.user, req.body?.workflow)));
   router.post('/api/studio/:id/create', admin, wrapS(req => chat.create(req.params.id, req.user, token(req), req.body || {})));
   router.delete('/api/studio/:id', admin, wrapS(req => chat.remove(req.params.id, req.user)));
+
+  // Existing repo: the person describes how it is installed/run/tested; Shipyard clones it, writes the
+  // lane profile from that, registers the project and (optionally) has the AI Manager write its rules.
+  const mineImport = (req, res, next) => {
+    const owner = imports.owner(req.params.id);
+    if (!owner) return res.status(404).json({ ok: false, error: 'Không tìm thấy' });
+    if (owner !== req.user.id) return res.status(403).json({ ok: false, error: 'Việc nhập của người khác' });
+    next();
+  };
+  router.post('/api/import/branches', admin, async (req, res) => {
+    try { res.json(await listBranches(req.body || {}, { providers })); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/import/check', admin, (req, res) => {
+    try { res.json({ warnings: importWarnings(validateImport(req.body || {})) }); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/import/jobs', admin, (req, res) => {
+    try { res.status(202).json(imports.start(validateImport(req.body || {}), req.user, token(req))); } catch (e) { fail(res, e); }
+  });
+  router.get('/api/import/jobs/:id', admin, mineImport, (req, res) => {
+    imports.touch(req.params.id, token(req));
+    res.json(imports.get(req.params.id));
+  });
+  router.post('/api/import/jobs/:id/retry', admin, mineImport, async (req, res) => {
+    try { res.json(await imports.retry(req.params.id, token(req))); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/import/jobs/:id/discard', admin, mineImport, (req, res) => {
+    try { res.json(imports.discard(req.params.id)); } catch (e) { fail(res, e); }
+  });
 
   // AI advisor: requirements → a recommended stack / workflow the wizard pre-fills (takes ~1 min).
   router.post('/api/scaffold/advise', admin, async (req, res) => {

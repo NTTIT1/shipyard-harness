@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Send, Check, Rocket } from 'lucide-react';
+import { Plus, Send, Check, Rocket, RotateCcw, ArrowLeft, AlertTriangle } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import { JobView } from '../projects/WizardSteps.jsx';
 import AddLaneModal from '../AddLaneModal.jsx';
 import { fetchLanes, assignLane } from '../../lib/api.js';
-import { lanesOf, freeLanesOf, featureRequirement } from '../../lib/studio.js';
+import { lanesOf, freeLanesOf, featureRequirement, studio } from '../../lib/studio.js';
+import { scaffold } from '../../lib/scaffold.js';
 import { laneStatus, stageLabel } from '../../lib/laneview.js';
 import { platform } from '../../lib/platform.js';
 import { workflowModels } from '../../lib/workflow.js';
 
-export default function Build({ s, onOpenProject }) {
+export default function Build({ s, act, onOpenProject }) {
   const [lanes, setLanes] = useState([]);
   const [adding, setAdding] = useState(false);
   const [assigned, setAssigned] = useState({}); // feature index → lane
@@ -41,11 +42,46 @@ export default function Build({ s, onOpenProject }) {
     } catch (e) { setMsg(e.message); }
   };
 
+  // Creation failed (or the dashboard restarted before the project was registered): retry or go back.
+  const failed = job && (job.status === 'failed' || job.status === 'cancelled');
+  const lost = !job && !pid;
+  // The retry runs on the server; reload the idea so the page follows the running job.
+  const retry = act(async () => {
+    scaffold.retry(job.id).catch(e => setMsg(e.message));
+    await new Promise(r => setTimeout(r, 400));
+    return studio.get(s.id);
+  });
+  const back = act(() => {
+    if (!window.confirm('Xoá bản dự án đang tạo dở và quay lại bước Tạo dự án? Tài liệu đã duyệt và quy trình vẫn giữ.')) return null;
+    return studio.backToCreate(s.id);
+  });
+
   return (
     <div className="st-build">
       {job ? <JobView job={{ ...job, log: [], name: s.project.name }} stages={job.stageList} showLog={false} />
-        : <p className="faint">Dự án {s.project.name} ({s.project.slug}) đã được tạo.</p>}
+        : pid ? <p className="faint">Dự án {s.project.name} ({s.project.slug}) đã được tạo.</p> : null}
+      {lost && (
+        <div className="wz-err" role="alert">
+          <AlertTriangle size={16} aria-hidden="true" />
+          <div>Việc tạo dự án <b>{s.project.name}</b> bị ngắt (dashboard khởi động lại) trước khi dự án được đăng ký.</div>
+        </div>
+      )}
+      {(failed || lost) && (
+        <div className="st-fail-actions">
+          {failed && job.errorTail && <pre className="wz-log st-fail-log">{job.errorTail}</pre>}
+          <p className="faint">
+            {job?.retryable ? 'Lỗi ở bước có thể chạy lại (mạng, phiên đăng nhập, tên repo trùng…) — sửa nguyên nhân rồi bấm Thử lại.'
+              : job?.project ? 'Dự án đã được đăng ký; chỉ bước sau bị lỗi.'
+              : 'Quay lại bước Tạo dự án để sửa tên, slug, kho Git hoặc quy trình rồi tạo lại.'}
+          </p>
+          <div className="st-approve">
+            {job?.retryable && <Button variant="primary" icon={RotateCcw} onClick={retry}>Thử lại</Button>}
+            {!job?.project && <Button variant={job?.retryable ? 'secondary' : 'primary'} icon={ArrowLeft} onClick={back}>Quay lại bước Tạo dự án</Button>}
+          </div>
+        </div>
+      )}
       {pid && <Button icon={Rocket} onClick={() => onOpenProject?.(pid)}>Mở dự án</Button>}
+      {!pid ? null : <>
 
       <h2 className="st-h2">Lane của dự án</h2>
       {mine.length ? (
@@ -71,6 +107,7 @@ export default function Build({ s, onOpenProject }) {
           ))}
         </ol>
       ) : <p className="muted-empty">Bản kiến trúc chưa có mục “Lộ trình tính năng”.</p>}
+      </>}
       {adding && <AddLaneModal initialProject={s.project.slug} onClose={() => setAdding(false)} onDone={() => setMsg('Đang chuẩn bị lane (clone, cài thư viện, database) — vài phút; xong sẽ hiện ở đây.')} />}
     </div>
   );

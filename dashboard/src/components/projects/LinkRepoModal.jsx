@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Link2, Plus, Wand2 } from 'lucide-react';
+import { Link2, Plus, Wand2, Download } from 'lucide-react';
 import Modal from '../Modal.jsx';
 import Button from '../ui/Button.jsx';
 import Badge from '../ui/Badge.jsx';
 import { platform } from '../../lib/platform.js';
 import { slugify } from '../../lib/scaffold.js';
 
-export default function LinkRepoModal({ canScaffold, onClose, onCreated, onOpenWizard }) {
+export default function LinkRepoModal({ canScaffold, onClose, onCreated, onOpenWizard, onOpenImport }) {
   const [form, setForm] = useState({ name: '', slug: '', slugTouched: false, repoUrl: '' });
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -54,10 +54,21 @@ export default function LinkRepoModal({ canScaffold, onClose, onCreated, onOpenW
           </div>
         )}
 
+        {canScaffold && (
+          <div className="pj-modal-scaffold-box">
+            <strong style={{ fontSize: 13.5 }}>Nhập dự án có sẵn để AI làm việc</strong>
+            <p style={{ margin: '4px 0 10px', fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+              Repo đã có code trên GitHub/GitLab/máy này: bạn khai báo cách cài, chạy, test của dự án; Shipyard clone về, sinh script cho lane,
+              đăng ký quy trình và để AI Manager đọc code soạn luật.
+            </p>
+            <Button icon={Download} onClick={() => { onClose(); onOpenImport?.(); }}>Nhập dự án có sẵn từ Git</Button>
+          </div>
+        )}
+
         <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
             <Link2 size={15} style={{ color: 'var(--accent-text)' }} />
-            <span>Hoặc liên kết kho Git đã có sẵn</span>
+            <span>Hoặc chỉ liên kết (không clone, không lane)</span>
           </div>
 
           {err && <p className="m-err" role="alert" style={{ margin: 0 }}>{err}</p>}

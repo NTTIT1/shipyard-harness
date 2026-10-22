@@ -180,7 +180,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       id: s.id, title: s.title, stage: s.stage, stages: STAGES.map(({ id, label, role }) => ({ id, label, role })),
       messages: s.messages, approved: s.approved, skippedUi: !!s.skippedUi, busy: busy.has(s.id), error: s.error || null,
       docs: d, roadmap: roadmap(d.architecture), project: s.project || null,
-      job: job ? { id: job.id, status: job.status, stage: job.stage, stages: job.stages, stageList: job.stageList, error: job.error, project: job.project, dir: job.dir } : null,
+      job: job ? { id: job.id, status: job.status, stage: job.stage, stages: job.stages, stageList: job.stageList, error: job.error, errorTail: job.errorTail || '', retryable: !!job.retryable, project: job.project, dir: job.dir } : null,
       createdAt: s.createdAt, updatedAt: s.updatedAt,
     };
   }
@@ -355,6 +355,30 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       s.project = { jobId: job.id, slug: spec.slug, name: spec.name };
       s.stage = 'build';
       say(s, 'create', 'shipyard', `Đang tạo dự án ${spec.name} (${spec.slug}) với tài liệu đã duyệt trong docs/.`);
+      return view(save(s));
+    },
+
+    /**
+     * Creating the project failed before it was registered (generation, build, git…), or the dashboard
+     * restarted mid-way: drop the half-made folder and go back to "Tạo dự án" with every approved
+     * document and the workflow kept, to fix the name/slug/repo and create again.
+     */
+    backToCreate(id, user) {
+      const s = mine(id, user);
+      if (!s.project) throw bad('Chưa tạo dự án', 409);
+      const job = s.project.jobId && jobs ? jobs.get(s.project.jobId) : null;
+      if (s.project.projectId || job?.project?.id) throw bad('Dự án đã được đăng ký — mở dự án để sửa, hoặc xoá dự án ở trang dự án rồi tạo lại', 409);
+      if (job?.status === 'running') throw bad('Đang tạo dự án — đợi xong hoặc lỗi', 409);
+      if (job) jobs.discard(job.id);
+      else if (jobs?.root && s.project.slug) {
+        // The job is gone (dashboard restarted): remove only a folder Shipyard generated for this slug.
+        const dir = path.join(jobs.root, s.project.slug);
+        const meta = readJson(path.join(dir, '.shipyard', 'project.json'), null);
+        if (meta?.slug === s.project.slug) fs.rmSync(dir, { recursive: true, force: true });
+      }
+      say(s, 'create', 'shipyard', `Tạo dự án ${s.project.name} chưa xong — đã dọn bản dở. Sửa thông tin rồi bấm Tạo dự án lại.`);
+      s.project = null;
+      s.stage = 'create';
       return view(save(s));
     },
 

@@ -106,3 +106,22 @@
 .wz-advice-sec { font-size: 13px; line-height: 1.5 }
 .wz-advice-sec ul { margin: 4px 0 0; padding-left: 18px }
 .wz-wf { overflow: hidden; padding: 0 }
+
+/* Import an existing repo (ImportRepoWizard.jsx) */
+.imp-step-back { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer }
+.imp-step-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px }
+.imp-app { display: flex; flex-direction: column; gap: 12px; padding: 14px }
+.imp-app-head { margin: 0 }
+.imp-templates { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px }
+.imp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px }
+.imp-grid > .form-field { min-width: 0 }
+.wz-fields .wz-row > input { flex: 1 1 260px; min-width: 0 }
+.imp-db { margin: 0; padding: 0; border: 0; display: grid; gap: 6px }
+.imp-db-opt { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer }
+.imp-db-opt.on { border-color: var(--accent); background: var(--accent-soft) }
+.imp-db-opt input { margin-top: 3px }
+.imp-db-opt span { display: grid; gap: 2px; font-size: 13px }
+.imp-db-opt small { color: var(--text-muted); font-size: 12px }
+.imp-cmds { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; overflow-wrap: anywhere }
+.imp-warn ul { margin: 0; padding-left: 18px }
+.wz-fields details.wz-hint ul { margin: 6px 0 0; padding-left: 18px }

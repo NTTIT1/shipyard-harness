@@ -21,6 +21,7 @@ import { ROLE_LABEL } from '../lib/review.js';
 import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
 
 const NewProjectWizard = lazy(() => import('./NewProjectWizard.jsx'));
+const ImportRepoWizard = lazy(() => import('./projects/ImportRepoWizard.jsx'));
 
 export default function ProjectsView({
   user,
@@ -40,6 +41,7 @@ export default function ProjectsView({
   const [copiedType, setCopiedType] = useState('');
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [wizard, setWizard] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const sel = activeProjectId && projects.some(p => p.id === activeProjectId)
     ? activeProjectId
@@ -287,8 +289,18 @@ export default function ProjectsView({
           canScaffold={canScaffold}
           onClose={() => setShowLinkModal(false)}
           onOpenWizard={() => setWizard(true)}
+          onOpenImport={() => setImporting(true)}
           onCreated={async id => { await load(); if (id) selectProject(id); }}
         />
+      )}
+
+      {importing && (
+        <Suspense fallback={null}>
+          <ImportRepoWizard
+            onClose={() => setImporting(false)}
+            onCreated={async id => { await load(); if (id) selectProject(id); }}
+          />
+        </Suspense>
       )}
 
       {wizard && (

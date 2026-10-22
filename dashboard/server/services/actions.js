@@ -6,6 +6,7 @@ import { archiveFeatureState } from './proof.js';
 import { applyCreds } from './creds.js';
 import { writeLaneProfile, projectParts } from './scaffold/laneprofile.js';
 import { WORKSPACES_ROOT } from './scaffold/jobs.js';
+import { readImport, writeImportProfile } from './scaffold/importer.js';
 
 const SLUG_RE = /^[a-z][a-z0-9-]{2,39}$/;
 const PROJECT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -21,18 +22,27 @@ export function laneAddArgs(project, { root = WORKSPACES_ROOT, harnessRoot = HAR
   if (projectId && !PROJECT_ID_RE.test(projectId)) throw new Error('mã dự án không hợp lệ');
   const dir = path.join(root, slug);
   if (!fs.existsSync(path.join(dir, '.git'))) throw new Error(`Không thấy repo của dự án tại ${dir}`);
-  const profile = writeLaneProfile(harnessRoot, dir, { projectId, name: project.name });
+  // An imported repo: its profile comes from the import form; a generated one: from .shipyard/project.json.
+  const imported = readImport(harnessRoot, slug);
+  const profile = imported ? writeImportProfile(harnessRoot, imported, { projectId })
+    : writeLaneProfile(harnessRoot, dir, { projectId, name: project.name });
   const origin = spawnSync('git', ['-C', dir, 'remote', 'get-url', 'origin'], { encoding: 'utf8' }).stdout.trim();
   return ['--profile', profile, '--source', dir, ...(origin ? ['--origin', origin] : [])];
 }
 
 /** Projects Shipyard generated on this machine (lanes can be added for them). */
-export function laneProjects({ root = WORKSPACES_ROOT } = {}) {
+export function laneProjects({ root = WORKSPACES_ROOT, harnessRoot = HARNESS_ROOT } = {}) {
   if (!fs.existsSync(root)) return [];
   const out = [];
   for (const slug of fs.readdirSync(root).sort()) {
     if (!SLUG_RE.test(slug)) continue;
     const dir = path.join(root, slug);
+    const imported = readImport(harnessRoot, slug);
+    if (imported && fs.existsSync(path.join(dir, '.git'))) {
+      out.push({ slug, name: imported.name, imported: true, supported: true, reason: '',
+        stack: [imported.backend?.tech, imported.frontend?.tech].filter(Boolean).join(' + ') });
+      continue;
+    }
     if (!fs.existsSync(path.join(dir, '.shipyard', 'project.json'))) continue;
     try {
       const { meta, backend, frontend } = projectParts(dir);
