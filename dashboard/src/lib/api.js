@@ -93,6 +93,9 @@ export const saveCostSettings = settings => send('/api/costs/settings', 'PUT', s
 export const saveFeatureHours = (key, hours) => send('/api/costs/feature-hours', 'PUT', { key, hours });
 export const saveModelDefaults = defaults => send('/api/models', 'PUT', { defaults });
 export const saveLaneModelDefaults = (n, defaults) => send(`/api/lane/${n}/model-defaults`, 'PUT', { defaults });
+export const fetchLanePipeline = n => send(`/api/lane/${n}/pipeline`, 'GET');
+export const saveLanePipeline = (n, pipeline) => send(`/api/lane/${n}/pipeline`, 'PUT', { pipeline });
+export const clearLanePipeline = n => send(`/api/lane/${n}/pipeline`, 'DELETE');
 export const saveFeatureModels = body => send('/api/features/models', 'PUT', body);
 export const restartGateway = () => send('/api/gateway/restart', 'POST', {});
 export const assignLane = (n, body) => send(`/api/lane/${n}/assign`, 'POST', body);

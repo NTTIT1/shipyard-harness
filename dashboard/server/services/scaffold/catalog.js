@@ -4,6 +4,7 @@ import tsReactVite from './stacks/ts-react-vite.js';
 import tsNestjs from './stacks/ts-nestjs.js';
 import { DB_LABEL } from './dbs.js';
 import { SLUG_RE } from './util.js';
+import { normalizePipeline } from '../../../src/lib/pipeline.js';
 import { ROLE_META, SKILL_CATALOG, defaultRoleSkillsForStack } from './team.js';
 import { BACKEND_STACKS, FRONTEND_STACKS } from './fullstack.js';
 
@@ -108,6 +109,7 @@ export function validateRequest(body, tools, stacks = STACKS) {
     name, slug, description, kind, stack: stack.id, options, ...(frontend ? { frontend } : {}),
     git: validateGit(b.git), aiTeam: b.aiTeam !== false, brief, ...(archFirst ? { archFirst, requirements } : {}),
     ...(workflow ? { workflow } : {}),
+    ...(b.delivery && typeof b.delivery === 'object' ? { delivery: normalizePipeline(b.delivery) } : {}),
     ...(roleSkills ? { roleSkills } : {}),
   };
 }

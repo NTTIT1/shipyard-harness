@@ -25,6 +25,8 @@ public class Run {
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.List<String> workflow;
     /** Per-step settings frozen at creation: step name -> StepConfig map. */
     @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.Map<String, java.util.Map<String, Object>> stepConfig;
+    /** The project's after-the-code settings (DeliveryConfig) when the run started; empty = lane profile decides. */
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON) public java.util.Map<String, Object> deliveryConfig;
     @Version public long version;
     public Instant createdAt = Instant.now();
     public Instant updatedAt = Instant.now();

@@ -126,6 +126,10 @@ class Lane:
         # The run's frozen per-step settings: run-step.sh enforces them from lane state (step_guard.py).
         if isinstance(nx.get('stepConfig'), dict):
             self.state('set-json', 'step_config', json.dumps(nx['stepConfig'], ensure_ascii=False))
+        # …and its lane pipeline after the code (checks, PR, merge, deploy wait, test QC, ticket):
+        # bin/lane-env.sh applies it over the profile, with the lane's own override on top (delivery.py).
+        if isinstance(nx.get('delivery'), dict):
+            self.state('set-json', 'delivery', json.dumps(nx['delivery'], ensure_ascii=False))
         return nx
 
 

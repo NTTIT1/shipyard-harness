@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { spawnSync } from 'child_process';
 import path from 'path';
-import { BIN } from '../services/config.js';
+import fs from 'fs';
+import { BIN, HARNESS_ROOT } from '../services/config.js';
+import { normalizePipeline } from '../../src/lib/pipeline.js';
 import { lanesPayload } from '../services/state.js';
 import { runAction } from '../services/actions.js';
 import { listSpecs } from '../services/spec.js';
@@ -59,6 +61,27 @@ router.put(`${lanePath}/model-defaults`, wrap(async req => {
     if (!gw.ok) throw Object.assign(new Error(`không bật được gateway: ${gw.output}`), { status: 503 });
   }
   return { defaults: d, lane_defaults: P.readAllLaneDefaults() };
+}));
+// The lane's pipeline after the code: what it will run (profile < project default < this lane), and
+// this lane's own override (config/lanes/lane<N>.pipeline.json; DELETE = follow the project again).
+const pipelineFile = n => path.join(HARNESS_ROOT, 'config', 'lanes', `lane${n}.pipeline.json`);
+const effectivePipeline = n => {
+  const r = spawnSync('bash', [path.join(BIN, 'lane-pipeline.sh'), String(n)], { encoding: 'utf8', timeout: 15000 });
+  if (r.status !== 0) throw new Error(`lane-pipeline.sh: ${(r.stderr || '').trim()}`);
+  return JSON.parse(r.stdout);
+};
+const readOverride = n => { try { return JSON.parse(fs.readFileSync(pipelineFile(n), 'utf8')); } catch { return null; } };
+router.get(`${lanePath}/pipeline`, wrap(async req => ({ effective: effectivePipeline(num(req)), override: readOverride(num(req)) })));
+router.put(`${lanePath}/pipeline`, wrap(async req => {
+  const n = num(req);
+  const cfg = normalizePipeline(req.body?.pipeline || {});
+  fs.mkdirSync(path.dirname(pipelineFile(n)), { recursive: true });
+  fs.writeFileSync(pipelineFile(n), `${JSON.stringify(cfg, null, 2)}\n`);
+  return { effective: effectivePipeline(n), override: cfg };
+}));
+router.delete(`${lanePath}/pipeline`, wrap(async req => {
+  fs.rmSync(pipelineFile(num(req)), { force: true });
+  return { effective: effectivePipeline(num(req)), override: null };
 }));
 router.put('/api/features/models', wrap(async req => {
   const { key, models, effort, impl_agents, reset, lane } = req.body || {};

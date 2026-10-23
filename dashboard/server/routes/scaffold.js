@@ -52,6 +52,27 @@ export function platformWorkflowSetter(gatewayUrl = PLATFORM_URL, fetchImpl = fe
   };
 }
 
+/** Sets the new project's lane pipeline after the code (e.g. the local demo) as the calling user. */
+export function platformDeliverySetter(gatewayUrl = PLATFORM_URL, fetchImpl = fetch) {
+  return async (projectId, delivery, token) => {
+    let r;
+    try {
+      r = await fetchImpl(`${gatewayUrl}/api/v1/projects/${encodeURIComponent(projectId)}/delivery`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(delivery),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch {
+      throw new Error('Không kết nối được Shipyard Platform');
+    }
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) throw new Error('Phiên đăng nhập đã hết hạn — đăng nhập lại rồi bấm "Thử lại"');
+    if (!r.ok || j.success === false) throw new Error(`Không lưu được quy trình sau khi code: ${j.message || `HTTP ${r.status}`}`);
+    return j.data;
+  };
+}
+
 /** Toolchain probing spawns a few processes; remember the answer for a minute. */
 export function cachedProbe(probe = probeTools, ttlMs = 60_000, now = Date.now) {
   let at = 0, value = null;
@@ -66,7 +87,7 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
   setup = defaultSetupRunner({ providers }), blueprint = defaultBlueprintRunner(), advise = createAdvisor({ tools }), studio = null,
   importer = null } = {}) {
   const router = Router();
-  const jobs = runner || createJobRunner({ registerProject: platformRegistrar(), setWorkflow: platformWorkflowSetter(), tools,
+  const jobs = runner || createJobRunner({ registerProject: platformRegistrar(), setWorkflow: platformWorkflowSetter(), setDelivery: platformDeliverySetter(), tools,
     remotes: providers, setup, blueprint });
   const chat = studio || createStudio({ tools, jobs });
   const imports = importer || createImporter({ root: jobs.root, providers, registerProject: platformRegistrar(),

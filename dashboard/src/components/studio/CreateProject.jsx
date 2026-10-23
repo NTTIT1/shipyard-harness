@@ -6,6 +6,7 @@ import { GitStep } from '../projects/WizardSteps.jsx';
 import { scaffold, slugify, findStack, SLUG_RE } from '../../lib/scaffold.js';
 import { WORKFLOW_PRESETS, workflowProblem } from '../../lib/review.js';
 import { studio } from '../../lib/studio.js';
+import { localDemoPipeline } from '../../lib/pipeline.js';
 
 export default function CreateProject({ s, act }) {
   const advice = s.docs.advice;
@@ -19,6 +20,7 @@ export default function CreateProject({ s, act }) {
   const pending = useRef(null);
   const lastSent = useRef(JSON.stringify(fromServer));
   const [aiTeam, setAiTeam] = useState(true);
+  const [demo, setDemo] = useState(true);   // local demo: lanes merge on this machine and run the app
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { scaffold.catalog().then(setCatalog, () => {}); }, []);
@@ -61,7 +63,8 @@ export default function CreateProject({ s, act }) {
 
   const create = async () => {
     setBusy(true);
-    await act(() => studio.create(s.id, { name: name.trim(), slug, git: { provider: git.provider, owner: git.owner, visibility: git.visibility }, workflow, aiTeam }))();
+    await act(() => studio.create(s.id, { name: name.trim(), slug, git: { provider: git.provider, owner: git.owner, visibility: git.visibility }, workflow, aiTeam,
+      ...(demo && git.provider === 'local' ? { delivery: localDemoPipeline() } : {}) }))();
     setBusy(false);
   };
 
@@ -91,6 +94,12 @@ export default function CreateProject({ s, act }) {
       <p className="st-wf-hint">Nhắn trong khung chat để AI chỉnh (vd “bước Test dùng Haiku, tối đa 30 phút”), hoặc bấm vào từng bước để tự sửa.</p>
       {s.docs.workflowError && <p className="m-err">{s.docs.workflowError}</p>}
       <div className="card-panel wz-wf"><WorkflowEditor value={workflow} onChange={setWorkflow} disabled={s.busy} /></div>
+      {git.provider === 'local' && (
+        <label className="wz-check">
+          <input type="checkbox" checked={demo} onChange={e => setDemo(e.target.checked)} />
+          <span><b>Demo trên máy</b>: lane code xong tự gộp vào nhánh <code>development</code> trên máy và chạy app (<code>http://localhost:300N</code>) — không PR, không đẩy lên Git. Đổi sau ở Quy trình &amp; duyệt → Sau khi code xong.</span>
+        </label>
+      )}
       <label className="wz-check">
         <input type="checkbox" checked={aiTeam} onChange={e => setAiTeam(e.target.checked)} />
         <span>Giao <b>AI Manager</b> soạn luật đội AI từ các tài liệu đã duyệt (bạn duyệt trước khi dùng)</span>

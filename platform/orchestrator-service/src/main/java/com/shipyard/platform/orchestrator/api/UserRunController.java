@@ -66,6 +66,19 @@ public class UserRunController {
         return ApiResponse.ok(human.updateWorkflow(userId, projectId, body));
     }
 
+    @GetMapping("/projects/{projectId}/delivery")
+    public ApiResponse<Map<String, Object>> delivery(@RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,
+                                                     @PathVariable String projectId) {
+        return ApiResponse.ok(human.delivery(userId, projectId));
+    }
+
+    @PutMapping("/projects/{projectId}/delivery")
+    public ApiResponse<Map<String, Object>> updateDelivery(@RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,
+                                                           @PathVariable String projectId,
+                                                           @RequestBody(required = false) Map<String, Object> body) {
+        return ApiResponse.ok(human.updateDelivery(userId, projectId, body));
+    }
+
     @GetMapping("/projects/{projectId}/runs")
     public ApiResponse<List<RunSummary>> runs(@RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,
                                               @PathVariable String projectId) {

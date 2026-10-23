@@ -151,10 +151,12 @@ class CoreTest(OrchTestCase):
     def test_next_copies_the_frozen_step_settings_to_lane_state(self):
         self.st('set', 'run_id=run_1')
         cfg = {'ARCH': {'timeoutMinutes': 45, 'requiredInputs': ['spec.md']}, 'TEST': {'onFailure': 'FAIL_RUN'}}
-        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(step='ARCH', stepConfig=cfg))
+        delivery = {'e2e': False, 'merge': 'AUTO', 'testQc': True, 'testUrl': 'http://test.local'}
+        self.platform.routes[('GET', '/internal/v1/runs/run_1/next')] = (200, self.next_data(step='ARCH', stepConfig=cfg, delivery=delivery))
         r = self.orch('next')
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(self.st('get', 'step_config')), cfg)
+        self.assertEqual(json.loads(self.st('get', 'delivery')), delivery)   # the lane pipeline, for lane-env.sh
         guard = subprocess.run(['python3', str(REPO / 'bin' / 'step_guard.py'), 'env', self.st('path'), 'plan-critic'],
                                capture_output=True, text=True, check=True).stdout
         self.assertIn("SG_PHASE=ARCH", guard)

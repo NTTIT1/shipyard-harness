@@ -9,6 +9,9 @@ import com.shipyard.platform.orchestrator.domain.Workflow;
 import com.shipyard.platform.orchestrator.domain.StepConfig;
 import com.shipyard.platform.orchestrator.entity.GatePolicy;
 import com.shipyard.platform.orchestrator.repository.GatePolicyRepository;
+import com.shipyard.platform.orchestrator.repository.DeliveryPolicyRepository;
+import com.shipyard.platform.orchestrator.domain.DeliveryConfig;
+import com.shipyard.platform.orchestrator.entity.DeliveryPolicy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,8 +26,33 @@ import java.util.*;
 @Transactional
 public class WorkflowPolicy {
     private final GatePolicyRepository policies;
+    private final DeliveryPolicyRepository deliveries;
 
-    public WorkflowPolicy(GatePolicyRepository policies) { this.policies = policies; }
+    public WorkflowPolicy(GatePolicyRepository policies, DeliveryPolicyRepository deliveries) {
+        this.policies = policies;
+        this.deliveries = deliveries;
+    }
+
+    /** What happens after the code is done (DeliveryConfig); empty = as the lane profile says. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> delivery(String projectId) {
+        return deliveries.findById(projectId).map(d -> d.config == null ? Map.<String, Object>of() : new LinkedHashMap<>(d.config))
+                .orElseGet(LinkedHashMap::new);
+    }
+
+    /** Saves the project's delivery settings; an empty body goes back to the lane profile's. */
+    public Map<String, Object> saveDelivery(String projectId, Map<String, Object> body) {
+        Map<String, Object> cfg = DeliveryConfig.normalize(body);
+        if (cfg.isEmpty()) {
+            deliveries.deleteById(projectId);
+            return Map.of();
+        }
+        DeliveryPolicy d = deliveries.findById(projectId).orElseGet(() -> new DeliveryPolicy(projectId));
+        d.config = cfg;
+        d.updatedAt = java.time.Instant.now();
+        deliveries.save(d);
+        return cfg;
+    }
 
     @Transactional(readOnly = true)
     public List<WorkflowStep> of(String projectId) {

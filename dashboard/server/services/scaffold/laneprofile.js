@@ -65,7 +65,7 @@ function backendHooks(b, slug) {
       };
     case 'ts-nestjs':
       return {
-        bootstrap: `( cd ${BE} && (npm ci --no-audit --no-fund || npm install --no-audit --no-fund) )\n`,
+        bootstrap: `( cd ${BE} && (npm ci --no-audit --no-fund --prefer-offline || npm install --no-audit --no-fund --prefer-offline) )\n`,
         boot: `${DB_ENV(db)}harness_spawn api ${BE} env PORT="$API_PORT" npm run start:dev\n`,
         health: `curl -fsS --retry 60 --retry-delay 2 --retry-connrefused --max-time 5 "http://localhost:$API_PORT${HEALTH_PATH['ts-nestjs']}" >/dev/null\n`,
         gate: `DB_NAME_OVERRIDE="\${TEST_DATABASE_URL##*/}"\n${DB_ENV(db)}( cd ${BE} && npm run build && npm test )\n`,
@@ -79,7 +79,7 @@ function frontendHooks(f) {
   if (f.stack !== 'ts-react-vite') throw new Error(`Chưa hỗ trợ lane cho frontend ${f.stack}`);
   const test = f.options.tests === false ? '' : ' && npm test';
   return {
-    bootstrap: `( cd ${FE} && (npm ci --no-audit --no-fund || npm install --no-audit --no-fund) )\n`,
+    bootstrap: `( cd ${FE} && (npm ci --no-audit --no-fund --prefer-offline || npm install --no-audit --no-fund --prefer-offline) )\n`,
     // BACKEND_PORT: the Vite /api proxy Shipyard generated follows it to this lane's backend.
     boot: `harness_spawn fe ${FE} env BACKEND_PORT="$API_PORT" npx vite --port "$FE_PORT" --strictPort --host 0.0.0.0\n`,
     health: 'curl -fsS --retry 60 --retry-delay 2 --retry-connrefused --max-time 5 "$FE_URL/" >/dev/null\n',

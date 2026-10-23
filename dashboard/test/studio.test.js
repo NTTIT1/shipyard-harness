@@ -92,7 +92,8 @@ describe('studio', () => {
     expect(s.docs.workflow.find(w => w.step === 'ARCH').config).toEqual({ timeoutMinutes: 480 });
     expect(() => st.setWorkflow(s.id, me, hand.filter(w => w.step !== 'DEV'))).toThrow(/đủ 6 bước/);
 
-    s = st.create(s.id, me, 'tok', { name: 'Bán hàng', slug: 'ban-hang', git: { provider: 'local' }, aiTeam: false });
+    s = st.create(s.id, me, 'tok', { name: 'Bán hàng', slug: 'ban-hang', git: { provider: 'local' }, aiTeam: false,
+      delivery: { openPr: false, localMerge: true, e2e: false } });
     expect(s.stage).toBe('build');
     const { spec, token } = started[0];
     expect(token).toBe('tok');
@@ -100,6 +101,7 @@ describe('studio', () => {
     expect(Object.keys(spec.docs)).toEqual(['docs/product-brief.md', 'docs/architecture.md', 'docs/design/design.md', 'docs/design/mockups/01-dang-nhap.html']);
     expect(spec.brief).toContain('Bán hàng 5 cửa hàng');
     expect(spec.workflow.find(w => w.step === 'TEST').config.model).toBe('claude:claude-haiku-5-5');   // the chat's workflow
+    expect(spec.delivery).toMatchObject({ openPr: false, localMerge: true, e2e: false, ciGate: true });   // local demo pipeline
     expect(spec.workflow.find(w => w.step === 'ARCH').config).toEqual({ timeoutMinutes: 480 });
     expect(() => st.send(s.id, me, 'x')).toThrow(/không trò chuyện/);
     expect(() => st.setWorkflow(s.id, me, hand)).toThrow(/đã được tạo/);

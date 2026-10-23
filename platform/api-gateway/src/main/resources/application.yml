@@ -13,7 +13,7 @@ spring:
           uri: ${ORCHESTRATOR_SERVICE_URL:http://localhost:9084}
           order: -10
           predicates:
-            - Path=/api/v1/runs/**,/api/v1/approvals/**,/api/v1/projects/*/gate-policy,/api/v1/projects/*/workflow,/api/v1/projects/*/runs
+            - Path=/api/v1/runs/**,/api/v1/approvals/**,/api/v1/projects/*/gate-policy,/api/v1/projects/*/workflow,/api/v1/projects/*/delivery,/api/v1/projects/*/runs
         - id: context
           uri: ${CONTEXT_SERVICE_URL:http://localhost:9085}
           order: -10

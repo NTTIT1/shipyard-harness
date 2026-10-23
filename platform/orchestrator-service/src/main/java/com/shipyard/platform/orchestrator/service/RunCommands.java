@@ -80,6 +80,7 @@ public class RunCommands {
                 if (GateMode.SKIP.name().equals(mode)) skipped.add(s);
             }
             Workflow.plan(run, st, order, skipped);
+            run.deliveryConfig = workflows.delivery(run.projectId);
         }
         Workflow.start(run, st);
         runs.save(run);

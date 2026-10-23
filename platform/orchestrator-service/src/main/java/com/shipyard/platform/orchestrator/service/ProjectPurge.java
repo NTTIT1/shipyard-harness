@@ -28,6 +28,7 @@ public class ProjectPurge {
         n.put("steps", jdbc.update("DELETE FROM run_steps WHERE run_id IN (" + runs + ")", projectId));
         n.put("runs", jdbc.update("DELETE FROM runs WHERE project_id = ?", projectId));
         n.put("gatePolicies", jdbc.update("DELETE FROM gate_policies WHERE project_id = ?", projectId));
+        n.put("deliveryPolicies", jdbc.update("DELETE FROM delivery_policies WHERE project_id = ?", projectId));
         return n;
     }
 }

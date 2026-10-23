@@ -80,7 +80,7 @@ export async function initRepo(dir, { authorName, authorEmail, stackId, run }) {
  * once created, is never deleted from here.
  */
 export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeTools(), fetchImpl = fetch,
-  run = runCmd, registerProject, setWorkflow = null, remotes = null, setup = null, blueprint = null, now = () => new Date() } = {}) {
+  run = runCmd, registerProject, setWorkflow = null, setDelivery = null, remotes = null, setup = null, blueprint = null, now = () => new Date() } = {}) {
   const jobs = new Map();
   const locks = new Set();
 
@@ -195,6 +195,12 @@ export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeToo
           await setWorkflow(j.project.id, j.spec.workflow, j.token);
           j.workflowSet = true;
           ctx.log(`Quy trình: ${j.spec.workflow.filter(w => w.mode !== 'SKIP').map(w => w.step).join(' → ')}`);
+        }
+        // What lanes do after the code (e.g. the local demo: merge on this machine and run the app).
+        if (j.spec.delivery && setDelivery && !j.deliverySet) {
+          await setDelivery(j.project.id, j.spec.delivery, j.token);
+          j.deliverySet = true;
+          if (j.spec.delivery.localMerge) ctx.log('Lane: code xong gộp vào development trên máy và chạy app — không PR, không đẩy lên Git');
         }
       },
       async team() {

@@ -138,6 +138,17 @@ public class HumanService {
         return workflows.save(projectId, body);
     }
 
+    @Transactional(readOnly = true)
+    public Map<String, Object> delivery(String userId, String projectId) {
+        requireMember(projectId, userId);
+        return workflows.delivery(projectId);
+    }
+
+    public Map<String, Object> updateDelivery(String userId, String projectId, Map<String, Object> body) {
+        requireManager(projectId, userId);
+        return workflows.saveDelivery(projectId, body);
+    }
+
     private void requireManager(String projectId, String userId) {
         List<String> roles = requireMember(projectId, userId);
         if (!roles.contains("OWNER") && !roles.contains("MAINTAINER")) {

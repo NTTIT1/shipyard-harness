@@ -344,6 +344,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
         name: body.name, slug: body.slug, description: String(body.description || a.summary || '').replace(/[\r\n]+/g, ' ').slice(0, 500),
         kind: a.kind, stack: a.stack, options: a.options, ...(a.frontend ? { frontend: a.frontend } : {}),
         git: body.git, aiTeam: body.aiTeam !== false, brief: d.brief.slice(0, 20000), workflow: body.workflow || d.workflow,
+        ...(body.delivery ? { delivery: body.delivery } : {}),
       }, tools(), stacks);
       spec.docs = {
         'docs/product-brief.md': d.brief,

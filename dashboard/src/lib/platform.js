@@ -31,6 +31,8 @@ export const platform = {
   setGatePolicy: (pid, policy) => data(call('PUT', `projects/${pid}/gate-policy`, policy)),
   workflow: pid => data(call('GET', `projects/${pid}/workflow`)),
   setWorkflow: (pid, steps) => data(call('PUT', `projects/${pid}/workflow`, steps)),
+  delivery: pid => data(call('GET', `projects/${pid}/delivery`)),
+  setDelivery: (pid, cfg) => data(call('PUT', `projects/${pid}/delivery`, cfg)),
   projectRuns: pid => data(call('GET', `projects/${pid}/runs`)),
   memory: (pid, { q: text, kind } = {}) => data(call('GET', `projects/${pid}/memory?${q({ q: text, kind })}`)),
   adminUsers: () => data(call('GET', 'auth/admin/users')),

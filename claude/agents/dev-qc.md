@@ -17,7 +17,7 @@ Setup (always): `HARNESS="@@HARNESS_ROOT@@"` (populated at install; cwd = lane c
 
 ## Target environment
 
-- **Dev server**: your lane's dev site — the **Site:** line of your injected "⚙ dev-QC credentials" block (`DEV_SITE_URL`). ONE shared deployment for all lanes.
+- **Dev server**: your lane's dev site — the **Site:** line of your injected "⚙ dev-QC credentials" block (`DEV_SITE_URL`). ONE shared deployment for all lanes. **A `Site:` line in your prompt wins** — the project's/lane's pipeline may point you at another test environment.
 - **Your account (per-lane — do NOT use another lane's).** Your browser profile is normally pre-seeded logged-in, so you usually do nothing. Two ways to recover a logged-out session:
   - **If a credentials block is embedded at the TOP of this agent** ("⚙ dev-QC credentials" — the per-lane install puts it there): those ARE your login. Just type them into the form yourself (`browser_type` email + password, submit) and continue. You already have them — never read a file/script to fetch them.
   - **If there is NO embedded block** (the creds-free fallback copy): the password is intentionally kept out of your context. Re-seed instead: close the browser (e.g. `mcp__@@DEV_QC_MCP@@__browser_close`) → run `"$HARNESS/bin/lane-qa-login.sh" "$N"` → `browser_navigate` back to your dev site (the **Site:** line / `DEV_SITE_URL`).

@@ -12,7 +12,10 @@ export function childEnv(extra = {}) {
     'http_proxy', 'https_proxy', 'no_proxy'];
   const env = {};
   for (const k of keep) if (process.env[k] != null) env[k] = process.env[k];
-  return { ...env, CI: '1', NO_COLOR: '1', npm_config_yes: 'true', ...extra };
+  // npm: take packages already in the local cache before the network (a flaky link to the registry
+  // otherwise fails project creation with ECONNRESET), and retry downloads harder.
+  return { ...env, CI: '1', NO_COLOR: '1', npm_config_yes: 'true', npm_config_prefer_offline: 'true',
+    npm_config_fetch_retries: '5', npm_config_fetch_retry_mintimeout: '2000', npm_config_fetch_retry_maxtimeout: '30000', ...extra };
 }
 
 const isClaude = cmd => path.basename(String(cmd)) === 'claude' || (!!process.env.CLAUDE_BIN && cmd === process.env.CLAUDE_BIN);

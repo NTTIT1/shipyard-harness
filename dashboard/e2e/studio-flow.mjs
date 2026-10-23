@@ -52,6 +52,9 @@ try {
   await p.getByRole('button', { name: 'Duyệt thiết kế hệ thống' }).click();
 
   await p.getByText('Đã vẽ 1 màn hình.').waitFor({ timeout: 60_000 });
+  // The UI step may open on design.md: switch to the mockups like a person would.
+  const mockTab = p.getByRole('button', { name: /Màn hình mẫu/ });
+  if (await mockTab.count()) await mockTab.click();
   const frame = p.frameLocator('iframe.st-mock-iframe');
   await frame.getByText('Màn hình thử').waitFor();
   ok(true, 'designer: mockup rendered (sandboxed)');
@@ -63,6 +66,7 @@ try {
   await p.fill('#st-slug', slug);
   ok(await p.locator('.wf-preset.on').textContent() === 'Plan → Code → Test', 'workflow pre-selected from the advice');
   ok(await p.getByLabel('Nhắn cho AI').isEnabled(), 'the chat stays open at "Tạo dự án"');
+  ok(await p.getByRole('checkbox', { name: /Demo trên máy/ }).isChecked(), '"Demo trên máy" on by default for a local repo');
   // Configure the workflow right in the chat, then one field by hand.
   await p.getByLabel('Nhắn cho AI').fill('Bước Test dùng Haiku, tối đa 30 phút, lỗi thì thử lại 2 lần');
   await p.getByRole('button', { name: 'Gửi tin nhắn' }).click();
@@ -101,6 +105,8 @@ try {
   ok(wf.filter(w => w.mode !== 'SKIP').map(w => w.step).join() === 'ARCH,DEV,TEST', 'project workflow is Plan → Code → Test');
   ok(wf.find(w => w.step === 'TEST').config?.model === 'claude:claude-haiku-5-5' && wf.find(w => w.step === 'ARCH').config?.timeoutMinutes === 45,
     'the project got the workflow settings made in the chat');
+  const dl = (await api('GET', `/api/platform/projects/${projectId}/delivery`)).body.data;
+  ok(dl.openPr === false && dl.localMerge === true, 'local demo: lanes merge on this machine and run the app (no PR, no push)');
   await p.reload(); await p.waitForSelector('.sb-user');
   await p.locator('.sb-nav-item', { hasText: 'Ý tưởng sản phẩm' }).click();
   await p.locator('.st-item').first().click();

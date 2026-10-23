@@ -435,3 +435,18 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .wfi-group > .wf-mode { justify-self: start; max-width: 100% }
 .wfe-table td:nth-child(2) { white-space: nowrap }
 .wfe-table td:nth-child(4), .wfe-table td:nth-child(5) { white-space: nowrap }
+
+/* Lane pipeline after the code (PipelineEditor, project default + lane override) */
+.pl { display: grid; gap: 4px }
+.pl-body { display: grid; gap: 12px; padding: 4px 18px 14px; min-width: 0 }
+.pl-checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px }
+.pl-check { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; min-width: 0 }
+.pl-check.on { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: var(--accent-soft) }
+.pl-check input { margin-top: 3px }
+.pl-check span { display: grid; gap: 2px; font-size: 13px; min-width: 0 }
+.pl-check small { color: var(--text-muted); font-size: 12px }
+.pl-inline-hint { align-self: end; padding-bottom: 8px }
+.pl-warn { display: flex; gap: 6px; align-items: flex-start; margin: 4px 0 0; font-size: 12.5px; color: var(--warn-text) }
+.pl-warn svg { flex: none; margin-top: 2px }
+.pl-summary { margin: 0; font-size: 12.5px; color: var(--text-muted); overflow-wrap: anywhere }
+.pl-now { display: grid; gap: 4px; margin: 0; padding: 10px 12px; background: var(--bg-subtle); border-radius: var(--radius-sm) }

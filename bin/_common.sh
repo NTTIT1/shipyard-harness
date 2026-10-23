@@ -53,12 +53,21 @@ IMPL_AGENTS="${IMPL_AGENTS:-1}"
 # Optional org integrations (tracker / dev-qc / ci-wait); off unless the profile enables them.
 # shellcheck disable=SC1091
 [ -f "$PROFILE_DIR/integrations.env" ] && source "$PROFILE_DIR/integrations.env"
-# harness_integration_enabled tracker|dev_qc|ci_wait  -> exit 0 if that integration is on
+# harness_integration_enabled tracker|dev_qc|ci_wait|<pipeline switch>  -> exit 0 if it is on
 harness_integration_enabled() {
   case "$1" in
     tracker) [ "${TRACKER_ENABLED:-0}" = 1 ];;
     dev_qc)  [ "${DEV_QC_ENABLED:-0}" = 1 ];;
     ci_wait) [ "${CI_WAIT_ENABLED:-0}" = 1 ];;
+    # Lane pipeline switches (bin/delivery.py, applied by lane-env.sh): on unless switched off.
+    ci_gate)     [ "${STAGE_CI_GATE:-1}" = 1 ];;
+    e2e)         [ "${STAGE_E2E:-1}" = 1 ];;
+    code_review) [ "${STAGE_CODE_REVIEW:-1}" = 1 ];;
+    qc_local)    [ "${STAGE_QC_LOCAL:-1}" = 1 ];;
+    senior_gate) [ "${STAGE_SENIOR_GATE:-1}" = 1 ];;
+    open_pr)     [ "${OPEN_PR:-1}" = 1 ];;
+    local_merge) [ "${LOCAL_MERGE:-0}" = 1 ];;
+    auto_merge)  [ "${MERGE_MODE:-HUMAN}" = AUTO ];;
     *) return 1;;
   esac
 }
@@ -260,3 +269,21 @@ hb_start() {
   _HB_PID=$!
 }
 hb_stop() { [ -n "${_HB_PID:-}" ] && kill "$_HB_PID" 2>/dev/null || true; _HB_PID=""; }
+
+# Lane pipeline (bin/delivery.py): when this lane's project set its own pipeline (frozen into the run)
+# or the lane overrides it, every script of the lane sees the result — the PR target branch becomes the
+# integration branch (feature branches are cut from it, synced from it, and PR'd into it) and the
+# post-merge toggles replace the profile's. Without either, nothing changes (the profile decides).
+if [ -n "${_HARNESS_LANE_N:-}" ] && [ -z "${_HARNESS_PIPELINE_DONE:-}" ]; then
+  _HARNESS_PIPELINE_DONE=1
+  _pipe_state="$(lane_state_file "$_HARNESS_LANE_N" 2>/dev/null || true)"
+  _pipe_lane="$HARNESS_ROOT/config/lanes/lane$_HARNESS_LANE_N.pipeline.json"
+  if [ -f "$_pipe_lane" ] || { [ -n "$_pipe_state" ] && grep -qs '"delivery"' "$_pipe_state"; }; then
+    eval "$(INTEGRATION_BRANCH="${INTEGRATION_BRANCH:-}" BASE_BRANCH="${BASE_BRANCH:-}" \
+      CI_WAIT_ENABLED="${CI_WAIT_ENABLED:-0}" CI_DEPLOY_CONTEXT="${CI_DEPLOY_CONTEXT:-}" \
+      DEV_QC_ENABLED="${DEV_QC_ENABLED:-0}" DEV_SITE_URL="${DEV_SITE_URL:-}" TRACKER_ENABLED="${TRACKER_ENABLED:-0}" \
+      python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/delivery.py" env "$_pipe_state" "$_pipe_lane" 2>/dev/null)" || true
+    [ -n "${PR_BASE:-}" ] && INTEGRATION_BRANCH="$PR_BASE" BASE_BRANCH="$PR_BASE"
+  fi
+  unset _pipe_state _pipe_lane
+fi

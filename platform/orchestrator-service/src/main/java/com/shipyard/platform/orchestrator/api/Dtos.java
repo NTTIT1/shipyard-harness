@@ -37,10 +37,10 @@ public final class Dtos {
 
     public record SubmitResult(String revisionId, int revisionNo, String approvalId, boolean autoApproved) {}
 
-    /** stepConfig: the run's frozen per-step settings, which the lane harness enforces. */
+    /** stepConfig / delivery: the run's frozen per-step and after-the-code settings, which the lane follows. */
     public record NextAction(String mode, String step, int revision, String feedback,
                              Map<String, String> editedDocuments, Map<String, Map<String, String>> priorApproved,
-                             Map<String, Map<String, Object>> stepConfig) {}
+                             Map<String, Map<String, Object>> stepConfig, Map<String, Object> delivery) {}
 
     public record ReasonRequest(String reason) {}
 

@@ -268,4 +268,43 @@ class UserApiIT extends OrchestratorIT {
         assertThat(internal(HttpMethod.POST, "/internal/v1/runs/" + id + "/fail", Map.of("reason", "hết ngân sách")).getStatusCode().value()).isEqualTo(200);
         assertThat(((Map<String, Object>) data(internal(HttpMethod.GET, "/internal/v1/runs/" + id + "/next", null))).get("mode")).isEqualTo("CANCELLED");
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void lanePipelineIsAProjectDefaultFrozenIntoRunsAndHandedToTheLane() {
+        String url = "/api/v1/projects/" + P + "/delivery";
+        // nothing set: the lane profile decides
+        assertThat((Map<String, Object>) data(user("usr_ba", HttpMethod.GET, url, null))).isEmpty();
+        Map<String, Object> body = new HashMap<>(Map.of("e2e", false, "merge", "AUTO", "mergeMethod", "MERGE", "prBase", "main",
+                "deployWait", true, "deployContext", "deploy-dev", "deployTimeoutMinutes", 999,
+                "testQc", true, "testUrl", "http://192.168.56.10", "testQcOnFail", "HUMAN"));
+        assertThat(user("usr_ba", HttpMethod.PUT, url, body).getStatusCode().value()).isEqualTo(403);   // only OWNER / MAINTAINER
+        Map<String, Object> saved = data(user("usr_owner", HttpMethod.PUT, url, body));
+        assertThat(saved).containsEntry("e2e", false).containsEntry("ciGate", true).containsEntry("openPr", true)
+                .containsEntry("merge", "AUTO").containsEntry("mergeMethod", "MERGE").containsEntry("deployTimeoutMinutes", 240)
+                .containsEntry("testQcOnFail", "HUMAN").containsEntry("ticket", false);
+
+        ResponseEntity<Map> r = internal(HttpMethod.POST, "/internal/v1/runs", Map.of(
+                "projectId", P, "laneRef", "host:lane8", "title", "Giao hàng", "description", "", "createdBy", "usr_owner"));
+        String id = (String) ((Map) data(r)).get("id");
+        Map<String, Object> next = data(internal(HttpMethod.GET, "/internal/v1/runs/" + id + "/next", null));
+        assertThat((Map<String, Object>) next.get("delivery")).containsEntry("merge", "AUTO").containsEntry("testUrl", "http://192.168.56.10");
+
+        // changed later: the running feature keeps its snapshot
+        user("usr_owner", HttpMethod.PUT, url, Map.of("openPr", false, "merge", "AUTO", "testQc", true, "testUrl", "http://x"));
+        assertThat((Map<String, Object>) data(user("usr_ba", HttpMethod.GET, url, null)))
+                .containsEntry("openPr", false).containsEntry("merge", "HUMAN").containsEntry("testQc", false)   // no PR: nothing to merge or QC after
+                .containsEntry("localMerge", false);
+        assertThat((Map<String, Object>) data(user("usr_owner", HttpMethod.PUT, url, Map.of("openPr", false, "localMerge", true))))
+                .containsEntry("localMerge", true);   // local demo: the lane merges on this machine
+        next = data(internal(HttpMethod.GET, "/internal/v1/runs/" + id + "/next", null));
+        assertThat((Map<String, Object>) next.get("delivery")).containsEntry("merge", "AUTO");
+
+        assertThat(user("usr_owner", HttpMethod.PUT, url, Map.of("testQc", true, "testUrl", "javascript:alert(1)")).getStatusCode().value()).isEqualTo(400);
+        assertThat(user("usr_owner", HttpMethod.PUT, url, Map.of("prBase", "--force")).getStatusCode().value()).isEqualTo(400);
+        assertThat(user("usr_owner", HttpMethod.PUT, url, Map.of("deployWait", true)).getStatusCode().value()).isEqualTo(400);
+        // an empty body goes back to the profile
+        assertThat((Map<String, Object>) data(user("usr_owner", HttpMethod.PUT, url, Map.of()))).isEmpty();
+        assertThat((Map<String, Object>) data(user("usr_ba", HttpMethod.GET, url, null))).isEmpty();
+    }
 }

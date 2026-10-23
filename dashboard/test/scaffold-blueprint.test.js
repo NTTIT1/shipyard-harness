@@ -192,4 +192,20 @@ describe('workflow from the wizard', () => {
     expect(set).toEqual([['proj_w', pct, 'tok-w']]);
     expect(jobs.get(j.id).log.some(l => l.includes('Quy trình: ARCH → DEV → TEST'))).toBe(true);
   });
+
+  it('the local demo pipeline is saved on the project too', async () => {
+    const set = [];
+    const orch = fakeOrch([{ mode: 'WAIT' }]);
+    const bp = createBlueprintRunner({ orch, run: fakeRun(), claudeBin: '/x/claude', ...mem(), workRoot: () => work });
+    const jobs = createJobRunner({ root, tools: () => ALL, run: fakeRun(), blueprint: bp,
+      registerProject: async () => ({ id: 'proj_d' }), setDelivery: async (...a) => { set.push(a); } });
+    const delivery = { openPr: false, localMerge: true };
+    const j = jobs.start(spec('kho-d', { delivery }), user, 'tok-d');
+    await jobs.wait(j.id);
+    expect(set.length).toBe(1);
+    expect(set[0][0]).toBe('proj_d');
+    expect(set[0][1]).toMatchObject({ openPr: false, localMerge: true, ciGate: true, merge: 'HUMAN' });   // normalized
+    expect(set[0][2]).toBe('tok-d');
+    expect(jobs.get(j.id).log.some(l => l.includes('gộp vào development trên máy'))).toBe(true);
+  });
 });

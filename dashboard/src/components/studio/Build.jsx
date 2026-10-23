@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Send, Check, Rocket, RotateCcw, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { Plus, Send, Check, Rocket, RotateCcw, ArrowLeft, AlertTriangle, ExternalLink } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import { JobView } from '../projects/WizardSteps.jsx';
 import AddLaneModal from '../AddLaneModal.jsx';
@@ -81,13 +81,19 @@ export default function Build({ s, act, onOpenProject }) {
         </div>
       )}
       {pid && <Button icon={Rocket} onClick={() => onOpenProject?.(pid)}>Mở dự án</Button>}
-      {!pid ? null : <>
+      {failed || lost ? null : <>
 
       <h2 className="st-h2">Lane của dự án</h2>
       {mine.length ? (
         <ul className="st-lanes">
           {mine.map(l => (
-            <li key={l.lane}><b>Lane {l.lane}</b> <span className="faint">· {l.status === 'provisioning' ? `đang chuẩn bị (${stageLabel(l.stage)})` : l.feature_title || laneStatus(l.status)[1]}</span></li>
+            <li key={l.lane}><b>Lane {l.lane}</b> <span className="faint">· {l.status === 'provisioning' ? `đang chuẩn bị (${stageLabel(l.stage)})` : l.feature_title || laneStatus(l.status)[1]}</span>
+              {l.status !== 'provisioning' && (
+                <a className="st-app-link" href={`${window.location.protocol}//${window.location.hostname}:${3000 + Number(l.lane)}`} target="_blank" rel="noreferrer">
+                  Mở app <ExternalLink size={12} aria-hidden="true" />
+                </a>
+              )}
+            </li>
           ))}
         </ul>
       ) : <p className="faint">Chưa có lane nào cho dự án này.</p>}

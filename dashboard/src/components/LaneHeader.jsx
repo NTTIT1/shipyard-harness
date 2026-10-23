@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import {
   Plus, Square, Play, Check, Power, PowerOff, Eraser, RefreshCcw,
   KeyRound, RotateCcw, Trash2, GitBranch, ExternalLink, ClipboardCheck,
-  FileText, ArrowLeft, FolderKanban
+  FileText, ArrowLeft, FolderKanban, GitMerge
 } from 'lucide-react';
+import LanePipelineModal from './LanePipelineModal.jsx';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Menu from './ui/Menu.jsx';
@@ -14,6 +15,7 @@ import { stopSession, resumeSession } from '../lib/api.js';
 
 export default function LaneHeader({ lane, projectName, archived, onBackToBoard, onAction, onCreds, onAssign, onTab, onReview, onDocs }) {
   const [err, setErr] = useState('');
+  const [pipeline, setPipeline] = useState(false);
   const run = fn => async () => { setErr(''); try { await fn(); } catch (e) { setErr(e.message); } };
   const acts = primaryActions(lane, { archived });
   const n = lane.lane;
@@ -24,6 +26,7 @@ export default function LaneHeader({ lane, projectName, archived, onBackToBoard,
     assign: <Button key="assign" variant="primary" icon={Plus} onClick={() => onAssign(n)}>Giao việc</Button>,
   };
   const menu = [
+    { label: 'Quy trình của lane', icon: GitMerge, onSelect: () => setPipeline(true) },
     { label: 'Bật stack (up)', icon: Power, onSelect: () => onAction(n, 'up') },
     { label: 'Tắt stack (down)', icon: PowerOff, onSelect: () => onAction(n, 'down') },
     { label: 'Xoá trạng thái (clear)', icon: Eraser, onSelect: () => onAction(n, 'clear') },
@@ -36,6 +39,7 @@ export default function LaneHeader({ lane, projectName, archived, onBackToBoard,
   const branch = lane.git_branch || lane.branch || '';
   return (
     <header className="lh">
+      {pipeline && <LanePipelineModal n={n} onClose={() => setPipeline(false)} />}
       <div className="lh-main">
         {onBackToBoard && (
           <div className="lh-Subnav">
