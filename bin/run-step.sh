@@ -135,6 +135,9 @@ else
   export ANTHROPIC_DEFAULT_OPUS_MODEL="$ALIAS" ANTHROPIC_DEFAULT_SONNET_MODEL="$ALIAS"
   unset ANTHROPIC_API_KEY
   ARGS+=(--model "$ALIAS")
+  # A non-Claude model follows the plugins' "use a skill" hooks instead of its role: a role step has
+  # no use for skills, so they are off on this route.
+  ARGS+=(--disallowedTools Skill)
 fi
 
 cd "$(lane_dir "$N")"
@@ -151,6 +154,10 @@ fi
 # What humans approved before any code (studio: brief, architecture, UI mockups) is the standard
 # every step follows; each step is told how (bin/project_docs.py).
 python3 "$CODE_ROOT/bin/project_docs.py" "$(lane_dir "$N")" "$STEP" "$PROFILE_DIR" >> "$PROMPT_RUN" 2>/dev/null || true
+# Non-Claude models drop the closing verdict line more often: say it once more, last.
+if [ "$PROVIDER" != "claude" ]; then
+  printf '\n\n---\nQUAN TRỌNG: làm xong thì kết thúc câu trả lời bằng ĐÚNG MỘT dòng cuối cùng dạng `ROLE-STEP: DONE <file chính>` (hoặc `ROLE-STEP: BLOCKED <lý do>`), không có gì sau dòng đó.\n' >> "$PROMPT_RUN"
+fi
 
 # One AI run → sets RC, RESULT, LAST, FAIL ("" = done with a verdict).
 run_once() {

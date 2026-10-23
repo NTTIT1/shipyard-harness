@@ -45,9 +45,10 @@ describe('providers store', () => {
 });
 
 describe('validateModels', () => {
-  it('requires main to be a Claude model', () => {
+  it('the main session may use another provider through the gateway, never OpenHands', () => {
     P.setProviderModels('openai', ['gpt-x']);
-    expect(P.validateModels({ main: 'openai:gpt-x' })).toEqual(['main: phiên chính chỉ dùng model Claude']);
+    expect(P.validateModels({ main: 'openai:gpt-x' })).toEqual([]);
+    expect(P.validateModels({ main: 'openhands:openai/gpt-x' })).toEqual(['main: OpenHands chỉ dùng cho bước DEV và TEST']);
   });
   it('accepts configured models and rejects unknown/removed ones', () => {
     expect(P.validateModels({ main: 'claude:claude-opus-5-5', 'code-review': 'openai:gpt-x' })).toEqual([]);

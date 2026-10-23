@@ -29,7 +29,8 @@ export const CLAUDE_MODELS = [
 ];
 
 export const STEPS = [
-  { id: 'main', label: 'Phiên chính', claudeOnly: true },
+  // The lane's main session: Claude, or another provider's model through the LiteLLM gateway (never OpenHands).
+  { id: 'main', label: 'Phiên chính' },
   // DEV implementation engine: claude:* = the main session codes (default); openhands:<provider>/<model>
   // = OpenHands in a sandbox through the gateway (bin/openhands-step.sh).
   { id: 'dev', label: 'DEV — viết code', engine: true },
@@ -378,7 +379,6 @@ export function validateModels(models) {
       if (!CLAUDE_MODELS.some(m => m.id === model)) errs.push(`${step}: model Claude ${model} không hợp lệ`);
       continue;
     }
-    if (meta.claudeOnly) { errs.push(`${step}: phiên chính chỉ dùng model Claude`); continue; }
     const p = providers[prov];
     if (!isConfigured(prov, p)) { errs.push(`${step}: nhà cung cấp ${prov} chưa cấu hình`); continue; }
     if (!(p.models || []).includes(model))

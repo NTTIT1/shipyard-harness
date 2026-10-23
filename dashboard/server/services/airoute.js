@@ -29,3 +29,14 @@ export async function modelRoute(step, fallback = 'claude:claude-opus-5-5') {
     ANTHROPIC_DEFAULT_OPUS_MODEL: alias };
   return { model: alias, env, gateway: true, label: value };
 }
+
+/** Environment for a Claude Code process whose every model is `alias` (provider/model) on the gateway. */
+export function gatewayEnv(alias, base = process.env) {
+  const key = readProviders().gateway_key;
+  if (!key) throw new Error('chưa có gateway_key — mở Nhà cung cấp AI và bấm Lưu');
+  const env = { ...base, ANTHROPIC_BASE_URL: GATEWAY_URL, ANTHROPIC_AUTH_TOKEN: key, ANTHROPIC_MODEL: alias,
+    ANTHROPIC_SMALL_FAST_MODEL: alias, ANTHROPIC_DEFAULT_HAIKU_MODEL: alias, ANTHROPIC_DEFAULT_SONNET_MODEL: alias,
+    ANTHROPIC_DEFAULT_OPUS_MODEL: alias };
+  delete env.ANTHROPIC_API_KEY;
+  return env;
+}

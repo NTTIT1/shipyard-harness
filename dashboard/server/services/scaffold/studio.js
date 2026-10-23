@@ -212,9 +212,17 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       await run(claudeBin, ['-p', turnPrompt(s, stage.id), '--output-format', 'json', '--model', r.model,
         // Reasoning effort is a Claude setting; other providers get their default.
         ...(r.gateway ? [] : ['--effort', stage.id === 'pm' ? 'medium' : 'high']), '--permission-mode', 'acceptEdits',
-        '--append-system-prompt', agentPrompt(stage.agent), '--disallowedTools', 'Bash,WebFetch,WebSearch,NotebookEdit,Task'],
+        // No skills/plugins for a chat role: a non-Claude model would follow their hooks instead of the role.
+        '--append-system-prompt', agentPrompt(stage.agent), '--disallowedTools', 'Bash,WebFetch,WebSearch,NotebookEdit,Task,Skill'],
       { cwd: dir, timeoutMs: 20 * 60_000, log: l => { out += `${l}\n`; }, ...(r.env ? { env: r.env } : {}) });
-      const v = parseVerdict(resultLine(out));
+      // A chat reply that forgot its closing ROLE-STEP line is still a reply (some models drop it);
+      // only an error or an explicit BLOCKED counts as a failed turn.
+      const raw = resultLine(out);
+      let v = parseVerdict(raw);
+      if (!v.ok && /không trả về dòng ROLE-STEP/.test(v.error)) {
+        const text = (() => { try { return String(JSON.parse(raw).result || '').trim(); } catch { return ''; } })();
+        if (text) v = { ok: true, summary: text };
+      }
       s = load(id);
       if (!v.ok) throw new Error(v.error.replace('AI Manager', stage.role));
       say(s, stage.id, 'ai', v.summary);

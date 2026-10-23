@@ -89,11 +89,11 @@ describe('assignLane', () => {
     const { d } = deps({ isRunning: () => true });
     await expect(A.assignLane(1, { requirement: 'x', models: MODELS }, d)).rejects.toMatchObject({ status: 409 });
   });
-  it('400 on invalid models, empty requirement, or a non-Claude main', async () => {
+  it('400 on invalid models, empty requirement, or OpenHands as the main session', async () => {
     const { d } = deps();
     await expect(A.assignLane(1, { requirement: '', models: MODELS }, d)).rejects.toMatchObject({ status: 400 });
-    await expect(A.assignLane(1, { requirement: 'x', models: { ...MODELS, main: 'openai:gpt-x' } }, d))
-      .rejects.toMatchObject({ status: 400, message: 'main: phiên chính chỉ dùng model Claude' });
+    await expect(A.assignLane(1, { requirement: 'x', models: { ...MODELS, main: 'openhands:openai/gpt-x' } }, d))
+      .rejects.toMatchObject({ status: 400, message: 'main: OpenHands chỉ dùng cho bước DEV và TEST' });
     await expect(A.assignLane(1, { spec_dir: '../etc', models: MODELS }, d)).rejects.toMatchObject({ status: 400 });
   });
   it('503 when the gateway cannot start, before any state is written', async () => {

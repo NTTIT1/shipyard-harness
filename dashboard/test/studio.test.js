@@ -202,6 +202,18 @@ describe('studio', () => {
     expect(runs[0].env.ANTHROPIC_BASE_URL).toBe('http://127.0.0.1:4000');
   });
 
+  it('a reply without its ROLE-STEP line is still shown; the role cannot use skills', async () => {
+    const runs = [];
+    const st = createStudio({ root: () => root, tools: () => ALL, claudeBin: '/x/claude', agentPrompt: n => n, route: claudeRoute,
+      run: async (cmd, args, opts) => { runs.push(args); opts.log(JSON.stringify({ type: 'result', is_error: false, result: 'Bạn dùng cho mấy người?' })); } });
+    let s = st.start(me, 'Tôi cần ứng dụng ghi chú');
+    await until(() => !st.isBusy(s.id));
+    s = st.get(s.id, me);
+    expect(s.messages.at(-1)).toMatchObject({ role: 'ai', text: 'Bạn dùng cho mấy người?' });
+    expect(s.error).toBe(null);
+    expect(runs[0][runs[0].indexOf('--disallowedTools') + 1]).toContain('Skill');
+  });
+
   it('normalizes a workflow written by the AI', () => {
     const base = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'].map(step => ({ step, mode: 'REQUIRED' }));
     const w = normalizeWorkflow({ steps: base.map(x => (x.step === 'DEV' ? { ...x, config: { model: 'bad model', condition: 'HAS_UI', maxRetries: 2 } } : x)) });

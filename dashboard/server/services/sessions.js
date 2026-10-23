@@ -5,6 +5,7 @@ import { spawnSync } from 'child_process';
 import { query as sdkQuery } from '@anthropic-ai/claude-agent-sdk';
 import { HARNESS_ROOT, LANES_ROOT } from './config.js';
 import { readProviders, claudeEnv, claudeAuthFailed, CLAUDE_AUTH_ERR } from './providers.js';
+import { gatewayEnv } from './airoute.js';
 import { recordSessionResult, recordRateLimit, readLaneContext } from './usage.js';
 
 // One Agent SDK session per lane, driving /ship-feature. Streaming input keeps the
@@ -19,6 +20,7 @@ let deps = {
   laneContext: readLaneContext,
   teamRules: readTeamRules,
   claudeEnv,
+  gatewayEnv,
   authFailed: claudeAuthFailed,
 };
 
@@ -128,14 +130,20 @@ export function startSession(n, { model, effort, prompt, resume }) {
   if (live.has(n)) throw new Error('busy');
   const input = new InputQueue();
   if (prompt) input.push(prompt);
+  // "claude:<id>" / "<id>" = Claude on this machine's account (or API key); "<provider>:<model>" (Gemini…)
+  // = the same Claude Code through the LiteLLM gateway, every model name mapped to that one.
+  const sep = String(model || '').indexOf(':');
+  const prov = sep < 0 ? 'claude' : model.slice(0, sep);
+  const mid = sep < 0 ? model : model.slice(sep + 1);
+  const viaGateway = prov !== 'claude';
   const options = {
     cwd: path.join(lanesRoot(), `lane${n}`),
-    model,
+    model: viaGateway ? `${prov}/${mid}` : mid,
     permissionMode: 'auto',
     pathToClaudeCodeExecutable: deps.claudeBin,
     canUseTool: (name, inp, opts) => canUseTool(n, name, inp, opts),
     // The person's own login, or the Anthropic API key when "Nhà cung cấp AI" says so.
-    env: deps.claudeEnv(),
+    env: viaGateway ? deps.gatewayEnv(`${prov}/${mid}`) : deps.claudeEnv(),
   };
   const usesKey = !!options.env.ANTHROPIC_API_KEY;
   const keyFailed = text => {
@@ -143,7 +151,7 @@ export function startSession(n, { model, effort, prompt, resume }) {
     deps.authFailed(String(text).slice(0, 300));
     emit(n, { kind: 'system', text: 'API key Anthropic lỗi (sai key hoặc hết tiền) — dừng phiên rồi mở lại sẽ chạy bằng tài khoản đăng nhập.' });
   };
-  if (effort) options.effort = effort;
+  if (effort && !viaGateway) options.effort = effort;   // a Claude setting
   if (resume) options.resume = resume;
   // Project AI-team rules for the developer role, same as run-step.sh gives sub-steps.
   const rules = deps.teamRules(options.cwd, 'main');

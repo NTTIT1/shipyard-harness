@@ -69,6 +69,7 @@ export async function assignLane(n, body, d) {
   d.state(['set-json', 'gate_overrides', JSON.stringify(gates)]);
   d.state(['set-json', 'effort', JSON.stringify(effort)]);
   if (!lane.api_up) d.laneUp(n);
-  d.startSession(n, { model: models.main.slice('claude:'.length), effort: effort.main, prompt: buildPrompt({ requirement, spec_dir }) });
+  // The main session's model as chosen (a Claude id, or provider:model through the gateway).
+  d.startSession(n, { model: models.main.startsWith('claude:') ? models.main.slice('claude:'.length) : models.main, effort: effort.main, prompt: buildPrompt({ requirement, spec_dir }) });
   return { ok: true };
 }
