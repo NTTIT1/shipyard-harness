@@ -18,10 +18,10 @@ export default function Chat({ s, act, enabled, role }) {
         behavior: 'smooth',
       });
     }
-  }, [s.messages.length, s.busy, scope]);
+  }, [s?.messages?.length || 0, s?.busy, scope]);
 
   const send = async () => {
-    if (!text.trim() || s.busy) return;
+    if (!text.trim() || s?.busy) return;
     setSending(true);
     await act(() => studio.send(s.id, text.trim()))();
     setText('');
@@ -29,25 +29,30 @@ export default function Chat({ s, act, enabled, role }) {
   };
 
   const togglePastStage = stageId => {
+    if (!stageId) return;
     setOpenPastStages(prev => ({ ...prev, [stageId]: !prev[stageId] }));
   };
 
   // Partition messages by stage
-  const currentStageId = s.stage;
+  const currentStageId = s?.stage;
+  const messages = s?.messages || [];
+  const stages = s?.stages || [];
+
   const pastMessagesCount = useMemo(() => {
-    return s.messages.filter(m => m.stage !== currentStageId).length;
-  }, [s.messages, currentStageId]);
+    return messages.filter(m => m?.stage !== currentStageId).length;
+  }, [messages, currentStageId]);
 
   // Group messages into stage chunks for structured rendering
   const stageGroups = useMemo(() => {
     const groups = [];
     let curGroup = null;
 
-    s.messages.forEach(m => {
+    messages.forEach(m => {
+      if (!m) return;
       if (!curGroup || curGroup.stage !== m.stage) {
         curGroup = {
           stage: m.stage,
-          stageInfo: s.stages.find(x => x.id === m.stage) || { label: m.stage, role: 'AI' },
+          stageInfo: stages.find(x => x.id === m.stage) || { label: m.stage || 'AI', role: 'AI' },
           messages: [],
         };
         groups.push(curGroup);
@@ -56,7 +61,7 @@ export default function Chat({ s, act, enabled, role }) {
     });
 
     return groups;
-  }, [s.messages, s.stages]);
+  }, [messages, stages]);
 
   const filteredGroups = useMemo(() => {
     if (scope === 'current') {
@@ -236,16 +241,17 @@ export default function Chat({ s, act, enabled, role }) {
 }
 
 function MessageBubble({ m, stages, isLatest }) {
-  const isUser = m.role === 'user';
-  const isShipyard = m.role === 'shipyard';
-  const isAi = m.role === 'ai';
+  const isUser = m?.role === 'user';
+  const isShipyard = m?.role === 'shipyard';
+  const isAi = m?.role === 'ai';
+  const msgText = String(m?.text || '');
 
   // Automatically fold super long past AI responses to prevent overwhelming wall of text
-  const isLong = isAi && (m.text?.length > 450 || (m.text?.match(/\n/g) || []).length > 8);
+  const isLong = isAi && (msgText.length > 450 || (msgText.match(/\n/g) || []).length > 8);
   const [expanded, setExpanded] = useState(isLatest);
 
   return (
-    <div className={`st-msg ${m.role}`}>
+    <div className={`st-msg ${m?.role || 'ai'}`}>
       {!isShipyard && (
         <div className="st-msg-header">
           <span className="st-msg-avatar">
@@ -255,7 +261,7 @@ function MessageBubble({ m, stages, isLatest }) {
         </div>
       )}
       <div className={`st-msg-bubble${isLong && !expanded ? ' is-collapsed' : ''}`}>
-        {isAi ? <Markdown text={m.text} /> : m.text}
+        {isAi ? <Markdown text={msgText} /> : msgText}
         {isLong && (
           <div className="st-msg-expand-wrap">
             <button
@@ -265,7 +271,7 @@ function MessageBubble({ m, stages, isLatest }) {
               {expanded ? (
                 <><span>Thu gọn</span><ChevronUp size={12} /></>
               ) : (
-                <><span>Xem toàn bộ tin nhắn ({m.text.length} ký tự)</span><ChevronDown size={12} /></>
+                <><span>Xem toàn bộ tin nhắn ({msgText.length} ký tự)</span><ChevronDown size={12} /></>
               )}
             </button>
           </div>

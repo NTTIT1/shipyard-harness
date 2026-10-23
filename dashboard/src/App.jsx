@@ -32,6 +32,7 @@ import UsersView from './components/UsersView.jsx';
 import LaneAiPanel from './components/LaneAiPanel.jsx';
 import ViewLoading from './components/ui/ViewLoading.jsx';
 import TopHeader from './components/TopHeader.jsx';
+import ErrorBoundary from './components/ui/ErrorBoundary.jsx';
 
 // Screens most sessions never open load on demand (separate chunks).
 const ReviewView = lazy(() => import('./components/ReviewView.jsx'));
@@ -275,8 +276,15 @@ export default function App({ user, onLogout }) {
         )}
         {view === 'users' && <UsersView user={user} onLogout={onLogout} />}
         {view === 'costs' && <Suspense fallback={<ViewLoading />}><CostsView /></Suspense>}
-        {view === 'studio' && <Suspense fallback={<ViewLoading />}><StudioView
-          onOpenProject={async pid => { await loadProjects(); setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }} /></Suspense>}
+        {view === 'studio' && (
+          <Suspense fallback={<ViewLoading />}>
+            <ErrorBoundary title="Không thể hiển thị Ý tưởng sản phẩm">
+              <StudioView
+                onOpenProject={async pid => { await loadProjects(); setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }}
+              />
+            </ErrorBoundary>
+          </Suspense>
+        )}
         {view === 'docs' && <Suspense fallback={<ViewLoading />}><DocsView key={docsRun} initialRunId={docsRun} onOpenRun={runId => openReview({ runId })}
           activeProjectId={activeProjectId} onSelectProject={setActiveProjectId} /></Suspense>}
         {view === 'lanes' && (<>

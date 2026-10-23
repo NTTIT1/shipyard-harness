@@ -52,9 +52,6 @@ try {
   await p.getByRole('button', { name: 'Duyệt thiết kế hệ thống' }).click();
 
   await p.getByText('Đã vẽ 1 màn hình.').waitFor({ timeout: 60_000 });
-  // The UI step may open on design.md: switch to the mockups like a person would.
-  const mockTab = p.getByRole('button', { name: /Màn hình mẫu/ });
-  if (await mockTab.count()) await mockTab.click();
   const frame = p.frameLocator('iframe.st-mock-iframe');
   await frame.getByText('Màn hình thử').waitFor();
   ok(true, 'designer: mockup rendered (sandboxed)');
