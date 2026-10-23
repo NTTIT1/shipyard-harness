@@ -88,6 +88,7 @@ export const fetchProviders = () => send('/api/providers', 'GET');
 export const saveProviders = providers => send('/api/providers', 'PUT', { providers });
 export const testProvider = id => send(`/api/providers/${id}/test`, 'POST', {});
 export const saveClaudeAuth = mode => send('/api/providers/claude-auth', 'PUT', { mode });
+export const saveStudioModels = models => send('/api/studio-models', 'PUT', { models });
 export const fetchCosts = month => send(`/api/costs${month ? `?month=${encodeURIComponent(month)}` : ''}`, 'GET');
 export const saveCostSettings = settings => send('/api/costs/settings', 'PUT', settings);
 export const saveFeatureHours = (key, hours) => send('/api/costs/feature-hours', 'PUT', { key, hours });

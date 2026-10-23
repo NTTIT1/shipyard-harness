@@ -38,7 +38,8 @@ const me = { id: 'u1', email: 'a@x.io', name: 'A' };
 beforeEach(() => { root = fs.mkdtempSync(path.join(os.tmpdir(), 'studio-')); });
 afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 const until = async fn => { const t = Date.now(); while (!fn()) { if (Date.now() - t > 3000) throw new Error('timeout'); await new Promise(r => setTimeout(r, 15)); } };
-const make = (calls, opts = {}, jobs = null) => createStudio({ root: () => root, run: fakeClaude(calls, opts), tools: () => ALL,
+const claudeRoute = async () => ({ model: 'claude-opus-5-5', env: null, gateway: false });
+const make = (calls, opts = {}, jobs = null, route = claudeRoute) => createStudio({ root: () => root, run: fakeClaude(calls, opts), tools: () => ALL, route,
   claudeBin: '/x/claude', agentPrompt: n => n, jobs });
 
 describe('studio', () => {
@@ -184,6 +185,21 @@ describe('studio', () => {
     job = { id: 'scf_3', status: 'failed', stage: 'team', project: { id: 'proj_1' } };
     s = st.create(s.id, me, 'tok', { name: 'Kho', slug: 'kho-api', git: { provider: 'local' }, aiTeam: false });
     expect(() => st.backToCreate(s.id, me)).toThrow(/đã được đăng ký/);
+  });
+
+  it('each role talks with the model chosen for it — Gemini through the LiteLLM gateway', async () => {
+    const calls = [], seen = [];
+    const route = async (step, fallback) => { seen.push([step, fallback]); return { model: 'gemini/gemini-2.5-flash', env: { ANTHROPIC_BASE_URL: 'http://127.0.0.1:4000' }, gateway: true }; };
+    const runs = [];
+    const fake = fakeClaude(calls);
+    const st = createStudio({ root: () => root, tools: () => ALL, claudeBin: '/x/claude', agentPrompt: n => n, route,
+      run: async (cmd, args, opts) => { runs.push({ args, env: opts.env }); return fake(cmd, args, opts); } });
+    const s = st.start(me, 'Tôi cần hệ thống bán hàng');
+    await until(() => !st.isBusy(s.id));
+    expect(seen[0]).toEqual(['pm', 'claude:claude-opus-5-5']);
+    expect(runs[0].args[runs[0].args.indexOf('--model') + 1]).toBe('gemini/gemini-2.5-flash');
+    expect(runs[0].args).not.toContain('--effort');   // a Claude-only setting
+    expect(runs[0].env.ANTHROPIC_BASE_URL).toBe('http://127.0.0.1:4000');
   });
 
   it('normalizes a workflow written by the AI', () => {

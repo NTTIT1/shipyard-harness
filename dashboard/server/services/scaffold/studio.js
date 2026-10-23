@@ -9,6 +9,7 @@ import { catalogForPrompt, parseAdvice, PRESET_IDS } from './advise.js';
 import { validateRequest, validateWorkflow } from './catalog.js';
 import { STACKS } from './catalog.js';
 import { CLAUDE_MODELS } from '../providers.js';
+import { modelRoute } from '../airoute.js';
 import { WORKFLOW_PRESETS } from '../../../src/lib/review.js';
 import { cleanConfig, CONDITIONS, ON_FAILURE, KNOWN_INPUTS } from '../../../src/lib/workflow.js';
 
@@ -130,7 +131,10 @@ function readJson(f, dflt) { try { return JSON.parse(fs.readFileSync(f, 'utf8'))
 export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'studio'), run = runCmd, tools,
   claudeBin = process.env.CLAUDE_BIN || path.join(os.homedir(), '.local/bin/claude'), model = 'claude-opus-5-5',
   agentPrompt = name => readText(path.join(HARNESS_ROOT, 'claude', 'agents', `${name}.md`)).replace(/^---[\s\S]*?---\n/, ''),
-  jobs = null, stacks = STACKS, now = () => new Date() } = {}) {
+  jobs = null, stacks = STACKS, now = () => new Date(), route = modelRoute } = {}) {
+  // Each role talks with the model chosen for its lane step in "Nhà cung cấp AI" (defaults):
+  // Claude on this machine's account, or Gemini/OpenAI/… through the LiteLLM gateway.
+  const STEP_OF = { pm: 'pm', system: 'arch', ui: 'design', create: 'arch' };
   const busy = new Set();
   const file = id => path.join(root(), `${id}.json`);
   const work = id => path.join(root(), id);
@@ -204,10 +208,12 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
         if (w) fs.writeFileSync(path.join(dir, 'workflow.json'), JSON.stringify(w, null, 2));
       }
       let out = '';
-      await run(claudeBin, ['-p', turnPrompt(s, stage.id), '--output-format', 'json', '--model', model,
-        '--effort', stage.id === 'pm' ? 'medium' : 'high', '--permission-mode', 'acceptEdits',
+      const r = await route(STEP_OF[stage.id], `claude:${model}`);
+      await run(claudeBin, ['-p', turnPrompt(s, stage.id), '--output-format', 'json', '--model', r.model,
+        // Reasoning effort is a Claude setting; other providers get their default.
+        ...(r.gateway ? [] : ['--effort', stage.id === 'pm' ? 'medium' : 'high']), '--permission-mode', 'acceptEdits',
         '--append-system-prompt', agentPrompt(stage.agent), '--disallowedTools', 'Bash,WebFetch,WebSearch,NotebookEdit,Task'],
-      { cwd: dir, timeoutMs: 20 * 60_000, log: l => { out += `${l}\n`; } });
+      { cwd: dir, timeoutMs: 20 * 60_000, log: l => { out += `${l}\n`; }, ...(r.env ? { env: r.env } : {}) });
       const v = parseVerdict(resultLine(out));
       s = load(id);
       if (!v.ok) throw new Error(v.error.replace('AI Manager', stage.role));

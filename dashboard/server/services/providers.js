@@ -239,6 +239,29 @@ export function readModelDefaults() {
   return normalizeEntry(doc.defaults || {}, doc.effort || {}, null);
 }
 
+// The product studio's roles (chat from an idea to a project) have their own models, so choosing
+// Gemini for them never changes what the lanes run. Missing = Claude Opus on this machine.
+export const STUDIO_ROLES = [
+  { id: 'pm', label: 'AI PM — yêu cầu sản phẩm' },
+  { id: 'arch', label: 'AI Kiến trúc sư — công nghệ, hệ thống, quy trình' },
+  { id: 'design', label: 'AI Thiết kế — mockup giao diện' },
+];
+export function readStudioModels() {
+  const doc = readJson(modelsPath(), {});
+  return Object.fromEntries(STUDIO_ROLES.map(r => [r.id, doc.studio?.[r.id] || DEFAULT_MODEL]));
+}
+export function writeStudioModels(models = {}) {
+  const pick = Object.fromEntries(STUDIO_ROLES.map(r => [r.id, models[r.id] || DEFAULT_MODEL]));
+  // Same rules as a lane's role step (pm/arch/design): Claude, or a configured provider's listed model.
+  const errs = validateModels(pick).map(e => e.replace(/^(pm|arch|design):/, 'Chat ý tưởng — $1:'));
+  if (Object.values(pick).some(v => v.startsWith('openhands:'))) errs.push('Chat ý tưởng không dùng OpenHands');
+  if (errs.length) throw new Error(errs.join('; '));
+  const prev = readJson(modelsPath(), {});
+  fs.mkdirSync(path.dirname(modelsPath()), { recursive: true });
+  fs.writeFileSync(modelsPath(), JSON.stringify({ ...prev, studio: pick }, null, 2) + '\n');
+  return pick;
+}
+
 export function writeModelDefaults(defaults) {
   const prev = readJson(modelsPath(), {});
   const errs = validateModels(Object.fromEntries(STEPS.map(s => [s.id, defaults[s.id] || DEFAULT_MODEL])));

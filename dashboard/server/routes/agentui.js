@@ -31,6 +31,7 @@ const num = req => parseInt(req.params.n, 10);
 router.get('/api/providers', wrap(async () => ({
   catalog: P.CATALOG, claude_models: P.CLAUDE_MODELS, steps: P.STEPS,
   claude_auth: P.claudeAuthStatus(),
+  studio_roles: P.STUDIO_ROLES, studio_models: P.readStudioModels(),
   providers: P.publicProviders(), defaults: P.readModelDefaults(),
   lane_defaults: P.readAllLaneDefaults(),
   feature_models: P.readFeatureModels(),
@@ -40,6 +41,15 @@ router.put('/api/providers', wrap(async req => {
   P.writeProviders(req.body.providers || {});
   if (await gatewayStatus()) restartGatewayInBackground();
   return { providers: P.publicProviders() };
+}));
+router.put('/api/studio-models', wrap(async req => {
+  const m = P.writeStudioModels(req.body?.models || {});
+  // A non-Claude model talks through the gateway: bring it up now rather than on the first chat turn.
+  if (Object.values(m).some(v => !v.startsWith('claude:'))) {
+    const gw = await ensureGateway();
+    if (!gw.ok) throw Object.assign(new Error(`không bật được cổng LiteLLM: ${gw.output}`), { status: 503 });
+  }
+  return { studio_models: m };
 }));
 router.put('/api/providers/claude-auth', wrap(async req => ({ claude_auth: P.setClaudeAuth(String(req.body?.mode || '')) })));
 router.post('/api/providers/:id/test', wrap(async req => {

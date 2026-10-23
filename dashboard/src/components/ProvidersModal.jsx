@@ -4,7 +4,8 @@ import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
 import Modal from './Modal.jsx';
 import StepModels from './StepModels.jsx';
-import { fetchProviders, saveProviders, testProvider, saveClaudeAuth, saveModelDefaults, saveLaneModelDefaults, restartGateway } from '../lib/api.js';
+import ModelSelect from './ModelSelect.jsx';
+import { fetchProviders, saveProviders, testProvider, saveClaudeAuth, saveStudioModels, saveModelDefaults, saveLaneModelDefaults, restartGateway } from '../lib/api.js';
 
 export default function ProvidersModal({ lanes = [], onClose }) {
   const [info, setInfo] = useState(null);
@@ -80,6 +81,16 @@ export default function ProvidersModal({ lanes = [], onClose }) {
     catch (e) { setError(e.message); }
   };
 
+  // The idea chat's roles: their own models (Gemini here never changes what the lanes run). Saved at once.
+  const setStudioModel = async (role, value) => {
+    setError(''); setMsg(m => ({ ...m, _studio: 'đang lưu…' }));
+    try {
+      const r = await saveStudioModels({ ...info.studio_models, [role]: value });
+      setInfo(i => ({ ...i, studio_models: r.studio_models }));
+      setMsg(m => ({ ...m, _studio: 'đã lưu' }));
+    } catch (e) { setMsg(m => ({ ...m, _studio: '' })); setError(e.message); }
+  };
+
   const gw = async () => {
     setMsg(m => ({ ...m, _gw: 'đang khởi động lại…' }));
     try { const r = await restartGateway(); setMsg(m => ({ ...m, _gw: r.ok ? 'đã chạy' : `lỗi: ${r.output}` })); await load(); }
@@ -128,6 +139,20 @@ export default function ProvidersModal({ lanes = [], onClose }) {
               {info.claude_auth?.why ? ` — ${info.claude_auth.why}` : ''}
             </p>
           </fieldset>
+          {info.studio_roles && (
+            <fieldset className="prov-auth">
+              <legend className="prov-name">Chat ý tưởng</legend>
+              <p className="prov-msg" style={{ margin: 0 }}>Model của từng vai trong <b>Ý tưởng sản phẩm</b>. Riêng cho chat ý tưởng — không đổi model của các lane. Model không phải Claude chạy qua cổng LiteLLM, không tốn hạn mức Claude.</p>
+              {info.studio_roles.map(r => (
+                <div className="prov-row" key={r.id} style={{ borderBottom: 0, padding: '2px 0' }}>
+                  <span className="prov-name" style={{ width: 'auto', minWidth: 260, fontWeight: 500 }}>{r.label}</span>
+                  <ModelSelect id={`studio-${r.id}`} value={info.studio_models?.[r.id] || ''} info={info} openhands={false}
+                    label={`Model — ${r.label}`} onChange={v => setStudioModel(r.id, v)} />
+                </div>
+              ))}
+              <span className="prov-msg">{msg._studio || ''}</span>
+            </fieldset>
+          )}
           {Object.entries(info.providers).map(([id, p]) => (
             <div className="prov-row" key={id}>
               <span className="prov-name">{p.label}</span>
