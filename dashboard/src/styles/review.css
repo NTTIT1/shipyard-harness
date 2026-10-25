@@ -450,3 +450,4 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .pl-warn svg { flex: none; margin-top: 2px }
 .pl-summary { margin: 0; font-size: 12.5px; color: var(--text-muted); overflow-wrap: anywhere }
 .pl-now { display: grid; gap: 4px; margin: 0; padding: 10px 12px; background: var(--bg-subtle); border-radius: var(--radius-sm) }
+.pl-h { margin: 6px 0 6px; font-size: 13.5px; font-weight: 600 }

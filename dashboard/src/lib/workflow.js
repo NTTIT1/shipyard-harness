@@ -1,6 +1,7 @@
 // Per-step workflow settings (stored on the project, frozen into each run, enforced by the lane:
 // bin/run-step.sh + bin/step_guard.py, conditions by the orchestrator). Pure helpers, unit-tested.
 import { STEP_LABEL } from './review.js';
+import { geminiModel } from './modelPresets.js';
 
 export const CONDITIONS = [
   { id: 'ALWAYS', label: 'Luôn chạy' },
@@ -99,6 +100,19 @@ export function suggestedConfigs(info) {
   const strong = claude.find(m => /opus/.test(m.id))?.id || claude[0]?.id;
   const cheap = claude.find(m => /haiku/.test(m.id))?.id || claude.find(m => /sonnet/.test(m.id))?.id || strong;
   const m = id => (id ? `claude:${id}` : '');
+  // With Gemini set up: the token-saving split (lib/modelPresets.js) — Gemini writes, Claude plans.
+  const g = geminiModel(info);
+  if (g) {
+    const sonnet = claude.find(x => /sonnet/.test(x.id))?.id || strong;
+    return {
+      PM: { model: g, timeoutMinutes: 20, requiredInputs: ['request.md'] },
+      BA: { model: g, timeoutMinutes: 20, requiredInputs: ['spec.md'] },
+      ARCH: { model: m(sonnet), timeoutMinutes: 45, maxRetries: 1, onFailure: 'RETRY' },
+      DESIGN: { model: g, timeoutMinutes: 30, condition: 'HAS_UI' },
+      DEV: {},
+      TEST: { model: g, timeoutMinutes: 30, maxRetries: 2, onFailure: 'RETRY', condition: 'PREV_PASSED' },
+    };
+  }
   return {
     PM: { model: m(strong), timeoutMinutes: 30, requiredInputs: ['request.md'] },
     BA: { model: m(strong), timeoutMinutes: 30, requiredInputs: ['spec.md'] },

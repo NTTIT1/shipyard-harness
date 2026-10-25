@@ -239,3 +239,5 @@ table.rv a { display: inline-flex; align-items: center; gap: 4px }
   .pf-ticket { min-height: 44px }
   .pf-sel { min-height: 44px }
 }
+.prov-preset { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px }
+.prov-preset .prov-msg { flex: 1 1 280px }

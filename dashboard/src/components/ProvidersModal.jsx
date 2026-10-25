@@ -5,6 +5,7 @@ import Badge from './ui/Badge.jsx';
 import Modal from './Modal.jsx';
 import StepModels from './StepModels.jsx';
 import ModelSelect from './ModelSelect.jsx';
+import { claudeGeminiModels, claudeGeminiStudio, geminiModel } from '../lib/modelPresets.js';
 import { fetchProviders, saveProviders, testProvider, saveClaudeAuth, saveStudioModels, saveModelDefaults, saveLaneModelDefaults, restartGateway } from '../lib/api.js';
 
 export default function ProvidersModal({ lanes = [], onClose }) {
@@ -150,7 +151,13 @@ export default function ProvidersModal({ lanes = [], onClose }) {
                     label={`Model — ${r.label}`} onChange={v => setStudioModel(r.id, v)} />
                 </div>
               ))}
-              <span className="prov-msg">{msg._studio || ''}</span>
+              <div className="prov-row" style={{ borderBottom: 0 }}>
+                <Button size="sm" disabled={!claudeGeminiStudio(info)} title={geminiModel(info) ? '' : 'Nhập key Gemini và bấm Kiểm tra trước'}
+                  onClick={async () => { const m = claudeGeminiStudio(info); for (const [r, v] of Object.entries(m)) await setStudioModel(r, v); }}>
+                  Bộ Claude + Gemini
+                </Button>
+                <span className="prov-msg">{msg._studio || 'PM, Thiết kế: Gemini · Kiến trúc sư: Claude Sonnet'}</span>
+              </div>
             </fieldset>
           )}
           {Object.entries(info.providers).map(([id, p]) => (
@@ -228,6 +235,19 @@ export default function ProvidersModal({ lanes = [], onClose }) {
             </div>
           )}
 
+          {currentModelValue && (
+            <div className="prov-preset">
+              <Button size="sm" variant="primary" disabled={!geminiModel(info)}
+                title={geminiModel(info) ? '' : 'Nhập key Gemini và bấm Kiểm tra trước'}
+                onClick={() => handleModelChange(claudeGeminiModels(info, currentModelValue))}>
+                Bộ Claude + Gemini (tiết kiệm token)
+              </Button>
+              <span className="prov-msg">
+                Claude Sonnet: phiên chính, code, kiến trúc, QC trình duyệt, kiểm định cuối · {geminiModel(info).replace('gemini:', 'Gemini ') || 'Gemini'}: PM, BA, thiết kế, test, phản biện plan, review code.
+                Áp cho {scope === 'global' ? 'mặc định chung (mọi lane không có cấu hình riêng)' : `riêng lane ${scope}`} — bấm Lưu để giữ.
+              </span>
+            </div>
+          )}
           {currentModelValue && <StepModels info={info} value={currentModelValue} onChange={handleModelChange} />}
           <p className="m-hint">Key chỉ lưu trên máy này (config/providers.json). Bạn có thể đặt model mặc định chung hoặc cấu hình mỗi Lane chạy bộ model riêng biệt.</p>
         </>

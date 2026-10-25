@@ -63,12 +63,14 @@ try {
   const before = (await api('GET', `/api/lane/${LANE}/pipeline`)).body;
   ok(before.override === null && before.effective.source !== 'lane', `lane ${LANE} follows ${before.effective.source}`);
   await p.reload(); await p.waitForSelector('.sb-user');
+  // Open the lane's own project so its lanes are listed (LANE_PROJECT, default HRM-GMS).
   await p.locator('.top-project-badge-btn').click();
-  await p.locator('.top-dd-name', { hasText: 'Tất cả dự án' }).click();
+  await p.getByRole('option', { name: new RegExp(process.env.LANE_PROJECT || 'HRM-GMS') }).first().click();
   // "Lanes" in the sidebar toggles its list: open it only when it is closed.
-  const laneItem = p.locator('.sb-sub-lane-item', { hasText: new RegExp(`Lane ${LANE}\\b`) });
+  const laneItem = p.locator('.sb-sub-lane-item').filter({ has: p.locator('.sb-sub-lane-name', { hasText: new RegExp(`^Lane ${LANE}$`) }) });
+  await p.waitForTimeout(1500);   // the sidebar re-renders for the new project choice
   if (!(await laneItem.count())) await p.locator('.sb-nav-item', { hasText: 'Lanes' }).click();
-  await p.locator('.sb-sub-lane-item', { hasText: new RegExp(`Lane ${LANE}\\b`) }).first().click();
+  await laneItem.first().click();
   await p.getByRole('button', { name: `Thao tác lane ${LANE}` }).first().click();
   await p.getByRole('menuitem', { name: 'Quy trình của lane' }).click();
   const m = p.locator('.modal-panel');
