@@ -54,8 +54,9 @@ export default function CreateProject({ s, act }) {
   };
   useEffect(() => () => clearTimeout(pending.current), []);
 
-  if (s.project) return <p className="muted-empty">Dự án đã được tạo — xem tab Plan → Code.</p>;
-  if (s.stage !== 'create') return <p className="muted-empty">Duyệt các bước trước để tới bước tạo dự án.</p>;
+  const note = text => <div className="st-doc-content st-create-scroll"><p className="muted-empty">{text}</p></div>;
+  if (s.project) return note('Dự án đã được tạo — xem tab Plan → Code.');
+  if (s.stage !== 'create') return note('Duyệt các bước trước để tới bước tạo dự án.');
 
   const stackName = id => { const st = findStack(catalog, id); return st ? `${st.languageLabel} · ${st.label}` : id; };
   const problem = !name.trim() ? 'Nhập tên dự án' : !SLUG_RE.test(slug) ? 'Slug: 3–40 ký tự chữ thường, số, gạch ngang' : workflowProblem(workflow)
@@ -69,6 +70,8 @@ export default function CreateProject({ s, act }) {
   };
 
   return (
+    <>
+    <div className="st-doc-content st-create-scroll">
     <div className="wz-fields st-create">
       <div className="wz-review-pills">
         <span className="wz-pill">{advice?.kind === 'fullstack' ? `backend/ ${stackName(advice?.stack)}` : stackName(advice?.stack)}</span>
@@ -85,15 +88,6 @@ export default function CreateProject({ s, act }) {
       </div>
       {catalog && <GitStep git={git} slug={slug} providers={catalog.providers} onChange={g => setGit(x => ({ ...x, ...g }))}
         onProviders={p => setCatalog(c => ({ ...c, providers: p }))} />}
-      <div className="st-wf-head">
-        <span className="form-label">Quy trình làm tính năng</span>
-        <span className="faint" role="status">
-          {s.busy ? 'AI đang sửa quy trình…' : saveState === 'saving' ? 'Đang lưu…' : saveState === 'saved' ? 'Đã lưu' : saveState}
-        </span>
-      </div>
-      <p className="st-wf-hint">Nhắn trong khung chat để AI chỉnh (vd “bước Test dùng Haiku, tối đa 30 phút”), hoặc bấm vào từng bước để tự sửa.</p>
-      {s.docs.workflowError && <p className="m-err">{s.docs.workflowError}</p>}
-      <div className="card-panel wz-wf"><WorkflowEditor value={workflow} onChange={setWorkflow} disabled={s.busy} /></div>
       {git.provider === 'local' && (
         <label className="wz-check">
           <input type="checkbox" checked={demo} onChange={e => setDemo(e.target.checked)} />
@@ -104,10 +98,22 @@ export default function CreateProject({ s, act }) {
         <input type="checkbox" checked={aiTeam} onChange={e => setAiTeam(e.target.checked)} />
         <span>Giao <b>AI Manager</b> soạn luật đội AI từ các tài liệu đã duyệt (bạn duyệt trước khi dùng)</span>
       </label>
-      <div className="st-approve">
-        <Button variant="primary" icon={Rocket} disabled={busy || s.busy || !!problem} onClick={create}>{busy ? 'Đang gửi…' : 'Tạo dự án'}</Button>
-        {problem && <span className="faint">{problem}</span>}
+      <div className="st-wf-head">
+        <span className="form-label">Quy trình làm tính năng</span>
+        <span className="faint" role="status">
+          {s.busy ? 'AI đang sửa quy trình…' : saveState === 'saving' ? 'Đang lưu…' : saveState === 'saved' ? 'Đã lưu' : saveState}
+        </span>
       </div>
+      <p className="st-wf-hint">Nhắn trong khung chat để AI chỉnh (vd “bước Test dùng Haiku, tối đa 30 phút”), hoặc bấm vào từng bước để tự sửa.</p>
+      {s.docs.workflowError && <p className="m-err">{s.docs.workflowError}</p>}
+      <div className="card-panel wz-wf"><WorkflowEditor value={workflow} onChange={setWorkflow} disabled={s.busy} /></div>
     </div>
+    </div>
+    {/* Always in reach, like the approval bar of the earlier steps (the workflow above is long). */}
+    <div className="st-approve-bar st-create-bar">
+        <Button variant="primary" icon={Rocket} disabled={busy || s.busy || !!problem} onClick={create}>{busy ? 'Đang gửi…' : 'Tạo dự án'}</Button>
+        <span className="faint" role="status">{problem || (demo && git.provider === 'local' ? 'Demo trên máy · ' : '') + (aiTeam ? 'AI Manager soạn luật sau khi tạo' : 'Không giao AI Manager')}</span>
+    </div>
+    </>
   );
 }

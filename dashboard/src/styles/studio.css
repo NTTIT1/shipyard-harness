@@ -1330,3 +1330,8 @@
 .st-fail-actions { display: grid; gap: 8px; margin: 12px 0 }
 .st-fail-log { max-height: 180px }
 .st-app-link { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; font-size: 12.5px }
+/* "Tạo dự án" sits in the pane's bottom bar (outside the scroll), like the earlier steps' approval bar. */
+.st-create-bar { justify-content: flex-start; flex-wrap: wrap }
+/* Plan → Code: actions sized to their label, not stretched across the pane. */
+.st-build > .btn { justify-self: start }
+@media (max-width: 560px) { .st-build > .btn { justify-self: stretch } }

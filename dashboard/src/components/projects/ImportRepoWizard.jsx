@@ -296,12 +296,14 @@ function EnvStep({ form, set }) {
       </div>
       <div className="imp-grid">
         <div className="form-field">
-          <label className="form-label" htmlFor="imp-tests">File test (để lane nhận ra thay đổi chỉ là test)</label>
+          <label className="form-label" htmlFor="imp-tests">File test</label>
           <input id="imp-tests" className="mono" value={form.testPaths} maxLength={300} placeholder="vd tests/ *.test.ts" onChange={e => set({ testPaths: e.target.value })} />
+          <p className="wz-hint">Để lane nhận ra lần sửa chỉ đụng tới test.</p>
         </div>
         <div className="form-field">
-          <label className="form-label" htmlFor="imp-image">Image OpenHands (nếu dùng OpenHands để code)</label>
+          <label className="form-label" htmlFor="imp-image">Image OpenHands</label>
           <input id="imp-image" className="mono" value={form.image} maxLength={200} placeholder="vd php:8.3-cli" onChange={e => set({ image: e.target.value })} />
+          <p className="wz-hint">Chỉ cần khi code bằng OpenHands.</p>
         </div>
       </div>
     </div>
@@ -334,7 +336,7 @@ function Review({ form, warnings }) {
           : <span className="faint"> — chưa khai báo</span>}
       </div>
       {warnings.length > 0 && (
-        <div className="wz-err imp-warn" role="status">
+        <div className="imp-warn" role="status">
           <AlertTriangle size={16} aria-hidden="true" />
           <ul>{warnings.map(w => <li key={w}>{w}</li>)}</ul>
         </div>

@@ -33,11 +33,8 @@ export default function DocPanel({ s, tab, act, onOpenProject, chatOpen = true, 
             <UiStageView docs={docs} />
           </DocStage>
         )}
-        {tab === 'create' && (
-          <div className="st-doc-content st-create-scroll">
-            <CreateProject s={s} act={act} />
-          </div>
-        )}
+        {/* CreateProject renders its scrolling form and its bottom bar (same layout as DocStage). */}
+        {tab === 'create' && <CreateProject s={s} act={act} />}
         {tab === 'build' && (
           <div className="st-doc-content st-build-scroll">
             <Build s={s} act={act} onOpenProject={onOpenProject} />

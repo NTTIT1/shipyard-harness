@@ -408,7 +408,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
               </div>
             )}
           </div>
-          {problem && cur !== 'review' && <p className="wz-hint">{problem}</p>}
+          {problem && cur !== 'review' && <p className="wz-hint warn">{problem}</p>}
         </div>
       )}
     </Modal>
