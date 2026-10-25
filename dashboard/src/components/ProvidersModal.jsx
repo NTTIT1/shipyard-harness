@@ -119,12 +119,12 @@ export default function ProvidersModal({ lanes = [], onClose }) {
   const isCustomForScope = scope !== 'global' && laneDefs[scope] && !laneDefs[scope].reset;
 
   return (
-    <Modal wide title="Nhà cung cấp AI & Cấu hình Model theo Lane" onClose={onClose}
+    <Modal wide title="Nhà cung cấp AI" onClose={onClose}
       buttons={[{ label: 'Đóng', fn: onClose, disabled: busy }, { label: busy ? 'Đang lưu…' : 'Lưu', cls: 'add', fn: save, disabled: busy || !info }]}>
       {!info ? <p className="m-text">Đang tải…</p> : (
         <>
           <fieldset className="prov-auth">
-            <legend className="prov-name">Claude chạy bằng</legend>
+            <legend className="prov-sec-h">Claude chạy bằng</legend>
             {[
               ['login', 'Tài khoản Claude đăng nhập trên máy', 'Mặc định. Không dùng API key.'],
               ['api_key', 'API key Anthropic khi có', 'Có key hợp lệ (sk-ant-api…) thì dùng key; chưa có key, key sai hoặc hết tiền thì tự quay về tài khoản đăng nhập.'],
@@ -140,26 +140,9 @@ export default function ProvidersModal({ lanes = [], onClose }) {
               {info.claude_auth?.why ? ` — ${info.claude_auth.why}` : ''}
             </p>
           </fieldset>
-          {info.studio_roles && (
-            <fieldset className="prov-auth">
-              <legend className="prov-name">Chat ý tưởng</legend>
-              <p className="prov-msg" style={{ margin: 0 }}>Model của từng vai trong <b>Ý tưởng sản phẩm</b>. Riêng cho chat ý tưởng — không đổi model của các lane. Model không phải Claude chạy qua cổng LiteLLM, không tốn hạn mức Claude.</p>
-              {info.studio_roles.map(r => (
-                <div className="prov-row" key={r.id} style={{ borderBottom: 0, padding: '2px 0' }}>
-                  <span className="prov-name" style={{ width: 'auto', minWidth: 260, fontWeight: 500 }}>{r.label}</span>
-                  <ModelSelect id={`studio-${r.id}`} value={info.studio_models?.[r.id] || ''} info={info} openhands={false}
-                    label={`Model — ${r.label}`} onChange={v => setStudioModel(r.id, v)} />
-                </div>
-              ))}
-              <div className="prov-row" style={{ borderBottom: 0 }}>
-                <Button size="sm" disabled={!claudeGeminiStudio(info)} title={geminiModel(info) ? '' : 'Nhập key Gemini và bấm Kiểm tra trước'}
-                  onClick={async () => { const m = claudeGeminiStudio(info); for (const [r, v] of Object.entries(m)) await setStudioModel(r, v); }}>
-                  Bộ Claude + Gemini
-                </Button>
-                <span className="prov-msg">{msg._studio || 'PM, Thiết kế: Gemini · Kiến trúc sư: Claude Sonnet'}</span>
-              </div>
-            </fieldset>
-          )}
+          <section className="prov-sec" aria-labelledby="prov-keys-h">
+          <h3 className="prov-sec-h" id="prov-keys-h">Khoá API nhà cung cấp</h3>
+          <p className="prov-sec-sub">Cần cho mọi model không phải Claude (Gemini, OpenAI…) và cho OpenHands. Nhập key rồi bấm <b>Kiểm tra</b> để tải danh sách model.</p>
           {Object.entries(info.providers).map(([id, p]) => (
             <div className="prov-row" key={id}>
               <span className="prov-name">{p.label}</span>
@@ -189,15 +172,39 @@ export default function ProvidersModal({ lanes = [], onClose }) {
           </div>
           <div className="prov-row">
             <span className="prov-name">Gateway</span>
-            <span className={info.gateway.running ? 'prov-ok' : 'prov-msg'}>{info.gateway.running ? '● đang chạy :4000' : '○ chưa chạy (tự bật khi cần)'}</span>
+            <span className={info.gateway.running ? 'prov-ok' : 'prov-msg'}>
+              <span className={`prov-dot${info.gateway.running ? ' on' : ''}`} aria-hidden="true" />
+              {info.gateway.running ? 'Cổng LiteLLM đang chạy (:4000)' : 'Cổng LiteLLM chưa chạy — tự bật khi cần'}
+            </span>
             <Button size="sm" onClick={gw}>Khởi động lại</Button>
             <span className="prov-msg">{msg._gw || ''}</span>
           </div>
+          </section>
 
+          {info.studio_roles && (
+            <section className="prov-sec" aria-labelledby="prov-studio-h">
+              <h3 className="prov-sec-h" id="prov-studio-h">Chat ý tưởng</h3>
+              <p className="prov-sec-sub">Model của từng vai trong <b>Ý tưởng sản phẩm</b>. Riêng cho chat ý tưởng — không đổi model của các lane. Model không phải Claude chạy qua cổng LiteLLM, không tốn hạn mức Claude.</p>
+              {info.studio_roles.map(r => (
+                <div className="prov-role" key={r.id}>
+                  <label className="prov-role-name" htmlFor={`studio-${r.id}`}>{r.label}</label>
+                  <ModelSelect id={`studio-${r.id}`} value={info.studio_models?.[r.id] || ''} info={info} openhands={false}
+                    label={`Model — ${r.label}`} onChange={v => setStudioModel(r.id, v)} />
+                </div>
+              ))}
+              <div className="prov-role-actions">
+                <Button size="sm" disabled={!claudeGeminiStudio(info)} title={geminiModel(info) ? '' : 'Nhập key Gemini và bấm Kiểm tra trước'}
+                  onClick={async () => { const m = claudeGeminiStudio(info); for (const [r, v] of Object.entries(m)) await setStudioModel(r, v); }}>
+                  Bộ Claude + Gemini
+                </Button>
+                <span className="prov-msg">{msg._studio || 'PM, Thiết kế: Gemini · Kiến trúc sư: Claude Sonnet'}</span>
+              </div>
+            </section>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 16, marginBottom: 8 }}>
-            <div className="m-l" style={{ margin: 0 }}>
-              Cấu hình AI cho từng bước — {scope === 'global' ? 'Mặc định chung' : `Riêng Lane ${scope}`}
-            </div>
+            <h3 className="prov-sec-h" style={{ margin: 0 }}>
+              Model từng bước của lane — {scope === 'global' ? 'Mặc định chung' : `Riêng Lane ${scope}`}
+            </h3>
             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
               <Button
                 size="sm"

@@ -115,7 +115,6 @@ export default function LinkRepoModal({ canScaffold, onClose, onCreated, onOpenW
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
-            <Button type="button" variant="ghost" onClick={onClose}>Huỷ</Button>
             <Button type="submit" variant="primary" icon={Plus} disabled={busy}>
               {busy ? 'Đang tạo…' : 'Liên kết dự án'}
             </Button>

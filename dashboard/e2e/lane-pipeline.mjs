@@ -74,22 +74,22 @@ try {
   await p.getByRole('button', { name: `Thao tác lane ${LANE}` }).first().click();
   await p.getByRole('menuitem', { name: 'Quy trình của lane' }).click();
   const m = p.locator('.modal-panel');
-  await m.getByText(/Lane đang chạy theo/).waitFor();
-  await m.getByRole('checkbox', { name: /Lane này dùng quy trình riêng/ }).check();
+  await m.getByText(/Đang chạy theo/).waitFor();
+  await m.getByRole('checkbox', { name: /Dùng quy trình riêng cho lane này/ }).check();
   await m.getByRole('checkbox', { name: /Kiểm định GO\/NO-GO/ }).uncheck();
   await m.getByRole('checkbox', { name: /Mở pull request/ }).uncheck();
   ok(await m.getByText('Sau khi merge').count() === 0, 'no PR: the after-merge part disappears');
   await shot(p, 'pl2-lane');
-  await m.getByRole('button', { name: 'Lưu quy trình của lane' }).click();
-  await m.getByText('Đã lưu — lane áp dụng từ bước tiếp theo nó chạy tới.').waitFor();
+  await m.getByRole('button', { name: 'Lưu', exact: true }).click();
+  await m.getByText(/Đã lưu — lane áp dụng/).first().waitFor();
   const saved = JSON.parse(fs.readFileSync(OVERRIDE, 'utf8'));
   ok(saved.seniorGate === false && saved.openPr === false, 'override saved for the lane');
   const eff = (await api('GET', `/api/lane/${LANE}/pipeline`)).body.effective;
   ok(eff.source === 'lane' && eff.openPr === false && eff.seniorGate === false, 'the lane now runs its own pipeline');
-  ok(await m.getByText(/Lane đang chạy theo riêng của lane này/).count() === 1, 'the modal says which pipeline the lane runs');
-  await m.getByRole('checkbox', { name: /Lane này dùng quy trình riêng/ }).uncheck();
-  await m.getByRole('button', { name: 'Theo dự án' }).click();
-  await m.getByText(/Lane đang chạy theo (mặc định của dự án|cấu hình gốc của profile)/).waitFor();
+  ok(await m.getByText(/riêng của lane này/).count() === 1, 'the modal says which pipeline the lane runs');
+  await m.getByRole('checkbox', { name: /Dùng quy trình riêng cho lane này/ }).uncheck();
+  await m.getByRole('button', { name: 'Lưu', exact: true }).click();
+  await m.getByText(/(mặc định của dự án|cấu hình gốc của profile)/).waitFor();
   ok(!fs.existsSync(OVERRIDE), 'override removed — the lane follows its project again');
 } finally {
   if (!process.env.KEEP) {

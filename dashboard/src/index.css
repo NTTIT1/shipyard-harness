@@ -241,3 +241,14 @@ table.rv a { display: inline-flex; align-items: center; gap: 4px }
 }
 .prov-preset { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 10px }
 .prov-preset .prov-msg { flex: 1 1 280px }
+/* Providers window: four sections in the order they are needed (account, keys, idea chat, lane steps). */
+.prov-sec { display: grid; gap: 6px; padding: 14px 0 12px; border-bottom: 1px solid var(--border); min-width: 0 }
+.prov-sec-h { margin: 0; padding: 0; font-size: 14px; font-weight: 600; color: var(--text) }
+.prov-sec-sub { margin: 0 0 4px; font-size: 12.5px; color: var(--text-muted); line-height: 1.5 }
+.prov-sec .prov-row:last-child { border-bottom: 0 }
+.prov-role { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); align-items: center; gap: 12px; padding: 2px 0 }
+.prov-role-name { font-size: 13px; color: var(--text) }
+.prov-role-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 6px }
+.prov-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); margin-right: 2px }
+.prov-dot.on { background: var(--ok-text) }
+@media (max-width: 560px) { .prov-role { grid-template-columns: minmax(0, 1fr) } }

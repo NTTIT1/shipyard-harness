@@ -450,4 +450,26 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .pl-warn svg { flex: none; margin-top: 2px }
 .pl-summary { margin: 0; font-size: 12.5px; color: var(--text-muted); overflow-wrap: anywhere }
 .pl-now { display: grid; gap: 4px; margin: 0; padding: 10px 12px; background: var(--bg-subtle); border-radius: var(--radius-sm) }
-.pl-h { margin: 6px 0 6px; font-size: 13.5px; font-weight: 600 }
+.pl-h { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--text) }
+.pl-sub { margin: 0 0 10px; font-size: 12.5px; color: var(--text-muted) }
+.pl-now .pl-sub { margin: 0 }
+.pl-sec { display: grid; gap: 10px; min-width: 0 }
+.pl-sec > .pl-h + .pl-sub { margin-top: -6px }
+.pl-sec + .pl-sec { padding-top: 18px; border-top: 1px solid var(--border) }
+/* PipelineEditor: groups clearly apart (more space above a group than inside it); the merge choice
+   wraps instead of overflowing, and stacks on a phone. */
+.pl .wfi-group { margin-top: 16px }
+.pl .wfi-group:first-child { margin-top: 0 }
+.pl .wf-mode { display: flex; max-width: 100% }
+.pl .wf-mode label { flex: 1 1 auto; justify-content: center; text-align: center; white-space: normal }
+@media (max-width: 520px) {
+  .pl .wf-mode { flex-direction: column; justify-self: stretch; width: 100% }
+  .pl .wf-mode label + label { border-left: 0; border-top: 1px solid var(--border-strong) }
+}
+/* Press feedback on the option cards: on pointer-down, instant and small (apple-design §1). */
+.pl-check, .prov-auth-opt, .imp-db-opt { transition: transform 100ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out }
+.pl-check:active, .prov-auth-opt:active, .imp-db-opt:active { transform: scale(.99) }
+@media (prefers-reduced-motion: reduce) {
+  .pl-check, .prov-auth-opt, .imp-db-opt { transition: none }
+  .pl-check:active, .prov-auth-opt:active, .imp-db-opt:active { transform: none }
+}
