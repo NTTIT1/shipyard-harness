@@ -35,6 +35,7 @@ install_lane() {
   DQM="${DEV_QC_MCP:-}" TKM="${TRACKER_MCP:-}" \
   DEV_EMAIL="$dev_email" DEV_PW="$dev_pw" \
   LOCAL_EMAIL="${SEED_USER_EMAIL:-}" LOCAL_PW="${SEED_USER_PASSWORD:-}" \
+  QC_ACCOUNTS_FILE="$PROFILE_DIR/qc-accounts.txt" \
   TRACKER_EMAIL="${TRACKER_EMAIL:-}" TRACKER_PW="${TRACKER_PASSWORD:-}" \
   FE_PORT="$(lane_fe_port "$N")" \
   QC_UPLOAD_FIXTURES="${QC_UPLOAD_FIXTURES_DIR:-}" \
@@ -80,9 +81,33 @@ def with_fixtures(blk):
         return blk + line
     return "## ⚙ This lane's QC upload fixtures (machine-generated)\n\n" + line
 
-blocks["qc-local.md"] = with_fixtures(creds_block(
-    "local-QC credentials", os.environ["LOCAL_EMAIL"], os.environ["LOCAL_PW"],
-    f"http://localhost:{os.environ['FE_PORT']}"))
+def qc_accounts():
+    # profiles/<project>/qc-accounts.txt (local, never committed): one account per line,
+    # "role | email | password"; '#' comments. Lets browser QC test every role of the app.
+    try:
+        lines = open(os.environ.get("QC_ACCOUNTS_FILE", "")).read().splitlines()
+    except OSError:
+        return []
+    out = []
+    for l in lines:
+        parts = [x.strip() for x in l.split("|")]
+        if l.strip() and not l.lstrip().startswith("#") and len(parts) == 3 and all(parts):
+            out.append(parts)
+    return out
+
+accounts = qc_accounts()
+site = f"http://localhost:{os.environ['FE_PORT']}"
+if accounts:
+    role, email, pw = accounts[0]
+    more = "".join(f"- **{r}:** {e} / {p}\n" for r, e, p in accounts)
+    blocks["qc-local.md"] = with_fixtures(creds_block(
+        "local-QC credentials", email, pw, site,
+        extra=("The app has one account per role — log in as EACH role the feature touches "
+               "(log out, then log in as the next) and check what each role may and may not do:\n"
+               + more + "\n")))
+else:
+    blocks["qc-local.md"] = with_fixtures(creds_block(
+        "local-QC credentials", os.environ["LOCAL_EMAIL"], os.environ["LOCAL_PW"], site))
 
 if os.environ.get("DEV_QC_ENABLED") == "1":
     blk = creds_block("dev-QC credentials", os.environ["DEV_EMAIL"], os.environ["DEV_PW"],
