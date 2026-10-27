@@ -48,11 +48,12 @@ export const FEATURE_MODES = [
   { id: 'full', label: 'Làm đầy đủ — tài liệu, code, kiểm tra' },
   { id: 'docs', label: 'App đã có — chỉ tài liệu + QC chụp ảnh, không sửa code' },
 ];
-const DOCS_ONLY = 'CHẾ ĐỘ APP ĐÃ CÓ: repo đã có app chạy được. Chỉ đọc code và viết tài liệu (spec, plan, tasks) mô tả đúng '
-  + 'những gì app đang có cho tính năng này, đánh dấu tasks "đã có sẵn". KHÔNG sửa code. Sau đó bật app của lane, QC trên '
-  + 'trình duyệt với mọi tài khoản vai trò và chụp ảnh các màn chính làm bằng chứng; lỗi thấy được thì ghi vào tài liệu '
-  + 'mục "Lỗi phát hiện", không sửa. Tài liệu nộp qua các bước duyệt như thường (người duyệt xem và duyệt trên dashboard). '
-  + 'Rồi gộp tài liệu vào nhánh tích hợp trên máy. Không hỏi lại về hướng làm.';
+const DOCS_ONLY = 'CHẾ ĐỘ APP ĐÃ CÓ: repo đã có app chạy được cho tính năng này. Đi ĐỦ quy trình role của dự án '
+  + '(orch.sh next/submit), mỗi tài liệu nộp để người duyệt xem trên dashboard: PM viết spec.md, ARCH viết plan.md + '
+  + 'tasks.md — mô tả đúng những gì code đang có (đọc code), tasks đánh dấu "đã có sẵn". DEV: KHÔNG sửa code, chỉ '
+  + 'xác nhận code khớp tài liệu. TEST + QC trình duyệt với mọi tài khoản vai trò, chụp ảnh các màn chính; lỗi thấy '
+  + 'được ghi vào spec.md mục "Lỗi phát hiện", không sửa. Cuối cùng gộp tài liệu vào nhánh tích hợp trên máy. '
+  + 'Không hỏi lại về hướng làm.';
 
 export function featureRequirement(feature, project, mode = 'full') {
   // The first line names the feature: it becomes the lane's feature title.
