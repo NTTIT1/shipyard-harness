@@ -2,14 +2,17 @@ import { spawnSync } from 'child_process';
 import path from 'path';
 import { createApp } from './app.js';
 import { BIN } from './services/config.js';
-import { configureSessions, stopAll } from './services/sessions.js';
+import { configureSessions, stopAll, restoreLimitWakes } from './services/sessions.js';
 import { AUTH_ENABLED, PLATFORM_URL, usingDevSecret } from './services/auth.js';
 import { bindProblem, lanUrls } from './services/lan.js';
 
 // needs_action lives in lane state so the cards/header badge it like any other ask.
 configureSessions({
   setNeedsAction: (n, v) => spawnSync('bash', [path.join(BIN, 'state.sh'), String(n), 'set', `needs_action=${v}`], { timeout: 15000 }),
+  setNotes: (n, v) => spawnSync('bash', [path.join(BIN, 'state.sh'), String(n), 'set', `notes=${v}`], { timeout: 15000 }),
+  laneStatus: n => (spawnSync('bash', [path.join(BIN, 'state.sh'), String(n), 'get', 'status'], { encoding: 'utf8', timeout: 15000 }).stdout || '').trim(),
 });
+restoreLimitWakes();
 
 const port = parseInt(process.argv[2] || process.env.DASHBOARD_PORT || '8090', 10);
 // DASHBOARD_HOST=0.0.0.0 shares it on the LAN (config/local.env); default stays loopback-only.

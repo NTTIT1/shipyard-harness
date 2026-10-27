@@ -6,7 +6,8 @@ import { query as sdkQuery } from '@anthropic-ai/claude-agent-sdk';
 import { HARNESS_ROOT, LANES_ROOT } from './config.js';
 import { readProviders, claudeEnv, claudeAuthFailed, CLAUDE_AUTH_ERR } from './providers.js';
 import { gatewayEnv } from './airoute.js';
-import { recordSessionResult, recordRateLimit, readLaneContext } from './usage.js';
+import { recordSessionResult, recordRateLimit, readLaneContext, readPlan } from './usage.js';
+import { LIMIT_RE, wakeTime, resetFromPlan, hhmm } from './limitwake.js';
 
 // One Agent SDK session per lane, driving /ship-feature. Streaming input keeps the
 // session open across turns, so background tasks (run-step.sh, sleeps) re-invoke
@@ -22,6 +23,10 @@ let deps = {
   claudeEnv,
   gatewayEnv,
   authFailed: claudeAuthFailed,
+  setNotes: () => {},
+  laneStatus: () => '',
+  readPlan,
+  now: () => new Date(),
 };
 
 /** bin/team_rules.py output for a lane checkout ('' when the project has no AI team or on error). */
@@ -36,8 +41,10 @@ const lanesRoot = () => process.env.LANES_ROOT || LANES_ROOT;
 const runDir = n => path.join(root(), 'run', `lane${n}`);
 const chatFile = n => path.join(runDir(n), 'chat.jsonl');
 const sessionFile = n => path.join(runDir(n), 'session.json');
+const wakeFile = n => path.join(runDir(n), 'limit-wake.json');
 
 const live = new Map();      // n -> { q, input, pending }
+const wakes = new Map();     // n -> timer of the wake-up after a Claude usage limit
 const listeners = new Map(); // n -> Set<fn>
 const seqs = new Map();
 
@@ -128,6 +135,7 @@ async function canUseTool(n, name, input, { signal }) {
 
 export function startSession(n, { model, effort, prompt, resume }) {
   if (live.has(n)) throw new Error('busy');
+  cancelLimitWake(n);
   const input = new InputQueue();
   if (prompt) input.push(prompt);
   // "claude:<id>" / "<id>" = Claude on this machine's account (or API key); "<provider>:<model>" (Gemini…)
@@ -168,6 +176,7 @@ export function startSession(n, { model, effort, prompt, resume }) {
         }
         try { trackUsage(n, m); } catch { /* accounting must never break the lane */ }
         if (m.type === 'result' && m.is_error) keyFailed(m.result);
+        if (m.type === 'result') onTurnEnd(n, m);
         for (const ev of simplify(m)) emit(n, ev);
       }
     } catch (e) {
@@ -186,9 +195,78 @@ function trackUsage(n, m) {
   if (m.type === 'result' && m.modelUsage && m.session_id) recordSessionResult(n, m.session_id, m.modelUsage, deps.laneContext(n) || {});
 }
 
+/**
+ * A turn that ended on Claude's usage limit — the session's own reply says so, or the lane is blocked
+ * while the plan's window is refused (a role step died of it) — wakes the lane when the window resets.
+ */
+function onTurnEnd(n, m) {
+  const text = String(m.result || '');
+  const plan = deps.readPlan();
+  const refused = !!resetFromPlan(plan, deps.now());
+  if (!LIMIT_RE.test(text) && !(refused && deps.laneStatus(n) === 'blocked')) return;
+  scheduleLimitWake(n, wakeTime(text, plan, deps.now()));
+}
+
+/** Wake lane n at `at` (persisted, so a dashboard restart keeps it). */
+export function scheduleLimitWake(n, at) {
+  fs.mkdirSync(runDir(n), { recursive: true });
+  fs.writeFileSync(wakeFile(n), JSON.stringify({ at: at.toISOString() }) + '\n');
+  deps.setNotes(n, `Hết lượt Claude — tự chạy lại lúc ${hhmm(at)}`);
+  emit(n, { kind: 'system', text: `Tài khoản Claude hết lượt — dashboard sẽ tự chạy tiếp lane lúc ${hhmm(at)}.` });
+  arm(n, at.getTime() - deps.now().getTime());
+}
+
+function arm(n, ms) {
+  clearTimeout(wakes.get(n));
+  const t = setTimeout(() => wakeLane(n), Math.max(0, ms));
+  t.unref?.();
+  wakes.set(n, t);
+}
+
+export function cancelLimitWake(n) {
+  clearTimeout(wakes.get(n));
+  wakes.delete(n);
+  try { fs.rmSync(wakeFile(n), { force: true }); } catch { /* nothing to cancel */ }
+}
+
+export function limitWakeAt(n) {
+  try { return JSON.parse(fs.readFileSync(wakeFile(n), 'utf8')).at || null; } catch { return null; }
+}
+
+// A resume nudge, never an approval: a spec waiting for the human (Stage 0c) stays waiting.
+const WAKE_MSG = 'Lượt dùng Claude đã hồi — dashboard tự đánh thức lane sau khi hết lượt (đây KHÔNG phải người duyệt). '
+  + 'Đọc lại lane state và làm tiếp đúng bước đang dở; bước nào đã chết vì hết lượt thì chạy lại bước đó. '
+  + 'Đang chờ người duyệt thì vẫn chờ.';
+
+function wakeLane(n) {
+  cancelLimitWake(n);
+  deps.setNotes(n, '');
+  try {
+    if (live.has(n)) { sendMessage(n, WAKE_MSG); return; }
+    const info = sessionInfo(n);
+    if (info) startSession(n, { model: info.model, effort: info.effort || undefined, prompt: WAKE_MSG, resume: info.session_id });
+  } catch (e) {
+    emit(n, { kind: 'system', text: `không tự chạy lại được: ${e.message} — gõ continue để chạy tiếp` });
+  }
+}
+
+/** Re-arm the wake-ups saved before a dashboard restart (one already due fires right away). */
+export function restoreLimitWakes() {
+  let dirs = [];
+  try { dirs = fs.readdirSync(path.join(root(), 'run')); } catch { return; }
+  for (const d of dirs) {
+    const n = Number(/^lane(\d+)$/.exec(d)?.[1]);
+    const at = n ? limitWakeAt(n) : null;
+    if (at && !Number.isNaN(new Date(at).getTime())) {
+      arm(n, Math.max(5000, new Date(at).getTime() - deps.now().getTime()));
+    }
+  }
+}
+
 export function sendMessage(n, text) {
   const s = live.get(n);
   if (!s) throw new Error('no session');
+  if (text !== WAKE_MSG) cancelLimitWake(n);
   s.input.push(text);
   emit(n, { kind: 'user', text });
 }

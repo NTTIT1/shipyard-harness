@@ -208,6 +208,7 @@ router.post(`${lanePath}/chat/answer`, wrap(async req => {
 router.post(`${lanePath}/session/stop`, wrap(async req => {
   const n = num(req);
   S.stopSession(n);
+  S.cancelLimitWake(n);   // stopped by a person: no wake-up after the usage limit either
   stateSh(n, ['set', 'notes=dừng từ dashboard']);
 }));
 router.post(`${lanePath}/session/resume`, wrap(async req => {

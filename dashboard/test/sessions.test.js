@@ -85,6 +85,50 @@ describe('sessions', () => {
     S.stopSession(3);
   });
 
+  it('a turn ending on the Claude usage limit wakes the lane when the window resets', async () => {
+    const notes = [];
+    const now = new Date(2026, 9, 26, 8, 28, 0);
+    S.configureSessions({ query: fakeQuery([{ waitInput: true }, { type: 'result', is_error: false, result: "You've hit your session limit · resets 6:50pm (Asia/Ho_Chi_Minh)" }, { waitInput: true }]),
+      setNotes: (n, v) => notes.push(v), readPlan: () => ({}), now: () => now });
+    S.startSession(8, { model: 'claude-opus-5-5', prompt: 'go' });
+    await tick();
+    const at = new Date(S.limitWakeAt(8));
+    expect([at.getHours(), at.getMinutes()]).toEqual([18, 51]);
+    expect(notes).toEqual(['Hết lượt Claude — tự chạy lại lúc 18:51']);
+    expect(S.history(8).some(e => e.kind === 'system' && /tự chạy tiếp lane lúc 18:51/.test(e.text))).toBe(true);
+    S.sendMessage(8, 'continue');            // the person nudged it first: no second wake-up
+    expect(S.limitWakeAt(8)).toBe(null);
+    S.stopSession(8);
+  });
+
+  it('the wake-up resumes the lane with a nudge that is not an approval', async () => {
+    let now = new Date(2026, 9, 26, 18, 49, 0);
+    S.configureSessions({ query: fakeQuery([{ waitInput: true }, { type: 'result', is_error: false, result: "You've hit your session limit · resets 6:50pm" }, { waitInput: true }]),
+      setNotes: () => {}, readPlan: () => ({}), now: () => now });
+    S.startSession(9, { model: 'claude-opus-5-5', prompt: 'go' });
+    await tick();
+    now = new Date(2026, 9, 26, 18, 51, 0);
+    S.scheduleLimitWake(9, new Date(now.getTime() + 10));   // due now
+    await new Promise(r => setTimeout(r, 60));
+    const nudge = S.history(9).filter(e => e.kind === 'user').at(-1).text;
+    expect(nudge).toMatch(/Lượt dùng Claude đã hồi/);
+    expect(nudge).toMatch(/KHÔNG phải người duyệt/);
+    expect(S.limitWakeAt(9)).toBe(null);
+    S.stopSession(9);
+  });
+
+  it('a lane blocked while the plan window is refused also waits for the reset', async () => {
+    const now = new Date('2026-10-26T01:00:00Z');
+    S.configureSessions({ query: fakeQuery([{ waitInput: true }, { type: 'result', is_error: false, result: 'Bước ARCH chưa chạy được — lỗi nhà cung cấp.' }, { waitInput: true }]),
+      setNotes: () => {}, laneStatus: () => 'blocked', now: () => now,
+      readPlan: () => ({ five_hour: { status: 'rejected', resetsAt: '2026-10-26T06:50:00.000Z' } }) });
+    S.startSession(10, { model: 'claude-opus-5-5', prompt: 'go' });
+    await tick();
+    expect(S.limitWakeAt(10)).toBe('2026-10-26T06:51:00.000Z');
+    S.cancelLimitWake(10);
+    S.stopSession(10);
+  });
+
   it('refuses a second session on a busy lane', async () => {
     S.configureSessions({ query: fakeQuery([{ waitInput: true }]) });
     S.startSession(4, { model: 'claude-opus-5-5', prompt: 'a' });
