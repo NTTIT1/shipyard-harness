@@ -54,14 +54,14 @@ doc = {
   "stage_since": datetime.datetime.now(datetime.timezone.utc).isoformat(),
   "notes": "",
 }
-# The dashboard's assign writes models/impl_agents and status=assigned, then
+# The dashboard's assign writes models/impl_agents/gate_overrides/effort and status=assigned, then
 # /ship-feature's Stage 0 runs init again — carry the choice across that init.
 try:
     old = json.load(open(path))
 except Exception:
     old = {}
 if old.get("status") == "assigned":
-    for k in ("models", "impl_agents"):
+    for k in ("models", "impl_agents", "gate_overrides", "effort", "assigned_by"):
         if k in old:
             doc[k] = old[k]
 atomic_write(path, doc)

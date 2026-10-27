@@ -82,6 +82,10 @@ st 3 set-json models '{"main":"claude:claude-sonnet-5-5"}' >/dev/null
 st 3 init >/dev/null
 assert_eq '{"main": "claude:claude-sonnet-5-5"}' "$(st 3 get models)" "init keeps models when status was assigned"
 assert_eq "3" "$(st 3 get impl_agents)" "init keeps impl_agents when status was assigned"
+st 3 set status=assigned >/dev/null
+st 3 set-json gate_overrides '{"PM": "REQUIRED", "ARCH": "REQUIRED"}' >/dev/null
+st 3 init >/dev/null
+assert_eq '{"PM": "REQUIRED", "ARCH": "REQUIRED"}' "$(st 3 get gate_overrides)" "init keeps the per-feature review choices when status was assigned"
 st 3 set status=running >/dev/null
 st 3 init >/dev/null
 assert_eq "" "$(st 3 get models)" "init drops models when status was not assigned"
