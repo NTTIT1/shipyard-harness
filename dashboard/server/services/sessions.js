@@ -177,6 +177,7 @@ export function startSession(n, { model, effort, prompt, resume }) {
         try { trackUsage(n, m); } catch { /* accounting must never break the lane */ }
         if (m.type === 'result' && m.is_error) keyFailed(m.result);
         if (m.type === 'result') onTurnEnd(n, m);
+        track(n, m);
         for (const ev of simplify(m)) emit(n, ev);
       }
     } catch (e) {
@@ -298,10 +299,22 @@ export function sessionInfo(n) {
   try { return JSON.parse(fs.readFileSync(sessionFile(n), 'utf8')); } catch { return null; }
 }
 
+/** Is the session doing something: a turn in progress, or a background task it will wake up for. */
+function track(n, m) {
+  const s = live.get(n);
+  if (!s) return;
+  s.working = m.type !== 'result';
+  if (m.type === 'system' && m.subtype === 'task_notification') s.bg = Math.max(0, (s.bg || 0) - 1);
+  if (m.type === 'assistant') {
+    for (const c of m.message?.content || []) if (c.type === 'tool_use' && c.input?.run_in_background) s.bg = (s.bg || 0) + 1;
+  }
+}
+
 export function brief(n) {
   const s = live.get(n);
   return {
     session_running: !!s,
+    session_active: !!s && (!!s.working || (s.bg || 0) > 0),
     session_resumable: !s && !!sessionInfo(n),
     pending_kind: s?.pending?.kind || '',
   };

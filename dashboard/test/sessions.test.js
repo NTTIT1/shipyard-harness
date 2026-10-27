@@ -129,6 +129,21 @@ describe('sessions', () => {
     S.stopSession(10);
   });
 
+  it('knows when a session is working: mid-turn or waiting on a background task', async () => {
+    S.configureSessions({ query: fakeQuery([{ waitInput: true },
+      { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: 'run-step.sh', run_in_background: true } }] } },
+      { type: 'result', is_error: false, result: 'running in the background' }, { waitInput: true },
+      { type: 'system', subtype: 'task_notification' }, { type: 'result', is_error: false, result: 'done' }, { waitInput: true }]),
+      setNotes: () => {}, readPlan: () => ({}) });
+    S.startSession(11, { model: 'claude-opus-5-5', prompt: 'go' });
+    await tick();
+    expect(S.brief(11)).toMatchObject({ session_running: true, session_active: true });   // turn over, step still running
+    S.sendMessage(11, 'next');
+    await tick();
+    expect(S.brief(11).session_active).toBe(false);   // step done, turn over: really idle
+    S.stopSession(11);
+  });
+
   it('refuses a second session on a busy lane', async () => {
     S.configureSessions({ query: fakeQuery([{ waitInput: true }]) });
     S.startSession(4, { model: 'claude-opus-5-5', prompt: 'a' });
@@ -143,7 +158,7 @@ describe('sessions', () => {
     await tick();
     S.stopSession(5);
     await tick();
-    expect(S.brief(5)).toEqual({ session_running: false, session_resumable: true, pending_kind: '' });
+    expect(S.brief(5)).toEqual({ session_running: false, session_active: false, session_resumable: true, pending_kind: '' });
     expect(needs.at(-1)).toBe('');
     expect(S.history(5).at(-1).kind).toBe('ended');
   });

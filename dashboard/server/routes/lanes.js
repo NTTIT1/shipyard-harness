@@ -16,6 +16,9 @@ router.get('/api/lanes', async (_req, res) => {
 
     for (const l of payload.lanes) {
       Object.assign(l, brief(l.lane));
+      // No state heartbeat for a while, but its session is mid-turn or waiting on a background step:
+      // working, not lost (state heartbeats are only written between stages).
+      if (l.liveness === 'dead' && l.session_active) l.liveness = 'active';
       const lc = laneCostMap[l.lane];
       l.cost_usd = lc ? lc.usd : 0;
       l.cost_vnd = lc ? lc.vnd : 0;
