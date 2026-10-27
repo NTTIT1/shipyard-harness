@@ -43,8 +43,19 @@ export function speaker(msg, stages) {
 export const isLive = s => !!s && (s.busy || s.job?.status === 'running');
 
 /** The requirement a roadmap feature is assigned to a lane with (the lane's PM/Plan start from it). */
-export function featureRequirement(feature, project) {
+// How a lane takes a roadmap feature: build it, or (the app already exists) document what is there.
+export const FEATURE_MODES = [
+  { id: 'full', label: 'Làm đầy đủ — tài liệu, code, kiểm tra' },
+  { id: 'docs', label: 'App đã có — chỉ tài liệu + QC chụp ảnh, không sửa code' },
+];
+const DOCS_ONLY = 'CHẾ ĐỘ APP ĐÃ CÓ: repo đã có app chạy được. Chỉ đọc code và viết tài liệu (spec, plan, tasks) mô tả đúng '
+  + 'những gì app đang có cho tính năng này, đánh dấu tasks "đã có sẵn". KHÔNG sửa code. Sau đó bật app của lane, QC trên '
+  + 'trình duyệt với mọi tài khoản vai trò và chụp ảnh các màn chính làm bằng chứng; lỗi thấy được thì ghi vào tài liệu '
+  + 'mục "Lỗi phát hiện", không sửa. Rồi gộp tài liệu vào nhánh tích hợp trên máy. Không hỏi lại.';
+
+export function featureRequirement(feature, project, mode = 'full') {
   return [
+    ...(mode === 'docs' ? [DOCS_ONLY, ''] : []),
     `Tính năng "${feature.title}" của dự án ${project.name} (lộ trình đã duyệt trong Shipyard):`,
     feature.text,
     '',

@@ -11,6 +11,7 @@ import * as P from '../services/providers.js';
 import { gatewayStatus, ensureGateway, restartGateway, restartGatewayInBackground } from '../services/gateway.js';
 import * as S from '../services/sessions.js';
 import { assignLane } from '../services/assign.js';
+import { readQueue, writeQueue, startQueueTicker } from '../services/lanequeue.js';
 import { normalizeEfforts, aggregate, readAllUsage, readSettings, writeSettings, readPlan } from '../services/usage.js';
 
 const router = Router();
@@ -115,18 +116,33 @@ router.put('/api/features/models', wrap(async req => {
 }));
 router.post('/api/gateway/restart', wrap(async () => restartGateway()));
 
+const assignDeps = (n, assignedBy) => ({
+  assignedBy,
+  lane: async x => (await lanesPayload()).lanes.find(l => l.lane === x),
+  isRunning: S.isRunning,
+  ensureGateway,
+  state: args => stateSh(n, args),
+  laneUp: x => runAction(x, 'up', {}),
+  startSession: S.startSession,
+});
 router.post(`${lanePath}/assign`, wrap(async req => {
   const n = num(req);
-  return assignLane(n, req.body || {}, {
-    assignedBy: req.user?.id,
-    lane: async x => (await lanesPayload()).lanes.find(l => l.lane === x),
-    isRunning: S.isRunning,
-    ensureGateway,
-    state: args => stateSh(n, args),
-    laneUp: x => runAction(x, 'up', {}),
-    startSession: S.startSession,
-  });
+  return assignLane(n, req.body || {}, assignDeps(n, req.user?.id));
 }));
+// Features queued for the lane: the next one is given to it once it has finished the current one.
+router.get(`${lanePath}/queue`, wrap(async req => readQueue(num(req))));
+router.put(`${lanePath}/queue`, wrap(async req => writeQueue(num(req), (req.body || {}).items)));
+
+/** Started by the server: hands each lane its next queued feature when it is done. */
+export function startLaneQueues() {
+  return startQueueTicker({
+    lanes: async () => (await lanesPayload()).lanes.map(l => ({ ...l, ...S.brief(l.lane) })),
+    isRunning: S.isRunning,
+    stopSession: S.stopSession,
+    state: (n, args) => stateSh(n, args),
+    assign: (n, body) => assignLane(n, body, assignDeps(n, 'queue')),
+  });
+}
 router.get(`${lanePath}/specs`, wrap(async req => ({ specs: listSpecs(num(req)) })));
 // Change the in-flight feature's step models (e.g. after a step failed on a provider, or from Lane/Feature config).
 router.put(`${lanePath}/models`, wrap(async req => {

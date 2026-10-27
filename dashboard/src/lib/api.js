@@ -103,6 +103,8 @@ export const clearLanePipeline = n => send(`/api/lane/${n}/pipeline`, 'DELETE');
 export const saveFeatureModels = body => send('/api/features/models', 'PUT', body);
 export const restartGateway = () => send('/api/gateway/restart', 'POST', {});
 export const assignLane = (n, body) => send(`/api/lane/${n}/assign`, 'POST', body);
+export const fetchLaneQueue = async n => checked(await authFetch(`/api/lane/${n}/queue`));
+export const saveLaneQueue = (n, items) => send(`/api/lane/${n}/queue`, 'PUT', { items });
 export const fetchSpecs = n => send(`/api/lane/${n}/specs`, 'GET');
 export const saveLaneModels = (n, models, effort, extra = {}) => send(`/api/lane/${n}/models`, 'PUT', { models, effort, ...extra });
 export const fetchLaneUsage = (n, month) => send(`/api/lane/${n}/usage${month ? `?month=${encodeURIComponent(month)}` : ''}`, 'GET');

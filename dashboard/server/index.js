@@ -3,6 +3,7 @@ import path from 'path';
 import { createApp } from './app.js';
 import { BIN } from './services/config.js';
 import { configureSessions, stopAll, restoreLimitWakes } from './services/sessions.js';
+import { startLaneQueues } from './routes/agentui.js';
 import { AUTH_ENABLED, PLATFORM_URL, usingDevSecret } from './services/auth.js';
 import { bindProblem, lanUrls } from './services/lan.js';
 
@@ -13,6 +14,7 @@ configureSessions({
   laneStatus: n => (spawnSync('bash', [path.join(BIN, 'state.sh'), String(n), 'get', 'status'], { encoding: 'utf8', timeout: 15000 }).stdout || '').trim(),
 });
 restoreLimitWakes();
+startLaneQueues();
 
 const port = parseInt(process.argv[2] || process.env.DASHBOARD_PORT || '8090', 10);
 // DASHBOARD_HOST=0.0.0.0 shares it on the LAN (config/local.env); default stays loopback-only.
