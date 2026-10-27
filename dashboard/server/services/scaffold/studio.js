@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { HARNESS_ROOT } from '../config.js';
 import { run as runCmd, readText } from './util.js';
 import { parseVerdict, resultLine } from './setup.js';
+import { describeEvent } from './activity.js';
 import { catalogForPrompt, parseAdvice, PRESET_IDS } from './advise.js';
 import { validateRequest, validateWorkflow } from './catalog.js';
 import { STACKS } from './catalog.js';
@@ -131,11 +132,22 @@ function readJson(f, dflt) { try { return JSON.parse(fs.readFileSync(f, 'utf8'))
 export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'studio'), run = runCmd, tools,
   claudeBin = process.env.CLAUDE_BIN || path.join(os.homedir(), '.local/bin/claude'), model = 'claude-opus-5-5',
   agentPrompt = name => readText(path.join(HARNESS_ROOT, 'claude', 'agents', `${name}.md`)).replace(/^---[\s\S]*?---\n/, ''),
-  jobs = null, stacks = STACKS, now = () => new Date(), route = modelRoute } = {}) {
+  jobs = null, stacks = STACKS, now = () => new Date(), route = modelRoute,
+  // A gateway model silent this long is given up on and the turn is answered by Claude instead.
+  stallMs = 90_000, rescueModel = 'claude-sonnet-5-5' } = {}) {
   // Each role talks with the model chosen for its lane step in "Nhà cung cấp AI" (defaults):
   // Claude on this machine's account, or Gemini/OpenAI/… through the LiteLLM gateway.
   const STEP_OF = { pm: 'pm', system: 'arch', ui: 'design', create: 'arch' };
   const busy = new Set();
+  // What the AI of a busy session is doing right now: { role, model, startedAt, steps: [{ at, text }] }.
+  const live = new Map();
+  const MAX_STEPS = 60;
+  const step = (id, text) => {
+    const a = live.get(id);
+    if (!a) return;
+    a.steps.push({ at: now().toISOString(), text });
+    if (a.steps.length > MAX_STEPS) a.steps.splice(0, a.steps.length - MAX_STEPS);
+  };
   const file = id => path.join(root(), `${id}.json`);
   const work = id => path.join(root(), id);
   const load = id => {
@@ -183,6 +195,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
     return {
       id: s.id, title: s.title, stage: s.stage, stages: STAGES.map(({ id, label, role }) => ({ id, label, role })),
       messages: s.messages, approved: s.approved, skippedUi: !!s.skippedUi, busy: busy.has(s.id), error: s.error || null,
+      activity: busy.has(s.id) ? live.get(s.id) || null : null,
       docs: d, roadmap: roadmap(d.architecture), project: s.project || null,
       job: job ? { id: job.id, status: job.status, stage: job.stage, stages: job.stages, stageList: job.stageList, error: job.error, errorTail: job.errorTail || '', retryable: !!job.retryable, project: job.project, dir: job.dir } : null,
       createdAt: s.createdAt, updatedAt: s.updatedAt,
@@ -195,6 +208,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
     busy.add(id);
     let s = load(id);
     const stage = STAGES.find(x => x.id === s.stage);
+    live.set(id, { role: stage.role, model: '', startedAt: now().toISOString(), steps: [] });
     try {
       const dir = work(id);
       fs.mkdirSync(dir, { recursive: true });
@@ -207,14 +221,38 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
         const w = docs(id).workflow;
         if (w) fs.writeFileSync(path.join(dir, 'workflow.json'), JSON.stringify(w, null, 2));
       }
-      let out = '';
+      // One call of the role on model route r; its steps stream into `live` as they happen.
+      const attempt = async r => {
+        live.get(id).model = r.model;
+        step(id, `${stage.role} bắt đầu với ${r.model}`);
+        let out = '', last = Date.now(), stalled = false;
+        const ac = new AbortController();
+        const watch = r.gateway ? setInterval(() => { if (Date.now() - last > stallMs) { stalled = true; ac.abort(); } }, Math.min(5000, stallMs)) : null;
+        try {
+          await run(claudeBin, ['-p', turnPrompt(s, stage.id), '--output-format', 'stream-json', '--verbose', '--model', r.model,
+            // Reasoning effort is a Claude setting; other providers get their default.
+            ...(r.gateway ? [] : ['--effort', stage.id === 'pm' ? 'medium' : 'high']), '--permission-mode', 'acceptEdits',
+            // No skills/plugins for a chat role: a non-Claude model would follow their hooks instead of the role.
+            '--append-system-prompt', agentPrompt(stage.agent), '--disallowedTools', 'Bash,WebFetch,WebSearch,NotebookEdit,Task,Skill'],
+          { cwd: dir, timeoutMs: 20 * 60_000, signal: ac.signal, ...(r.env ? { env: r.env } : {}),
+            log: l => { last = Date.now(); out += `${l}\n`; for (const t of describeEvent(l)) step(id, t); } });
+        } catch (e) {
+          throw stalled ? Object.assign(new Error(`${r.model} không phản hồi sau ${Math.round(stallMs / 1000)} giây`), { stalled: true }) : e;
+        } finally { clearInterval(watch); }
+        return out;
+      };
       const r = await route(STEP_OF[stage.id], `claude:${model}`);
-      await run(claudeBin, ['-p', turnPrompt(s, stage.id), '--output-format', 'json', '--model', r.model,
-        // Reasoning effort is a Claude setting; other providers get their default.
-        ...(r.gateway ? [] : ['--effort', stage.id === 'pm' ? 'medium' : 'high']), '--permission-mode', 'acceptEdits',
-        // No skills/plugins for a chat role: a non-Claude model would follow their hooks instead of the role.
-        '--append-system-prompt', agentPrompt(stage.agent), '--disallowedTools', 'Bash,WebFetch,WebSearch,NotebookEdit,Task,Skill'],
-      { cwd: dir, timeoutMs: 20 * 60_000, log: l => { out += `${l}\n`; }, ...(r.env ? { env: r.env } : {}) });
+      let out;
+      try {
+        out = await attempt(r);
+        if (r.gateway && /"is_error"\s*:\s*true/.test(resultLine(out))) throw new Error(`${r.model} trả về lỗi`);
+      } catch (e) {
+        // A gateway model that hangs or errors must not leave the person waiting: Claude answers instead.
+        if (!r.gateway) throw e;
+        step(id, `${e.message} — chuyển sang Claude (${rescueModel})`);
+        out = await attempt({ model: rescueModel, env: null, gateway: false });
+      }
+      const steps = live.get(id).steps.slice();
       // A chat reply that forgot its closing ROLE-STEP line is still a reply (some models drop it);
       // only an error or an explicit BLOCKED counts as a failed turn.
       const raw = resultLine(out);
@@ -226,6 +264,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       s = load(id);
       if (!v.ok) throw new Error(v.error.replace('AI Manager', stage.role));
       say(s, stage.id, 'ai', v.summary);
+      Object.assign(s.messages[s.messages.length - 1], { model: live.get(id).model, steps });
       s.error = null;
       if (stage.id === 'system' || stage.id === 'create') {
         const d = docs(id);
@@ -240,6 +279,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       save(s);
     } finally {
       busy.delete(id);
+      live.delete(id);
     }
   }
 

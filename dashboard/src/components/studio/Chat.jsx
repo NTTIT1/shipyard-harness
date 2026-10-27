@@ -18,7 +18,7 @@ export default function Chat({ s, act, enabled, role }) {
         behavior: 'smooth',
       });
     }
-  }, [s?.messages?.length || 0, s?.busy, scope]);
+  }, [s?.messages?.length || 0, s?.busy, s?.activity?.steps?.length || 0, scope]);
 
   const send = async () => {
     if (!text.trim() || s?.busy) return;
@@ -193,12 +193,7 @@ export default function Chat({ s, act, enabled, role }) {
               <span className="st-msg-avatar"><Bot size={12} /></span>
               <span className="st-msg-who">{role}</span>
             </div>
-            <div className="st-msg-bubble typing-bubble">
-              <span className="st-typing-dot" />
-              <span className="st-typing-dot" />
-              <span className="st-typing-dot" />
-              <span className="st-typing-label">đang suy nghĩ & vẽ mẫu…</span>
-            </div>
+            <LiveActivity a={s.activity} />
           </div>
         )}
       </div>
@@ -277,6 +272,50 @@ function MessageBubble({ m, stages, isLatest }) {
           </div>
         )}
       </div>
+      {isAi && m.steps?.length > 0 && (
+        <details className="st-steps-log">
+          <summary>AI đã làm gì · {m.steps.length} bước{m.model ? ` · ${m.model}` : ''}</summary>
+          <StepList steps={m.steps} />
+        </details>
+      )}
+    </div>
+  );
+}
+
+const clock = sec => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+
+function StepList({ steps, live }) {
+  return (
+    <ol className="st-steps">
+      {steps.map((x, i) => (
+        <li key={`${x.at}-${i}`} className={live && i === steps.length - 1 ? 'now' : undefined}>
+          <time>{new Date(x.at).toLocaleTimeString('vi-VN', { hour12: false })}</time>
+          <span>{x.text}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** The AI at work: model, time running, and its latest steps as they stream in. */
+function LiveActivity({ a }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
+  const since = a ? Math.max(0, Math.round((Date.now() - new Date(a.startedAt).getTime()) / 1000)) : 0;
+  const steps = a?.steps || [];
+  return (
+    <div className="st-msg-bubble st-live">
+      <div className="st-live-head">
+        <span className="typing-bubble" aria-hidden="true">
+          <span className="st-typing-dot" /><span className="st-typing-dot" /><span className="st-typing-dot" />
+        </span>
+        <span className="st-live-title">Đang làm việc</span>
+        {a?.model && <code className="st-live-model">{a.model}</code>}
+        <span className="st-live-time">{clock(since)}</span>
+      </div>
+      {steps.length > 0
+        ? <StepList steps={steps.slice(-8)} live />
+        : <p className="st-live-empty">Đang khởi động AI…</p>}
     </div>
   );
 }

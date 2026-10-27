@@ -202,6 +202,49 @@ describe('studio', () => {
     expect(runs[0].env.ANTHROPIC_BASE_URL).toBe('http://127.0.0.1:4000');
   });
 
+  it('shows the AI at work while it runs, and keeps the steps on its reply', async () => {
+    let release;
+    const gate = new Promise(r => { release = r; });
+    const st = createStudio({ root: () => root, tools: () => ALL, claudeBin: '/x/claude', agentPrompt: n => n, route: claudeRoute,
+      run: async (cmd, args, opts) => {
+        expect(args).toEqual(expect.arrayContaining(['stream-json', '--verbose']));
+        opts.log(JSON.stringify({ type: 'system', subtype: 'init', model: 'claude-opus-5-5' }));
+        opts.log(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Write', input: { file_path: '/w/product-brief.md' } }] } }));
+        await gate;
+        opts.log(JSON.stringify({ type: 'result', is_error: false, result: 'Xong.\nROLE-STEP: DONE chat' }));
+      } });
+    let s = st.start(me, 'Tôi cần ứng dụng ghi chú');
+    await until(() => st.get(s.id, me).activity?.steps.length >= 3);
+    s = st.get(s.id, me);
+    expect(s.activity).toMatchObject({ role: 'AI PM', model: 'claude-opus-5-5' });
+    expect(s.activity.steps.map(x => x.text)).toEqual(['AI PM bắt đầu với claude-opus-5-5', 'Đã kết nối — model claude-opus-5-5', 'Viết product-brief.md']);
+    release();
+    await until(() => !st.isBusy(s.id));
+    s = st.get(s.id, me);
+    expect(s.activity).toBe(null);
+    expect(s.messages.at(-1)).toMatchObject({ role: 'ai', text: 'Xong.', model: 'claude-opus-5-5' });
+    expect(s.messages.at(-1).steps).toHaveLength(3);
+  });
+
+  it('a gateway model that goes silent is given up on and Claude answers instead', async () => {
+    const runs = [];
+    const route = async () => ({ model: 'gemini/gemini-3.8-flash', env: { ANTHROPIC_BASE_URL: 'http://127.0.0.1:4000' }, gateway: true });
+    const st = createStudio({ root: () => root, tools: () => ALL, claudeBin: '/x/claude', agentPrompt: n => n, route, stallMs: 40,
+      run: async (cmd, args, opts) => {
+        const m = args[args.indexOf('--model') + 1];
+        runs.push({ m, env: opts.env });
+        if (m.startsWith('gemini/')) return new Promise((_, rej) => opts.signal.addEventListener('abort', () => rej(new Error('killed'))));
+        opts.log(JSON.stringify({ type: 'result', is_error: false, result: 'Claude trả lời.\nROLE-STEP: DONE chat' }));
+      } });
+    let s = st.start(me, 'Tôi cần ứng dụng ghi chú');
+    await until(() => !st.isBusy(s.id));
+    s = st.get(s.id, me);
+    expect(runs.map(r => r.m)).toEqual(['gemini/gemini-3.8-flash', 'claude-sonnet-5-5']);
+    expect(runs[1].env).toBeUndefined();   // Claude on this machine's account, not the gateway
+    expect(s.messages.at(-1)).toMatchObject({ role: 'ai', text: 'Claude trả lời.', model: 'claude-sonnet-5-5' });
+    expect(s.messages.at(-1).steps.map(x => x.text).join('\n')).toMatch(/không phản hồi sau 0 giây — chuyển sang Claude/);
+  });
+
   it('a reply without its ROLE-STEP line is still shown; the role cannot use skills', async () => {
     const runs = [];
     const st = createStudio({ root: () => root, tools: () => ALL, claudeBin: '/x/claude', agentPrompt: n => n, route: claudeRoute,
