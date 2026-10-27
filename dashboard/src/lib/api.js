@@ -1,3 +1,4 @@
+import { liveLiveness } from './laneview.js';
 // Every data call goes through authFetch: on a 401 it tries one silent refresh
 // (the refresh token lives in an HttpOnly cookie scoped to /auth) and, if that
 // fails too, broadcasts 'auth:expired' so AuthGate swaps back to the login page.
@@ -36,7 +37,9 @@ async function checked(r) {
 }
 
 export async function fetchLanes() {
-  return checked(await authFetch('/api/lanes'));
+  const d = await checked(await authFetch('/api/lanes'));
+  for (const l of d?.lanes || []) l.liveness = liveLiveness(l);
+  return d;
 }
 
 export async function fetchProof(n) {

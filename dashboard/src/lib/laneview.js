@@ -47,6 +47,15 @@ export const ATTENTION = {
 };
 const FREE = new Set(['idle', 'down', '']);
 
+/**
+ * "dead" comes from state heartbeats, written only between stages; a lane whose session is working
+ * (mid-turn or waiting on a background step) is not lost. Older servers only say session_running.
+ */
+export function liveLiveness(l) {
+  const working = l.session_active ?? l.session_running;
+  return l.liveness === 'dead' && working ? 'active' : l.liveness;
+}
+
 export function laneAttention(l) {
   if (l.pending_kind) return 'question';
   if (l.stage === 'spec-review' && l.status === 'waiting') return 'approve';

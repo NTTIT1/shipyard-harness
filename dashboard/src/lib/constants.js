@@ -34,8 +34,15 @@ export const PHASES = [
   ['merged'], ['qc-dev'], ['done'],
 ];
 
+// Role-pipeline stages (role-<step> = the AI works on it, review-<step> = waiting for its reviewer)
+// sit on the map where that work happens: documents in plan, DEV in implementing, TEST in QC.
+// A lane may also name the step alone (arch, test…).
+const ROLE_PHASE = { pm: 'plan', ba: 'plan', arch: 'plan', design: 'plan', dev: 'implementing', test: 'qc' };
+
 export function phaseIdx(stage) {
-  return PHASES.findIndex(p => p.includes(stage));
+  const role = /^(?:(?:role|review)-)?(pm|ba|arch|design|dev|test)$/.exec(stage || '');
+  const s = role ? ROLE_PHASE[role[1]] : stage;
+  return PHASES.findIndex(p => p.includes(s));
 }
 
 export const ACT_CONFIRM = {
