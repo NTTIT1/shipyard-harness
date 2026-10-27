@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { HARNESS_ROOT } from './config.js';
 import { normalizeEfforts } from './usage.js';
+import { claudeGeminiModels } from '../../src/lib/modelPresets.js';
 
 // Non-Claude providers reachable through the LiteLLM gateway. `litellm` is the
 // LiteLLM model prefix; models are listed explicitly (from "Kiểm tra") rather
@@ -278,6 +279,15 @@ export function writeModelDefaults(defaults) {
   fs.writeFileSync(modelsPath(), JSON.stringify(doc, null, 2) + '\n');
 }
 
+/** Lanes bound to a project Shipyard made or imported (config/lanes/laneN.env names its PROFILE). */
+function projectLanes() {
+  const dir = path.join(root(), 'config', 'lanes');
+  let files = [];
+  try { files = fs.readdirSync(dir); } catch { return []; }
+  return files.map(f => /^lane([1-9]\d*)\.env$/.exec(f)?.[1]).filter(Boolean)
+    .filter(n => { try { return /^PROFILE=\S/m.test(fs.readFileSync(path.join(dir, `lane${n}.env`), 'utf8')); } catch { return false; } });
+}
+
 export function readAllLaneDefaults() {
   const doc = readJson(modelsPath(), {});
   const base = normalizeEntry(doc.defaults || {}, doc.effort || {}, null);
@@ -286,6 +296,13 @@ export function readAllLaneDefaults() {
   for (const [k, v] of Object.entries(lanes)) {
     if (!v || typeof v !== 'object') continue;
     out[k] = normalizeEntry(v.models || v, v.effort || {}, base);
+  }
+  // A project lane with no settings of its own runs the Claude + Gemini split (once Gemini is set
+  // up): fast and light on the Claude plan. The machine-wide defaults (the original project's
+  // lanes) are left as they are.
+  const split = claudeGeminiModels({ providers: publicProviders() }, base);
+  if (split) {
+    for (const n of projectLanes()) if (!out[n]) out[n] = { ...normalizeEntry(split, split.effort, base), preset: 'claude-gemini' };
   }
   return out;
 }

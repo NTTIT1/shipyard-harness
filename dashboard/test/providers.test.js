@@ -147,6 +147,22 @@ describe('per-lane model defaults & per-feature models', () => {
     P.writeLaneModelDefaults(3, null);
   });
 
+  it('a project lane with no settings of its own runs the Claude + Gemini split once Gemini is set up', () => {
+    fs.mkdirSync(path.join(tmp, 'config', 'lanes'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'config', 'lanes', 'lane6.env'), 'PROFILE=vay-online\n');
+    expect(P.readAllLaneDefaults()['6']).toBeUndefined();   // no Gemini yet: the machine-wide defaults
+    const saved = fs.readFileSync(P.providersPath(), 'utf8');
+    const doc = JSON.parse(saved);
+    doc.providers.gemini = { api_key: 'AIza-test-key-0000000000000', models: ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.8-flash'] };
+    fs.writeFileSync(P.providersPath(), JSON.stringify(doc));
+    const lane6 = P.readAllLaneDefaults()['6'];
+    expect(lane6).toMatchObject({ preset: 'claude-gemini', main: 'claude:claude-sonnet-5-5', dev: 'claude:claude-sonnet-5-5',
+      pm: 'gemini:gemini-3.5-flash', 'code-review': 'gemini:gemini-3.5-flash', gates: {} });
+    expect(P.readAllLaneDefaults()['1']).toBeUndefined();   // not a project lane: untouched
+    fs.writeFileSync(P.providersPath(), saved);
+    fs.rmSync(path.join(tmp, 'config', 'lanes'), { recursive: true, force: true });
+  });
+
   it('stores and retrieves per-feature model configs', () => {
     P.writeFeatureModels('feat-auth', { models: { 'code-review': 'openai:gpt-x' }, impl_agents: 4, effort: { 'code-review': 'max' } });
     const feats = P.readFeatureModels();

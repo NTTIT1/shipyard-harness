@@ -1,4 +1,4 @@
-import { STEPS, validateModels, usesGateway, readAllLaneDefaults } from './providers.js';
+import { STEPS, validateModels, usesGateway, readAllLaneDefaults, readModelDefaults } from './providers.js';
 import { normalizeEfforts } from './usage.js';
 
 export class HttpError extends Error {
@@ -36,7 +36,8 @@ export async function assignLane(n, body, d) {
   const spec_dir = String(body.spec_dir || '').trim();
   if (!requirement && !spec_dir) throw new HttpError(400, 'cần nhập yêu cầu hoặc chọn spec');
   if (spec_dir && !SPEC_RE.test(spec_dir)) throw new HttpError(400, 'spec_dir không hợp lệ');
-  const laneDef = readAllLaneDefaults()[String(n)] || {};
+  // The lane's own settings, else the machine-wide defaults (never Opus for every step).
+  const laneDef = readAllLaneDefaults()[String(n)] || readModelDefaults();
   const models = {};
   for (const s of STEPS) models[s.id] = (body.models || {})[s.id] || laneDef[s.id] || 'claude:claude-opus-5-5';
   const errs = validateModels(models);

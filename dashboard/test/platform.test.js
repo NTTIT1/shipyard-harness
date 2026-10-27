@@ -6,6 +6,7 @@ import { platformRouter, laneOf, resumeLane } from '../server/routes/platform.js
 
 let gw, gwUrl, app, url, seen;
 const calls = [];
+const decided = [];
 const sessions = {
   running: new Set([2]), info: { 3: { model: 'm', session_id: 's3' } },
   isRunning(n) { return this.running.has(n); },
@@ -29,7 +30,8 @@ beforeAll(async () => {
   });
   await new Promise(r => gw.listen(0, '127.0.0.1', r));
   gwUrl = `http://127.0.0.1:${gw.address().port}`;
-  app = express().use(express.json()).use(platformRouter({ gatewayUrl: gwUrl, sessions, hostname: 'box', laneRunId: n => (n === 2 ? 'r' : 'other_run') }));
+  app = express().use(express.json()).use(platformRouter({ gatewayUrl: gwUrl, sessions, hostname: 'box', laneRunId: n => (n === 2 ? 'r' : 'other_run'),
+    laneDecided: (n, action) => decided.push([n, action]) }));
   const s = app.listen(0, '127.0.0.1');
   await new Promise(r => s.once('listening', r));
   url = `http://127.0.0.1:${s.address().port}`;
@@ -72,6 +74,7 @@ describe('proxy', () => {
     expect(calls[0][0]).toBe('send');
     expect(calls[0][2]).toContain('APPROVE');
     expect(calls[0][2]).toContain('orch.sh next');
+    expect(decided).toEqual([[2, 'APPROVE']]);   // "cần bạn" goes away right now
   });
 
   it('reports resumed:false for another host', async () => {

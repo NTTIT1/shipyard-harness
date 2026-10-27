@@ -36,8 +36,14 @@ function stateRunId(n) {
   return r.status === 0 ? r.stdout.trim() : '';
 }
 
+/** The decision is made: the lane no longer "needs you", even before its session gets to it. */
+function stateDecided(n, action) {
+  const kv = ['needs_action=', ...(action === 'CANCEL' ? [] : ['status=running'])];
+  spawnSync('bash', [path.join(BIN, 'state.sh'), String(n), 'set', ...kv], { timeout: 10000 });
+}
+
 export function platformRouter({ gatewayUrl = PLATFORM_URL, sessions = S, hostname = os.hostname(), fetchImpl = fetch,
-  laneRunId = stateRunId, setup = defaultSetupRunner(), blueprint = defaultBlueprintRunner() } = {}) {
+  laneRunId = stateRunId, laneDecided = stateDecided, setup = defaultSetupRunner(), blueprint = defaultBlueprintRunner() } = {}) {
   const router = Router();
   router.all('/api/platform/*', async (req, res) => {
     const sub = req.params[0] || '';
@@ -80,6 +86,7 @@ export function platformRouter({ gatewayUrl = PLATFORM_URL, sessions = S, hostna
       }
       // The lane may since run another feature: only wake it for the run it is driving.
       if (n != null && laneRunId(n) === body.data.runId) {
+        try { laneDecided(n, action); } catch { /* the lane's own next step clears it anyway */ }
         try { body.resumed = resumeLane(n, msg, sessions); } catch { body.resumed = false; }
       }
     }

@@ -38,6 +38,17 @@ beforeAll(async () => {
 afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 describe('assignLane', () => {
+  it('a lane without settings of its own uses the machine-wide defaults, not Opus everywhere', async () => {
+    P.writeModelDefaults({ ...MODELS, main: 'claude:claude-sonnet-5-5', dev: 'claude:claude-sonnet-5-5' });
+    const { calls, d } = deps();
+    await A.assignLane(7, { requirement: 'x' }, d);
+    const models = JSON.parse(calls.state.find(a => a[1] === 'models')[2]);
+    expect(models.main).toBe('claude:claude-sonnet-5-5');
+    expect(models.dev).toBe('claude:claude-sonnet-5-5');
+    expect(calls.start[0][1].model).toBe('claude-sonnet-5-5');
+    P.writeModelDefaults(MODELS);
+  });
+
   it('stores per-feature gate choices for the platform run', async () => {
     const { calls, d } = deps();
     await A.assignLane(2, { requirement: 'x', gates: { PM: 'AUTO', BA: '', TEST: 'required' } }, d);
