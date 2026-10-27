@@ -51,12 +51,14 @@ export const FEATURE_MODES = [
 const DOCS_ONLY = 'CHẾ ĐỘ APP ĐÃ CÓ: repo đã có app chạy được. Chỉ đọc code và viết tài liệu (spec, plan, tasks) mô tả đúng '
   + 'những gì app đang có cho tính năng này, đánh dấu tasks "đã có sẵn". KHÔNG sửa code. Sau đó bật app của lane, QC trên '
   + 'trình duyệt với mọi tài khoản vai trò và chụp ảnh các màn chính làm bằng chứng; lỗi thấy được thì ghi vào tài liệu '
-  + 'mục "Lỗi phát hiện", không sửa. Rồi gộp tài liệu vào nhánh tích hợp trên máy. Không hỏi lại.';
+  + 'mục "Lỗi phát hiện", không sửa. Tài liệu nộp qua các bước duyệt như thường (người duyệt xem và duyệt trên dashboard). '
+  + 'Rồi gộp tài liệu vào nhánh tích hợp trên máy. Không hỏi lại về hướng làm.';
 
 export function featureRequirement(feature, project, mode = 'full') {
+  // The first line names the feature: it becomes the lane's feature title.
   return [
-    ...(mode === 'docs' ? [DOCS_ONLY, ''] : []),
     `Tính năng "${feature.title}" của dự án ${project.name} (lộ trình đã duyệt trong Shipyard):`,
+    ...(mode === 'docs' ? [DOCS_ONLY] : []),
     feature.text,
     '',
     'Làm theo tài liệu đã duyệt trong repo: docs/product-brief.md, docs/architecture.md (module, dữ liệu, API, cấu trúc thư mục) và docs/design/ nếu có.',
