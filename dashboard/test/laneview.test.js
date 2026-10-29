@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { laneAttention, sortLanes, isFree, primaryActions, mergeSteps } from '../src/lib/laneview.js';
+import { laneAttention, sortLanes, isFree, primaryActions, mergeSteps, workflowTrack, stageLabel } from '../src/lib/laneview.js';
 
 const L = o => ({ lane: 1, status: 'idle', stage: 'idle', liveness: 'idle', ...o });
 
@@ -65,5 +65,52 @@ describe('mergeSteps', () => {
   it('tolerates missing/invalid input', () => {
     expect(mergeSteps(undefined)).toEqual([]);
     expect(mergeSteps('x')).toEqual([]);
+  });
+});
+
+describe('workflowTrack', () => {
+  // Doanh nghiệp preset: BA → Plan → Thiết kế UI → PM → Lập trình → Kiểm thử.
+  const ENT = ['BA', 'ARCH', 'DESIGN', 'PM', 'DEV', 'TEST'];
+  const view = (statuses, run = {}) => ({
+    run: { id: 'run_1', status: 'RUNNING', ...run },
+    steps: ENT.map((step, i) => ({ step, status: statuses[i] || 'PENDING' })),
+  });
+
+  it('shows the workflow steps in its own order, the current one marked', () => {
+    const t = workflowTrack(view(['APPROVED', 'APPROVED', 'AWAITING_REVIEW'], { currentStep: 'DESIGN', status: 'WAITING_REVIEW' }), { status: 'waiting' });
+    expect(t.steps.map(s => s.label)).toEqual(['BA — Nghiệp vụ', 'Plan — Kiến trúc', 'Thiết kế UI', 'PM — Yêu cầu', 'Lập trình', 'Kiểm thử']);
+    expect(t.steps.map(s => s.state)).toEqual(['done', 'done', 'current', 'pending', 'pending', 'pending']);
+    expect(t.current).toMatchObject({ id: 'DESIGN', sub: 'Chờ duyệt' });
+    expect(t.progress).toBe(33);
+  });
+
+  it('hides steps the workflow left out, keeps DESIGN skipped for no UI', () => {
+    const v = view(['APPROVED', 'APPROVED', 'SKIPPED', 'AI_WORKING'], { currentStep: 'PM' });
+    v.steps[0] = { step: 'BA', status: 'SKIPPED', skipReason: 'workflow' };
+    const t = workflowTrack(v, { status: 'running' });
+    expect(t.steps.map(s => s.id)).toEqual(['ARCH', 'DESIGN', 'PM', 'DEV', 'TEST']);
+    expect(t.steps[1].state).toBe('skipped');
+    expect(t.current).toMatchObject({ id: 'PM', sub: 'AI đang làm' });
+    expect(t.progress).toBe(40);
+  });
+
+  it('every step is done once all gates passed; RELEASING is the hand-over', () => {
+    const t = workflowTrack(view(Array(6).fill('APPROVED'), { status: 'RELEASING' }), { stage: 'watching-pr', status: 'running' });
+    expect(t.steps.every(s => s.state === 'done')).toBe(true);
+    expect(t.progress).toBe(100);
+    expect(t.releasing).toBe(true);
+    expect(workflowTrack(view(Array(6).fill('APPROVED'), { status: 'RELEASING' }), { stage: 'done', status: 'passed' }).releasing).toBe(false);
+  });
+
+  it('null without a run view', () => {
+    expect(workflowTrack(null)).toBe(null);
+    expect(workflowTrack({ run: {}, steps: [] })).toBe(null);
+  });
+});
+
+describe('stageLabel for role steps', () => {
+  it('names the step like the review screen does', () => {
+    expect(stageLabel('role-arch')).toBe('Plan — Kiến trúc');
+    expect(stageLabel('review-design')).toBe('Chờ duyệt Thiết kế UI');
   });
 });

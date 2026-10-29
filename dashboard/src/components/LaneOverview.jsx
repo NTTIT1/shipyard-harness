@@ -4,7 +4,8 @@ import Badge from './ui/Badge.jsx';
 import PipelineMap from './PipelineMap.jsx';
 import StepsTable from './StepsTable.jsx';
 import { fmtAge, fmtDur } from '../lib/format.js';
-import { stageLabel } from '../lib/laneview.js';
+import { stageLabel, workflowTrack } from '../lib/laneview.js';
+import { useRunView } from '../hooks/useRunViews.js';
 import { fmtVnd, fmtUsd } from '../lib/costs.js';
 import { getSimpleStepIndex } from './ProjectBoardView.jsx';
 
@@ -21,6 +22,15 @@ export default function LaneOverview({ lane, config, archived }) {
   const gd = (lane.gate_decision || '').toUpperCase();
   const [age] = fmtAge(lane.heartbeat_age_sec);
   const curIdx = getSimpleStepIndex(lane.stage, lane.status);
+  // A role-pipeline lane follows its project's workflow; other lanes keep the generic 6 stages.
+  const track = workflowTrack(useRunView(lane), lane);
+  const progress = track ? track.progress : lane.progress;
+  const isFinished = lane.status === 'passed' || lane.stage === 'done';
+  const stages = track ? track.steps : CUSTOMER_STAGES.map((st, idx) => ({
+    ...st, state: (isFinished || idx < curIdx) ? 'done' : idx === curIdx ? 'current' : 'pending',
+  }));
+  const currentLabel = track?.current ? `${track.current.label} · ${track.current.sub}`
+    : track?.releasing ? `Bàn giao — ${stageLabel(lane.stage)}` : stageLabel(lane.stage);
 
   return (
     <div className="ov">
@@ -35,15 +45,15 @@ export default function LaneOverview({ lane, config, archived }) {
         <div className="ov-telemetry-cell">
           <span className="ov-telemetry-label">Tiến độ tính năng</span>
           <div className="ov-telemetry-row">
-            <span className="ov-telemetry-val mono">{lane.progress != null ? `${lane.progress}%` : '—'}</span>
-            {lane.progress != null && (
+            <span className="ov-telemetry-val mono">{progress != null ? `${progress}%` : '—'}</span>
+            {progress != null && (
               <span className="ov-bar" style={{ flex: 1, maxWidth: 110 }}>
-                <i style={{ width: `${Math.max(0, Math.min(100, Number(lane.progress) || 0))}%` }} />
+                <i style={{ width: `${Math.max(0, Math.min(100, Number(progress) || 0))}%` }} />
               </span>
             )}
           </div>
           <span className="ov-telemetry-sub">
-            Bước hiện tại: <b>{stageLabel(lane.stage)}</b>
+            Bước hiện tại: <b>{currentLabel}</b>
             {!archived && lane.stage_age_sec != null ? ` · ${fmtDur(lane.stage_age_sec)}` : ''}
           </span>
         </div>
@@ -84,22 +94,21 @@ export default function LaneOverview({ lane, config, archived }) {
 
       {/* Customer-friendly 6-stage visual progress bar */}
       <section className="ov-section">
-        <h2>Tiến trình thực hiện (6 giai đoạn)</h2>
-        <ol className="ov-stage-track" aria-label="6 giai đoạn thực hiện">
-          {CUSTOMER_STAGES.map((st, idx) => {
-            const isFinished = lane.status === 'passed' || lane.stage === 'done';
-            const state = (isFinished || idx < curIdx) ? 'done' : idx === curIdx ? 'current' : 'pending';
-            return (
-              <li key={st.id} className={`ov-stage-step ${state}`}>
-                <span className="ov-stage-dot" />
-                <div className="ov-stage-texts">
-                  <span className="ov-stage-title">{st.label}</span>
-                  <span className="ov-stage-sub">{st.sub}</span>
-                </div>
-              </li>
-            );
-          })}
+        <h2>Tiến trình thực hiện ({stages.length} {track ? 'bước theo quy trình' : 'giai đoạn'})</h2>
+        <ol className="ov-stage-track" style={{ '--stage-count': stages.length }} aria-label={`${stages.length} bước thực hiện`}>
+          {stages.map((st, idx) => (
+            <li key={st.id} className={`ov-stage-step ${st.state === 'skipped' ? 'done skipped' : st.state}`}>
+              <span className="ov-stage-dot" />
+              <div className="ov-stage-texts">
+                <span className="ov-stage-title">{track ? `${idx + 1}. ${st.label}` : st.label}</span>
+                <span className="ov-stage-sub">{st.sub}</span>
+              </div>
+            </li>
+          ))}
         </ol>
+        {track?.releasing && (
+          <p className="ov-stage-note">Mọi bước đã duyệt — đang bàn giao: <b>{stageLabel(lane.stage)}</b></p>
+        )}
       </section>
 
       {/* Sub-steps Table */}

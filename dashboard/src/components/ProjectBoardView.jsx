@@ -8,8 +8,9 @@ import Badge from './ui/Badge.jsx';
 import StatusDot from './ui/StatusDot.jsx';
 import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
 import { fmtAge } from '../lib/format.js';
-import { LANE_STATUS, stageLabel as stageLabel_ } from '../lib/laneview.js';
+import { LANE_STATUS, stageLabel as stageLabel_, workflowTrack } from '../lib/laneview.js';
 import { laneAttention } from '../lib/laneview.js';
+import { useRunViews } from '../hooks/useRunViews.js';
 
 
 
@@ -41,7 +42,7 @@ function dotTone(l) {
 
 export default function ProjectBoardView({
   projects = [],
-  lanes = [],
+  lanes: rawLanes = [],
   projectCosts = {},
   activeProjectId,
   onSelectProject,
@@ -53,6 +54,13 @@ export default function ProjectBoardView({
   canScaffold,
 }) {
   const byProjectCosts = projectCosts?.byProject || [];
+
+  // A role-pipeline lane is measured by its own workflow steps (same as the lane's overview tab).
+  const runViews = useRunViews(rawLanes);
+  const lanes = useMemo(() => rawLanes.map(l => {
+    const track = workflowTrack(runViews[l.run_id], l);
+    return track ? { ...l, track, progress: track.progress } : l;
+  }), [rawLanes, runViews]);
 
   // Group lanes by project; if only 1 project exists and lanes have no run_project_id, attach them to that project
   const projectGroups = useMemo(() => {
@@ -280,7 +288,12 @@ export default function ProjectBoardView({
                     const [age] = fmtAge(l.heartbeat_age_sec);
                     const stInfo = LANE_STATUS[l.status] || LANE_STATUS.idle;
                     const stepIdx = getSimpleStepIndex(l.stage, l.status);
-                    const stageLabel = stageLabel_(l.stage);
+                    const tc = l.track?.current;
+                    const stageLabel = tc ? `${tc.label} · ${tc.sub}` : l.track?.releasing ? `Bàn giao — ${stageLabel_(l.stage)}` : stageLabel_(l.stage);
+                    const isFinished = l.status === 'passed' || l.stage === 'done';
+                    const segs = l.track ? l.track.steps.map((st, idx) => ({ id: st.id, label: `${idx + 1}. ${st.label} — ${st.sub}`, state: st.state }))
+                      : SIMPLE_STEPS.map((st, idx) => ({ id: st.id, label: st.label,
+                        state: (isFinished || idx < stepIdx) ? 'done' : idx === stepIdx ? 'current' : 'pending' }));
                     const prog = l.progress != null ? Number(l.progress) : (l.status === 'passed' ? 100 : 0);
 
                     return (
@@ -304,19 +317,16 @@ export default function ProjectBoardView({
                           {l.feature_title || 'Lane đang rảnh — sẵn sàng nhận tính năng mới'}
                         </h3>
 
-                        {/* 6-step visual mini-stepper */}
+                        {/* Mini-stepper: the lane's workflow steps (or the generic 6 stages) */}
                         <div className="pb-lc-stepper" aria-label={`Giai đoạn: ${stageLabel}`}>
-                          <div className="pb-lc-segments">
-                            {SIMPLE_STEPS.map((st, idx) => {
-                              const isFinished = l.status === 'passed' || l.stage === 'done';
-                              return (
-                                <span
-                                  key={st.id}
-                                  className={`pb-lc-seg${(isFinished || idx < stepIdx) ? ' done' : idx === stepIdx ? ' cur' : ''}`}
-                                  title={st.label}
-                                />
-                              );
-                            })}
+                          <div className="pb-lc-segments" style={{ '--stage-count': segs.length }}>
+                            {segs.map(st => (
+                              <span
+                                key={st.id}
+                                className={`pb-lc-seg${st.state === 'done' ? ' done' : st.state === 'skipped' ? ' done skipped' : st.state === 'current' ? ' cur' : ''}`}
+                                title={st.label}
+                              />
+                            ))}
                           </div>
                           <div className="pb-lc-stage-row">
                             <span className="pb-lc-stage-name">{stageLabel}</span>

@@ -168,7 +168,7 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 .ov-stage-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap }
 .ov-stage-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--text) }
 .ov-stage-sub { font-size: 12px; color: var(--text-muted) }
-.ov-stage-track { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none }
+.ov-stage-track { display: grid; grid-template-columns: repeat(var(--stage-count, 6), minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none }
 .ov-stage-step { display: grid; gap: 4px; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-subtle); transition: border-color .15s var(--ease), background .15s var(--ease) }
 .ov-stage-step.done { border-color: color-mix(in srgb, var(--ok) 38%, var(--border)); background: color-mix(in srgb, var(--ok-soft) 55%, var(--panel)) }
 .ov-stage-step.current { border-color: var(--accent); background: var(--accent-soft) }
@@ -188,6 +188,8 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 .ov-stage-step.blocked .ov-stage-dot { background: var(--danger) }
 .ov-stage-texts { display: grid; gap: 2px; min-width: 0 }
 .ov-stage-texts .ov-stage-title { font-size: 13px; line-height: 1.35 }
+.ov-stage-step.skipped { opacity: .6 }
+.ov-stage-note { margin: 8px 0 0; font-size: 12.5px; color: var(--text-muted) }
 .lh-project-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 500; color: var(--text-muted); min-width: 0 }
 
 .ov-tech-details { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-subtle); overflow: hidden }
@@ -261,10 +263,11 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 .pb-lc-prog { font-size: 13.5px; font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums }
 .pb-lc-title { margin: 0; font-size: 14.5px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
 .pb-lc-stepper { display: grid; gap: 7px }
-.pb-lc-segments { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px }
+.pb-lc-segments { display: grid; grid-template-columns: repeat(var(--stage-count, 6), 1fr); gap: 5px }
 .pb-lc-seg { height: 4px; border-radius: 999px; background: var(--border); transition: background .2s var(--ease) }
 .pb-lc-seg.done { background: var(--ok) }
 .pb-lc-seg.cur { background: var(--accent) }
+.pb-lc-seg.skipped { opacity: .45 }
 .pb-lc-stage-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; min-width: 0 }
 .pb-lc-stage-name { flex: none; font-weight: 500 }
 .pb-lc-branch { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--text-faint) }
