@@ -307,13 +307,16 @@ export default function ProjectBoardView({
                         {/* 6-step visual mini-stepper */}
                         <div className="pb-lc-stepper" aria-label={`Giai đoạn: ${stageLabel}`}>
                           <div className="pb-lc-segments">
-                            {SIMPLE_STEPS.map((st, idx) => (
-                              <span
-                                key={st.id}
-                                className={`pb-lc-seg${idx < stepIdx ? ' done' : idx === stepIdx ? ' cur' : ''}`}
-                                title={st.label}
-                              />
-                            ))}
+                            {SIMPLE_STEPS.map((st, idx) => {
+                              const isFinished = l.status === 'passed' || l.stage === 'done';
+                              return (
+                                <span
+                                  key={st.id}
+                                  className={`pb-lc-seg${(isFinished || idx < stepIdx) ? ' done' : idx === stepIdx ? ' cur' : ''}`}
+                                  title={st.label}
+                                />
+                              );
+                            })}
                           </div>
                           <div className="pb-lc-stage-row">
                             <span className="pb-lc-stage-name">{stageLabel}</span>

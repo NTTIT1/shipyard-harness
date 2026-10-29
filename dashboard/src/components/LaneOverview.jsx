@@ -87,7 +87,8 @@ export default function LaneOverview({ lane, config, archived }) {
         <h2>Tiến trình thực hiện (6 giai đoạn)</h2>
         <ol className="ov-stage-track" aria-label="6 giai đoạn thực hiện">
           {CUSTOMER_STAGES.map((st, idx) => {
-            const state = idx < curIdx ? 'done' : idx === curIdx ? 'cur' : 'pending';
+            const isFinished = lane.status === 'passed' || lane.stage === 'done';
+            const state = (isFinished || idx < curIdx) ? 'done' : idx === curIdx ? 'current' : 'pending';
             return (
               <li key={st.id} className={`ov-stage-step ${state}`}>
                 <span className="ov-stage-dot" />

@@ -84,8 +84,8 @@ export function proofPayload(n) {
 
   const pickState = (st) => {
     const o = {};
-    for (const k of ['stage', 'status', 'pr_url', 'gate_decision', 'feature_title', 'ticket_url', 'notes', '_archived_at'])
-      o[k] = st[k] || '';
+    for (const k of ['stage', 'status', 'pr_url', 'gate_decision', 'feature_title', 'ticket_url', 'notes', '_archived_at', 'qc_dev', 'ci_status', 'spec_dir', 'branch', 'run_id', 'steps'])
+      o[k] = st[k] || (k === 'steps' ? [] : '');
     return o;
   };
 
