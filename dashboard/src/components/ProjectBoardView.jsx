@@ -8,9 +8,9 @@ import Badge from './ui/Badge.jsx';
 import StatusDot from './ui/StatusDot.jsx';
 import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
 import { fmtAge } from '../lib/format.js';
-import { LANE_STATUS, stageLabel as stageLabel_, workflowTrack } from '../lib/laneview.js';
+import { LANE_STATUS, stageLabel as stageLabel_ } from '../lib/laneview.js';
 import { laneAttention } from '../lib/laneview.js';
-import { useRunViews } from '../hooks/useRunViews.js';
+import { useWorkflowLanes } from '../hooks/useRunViews.js';
 
 
 
@@ -56,11 +56,7 @@ export default function ProjectBoardView({
   const byProjectCosts = projectCosts?.byProject || [];
 
   // A role-pipeline lane is measured by its own workflow steps (same as the lane's overview tab).
-  const runViews = useRunViews(rawLanes);
-  const lanes = useMemo(() => rawLanes.map(l => {
-    const track = workflowTrack(runViews[l.run_id], l);
-    return track ? { ...l, track, progress: track.progress } : l;
-  }), [rawLanes, runViews]);
+  const lanes = useWorkflowLanes(rawLanes);
 
   // Group lanes by project; if only 1 project exists and lanes have no run_project_id, attach them to that project
   const projectGroups = useMemo(() => {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { platform } from '../lib/platform.js';
+import { workflowTrack } from '../lib/laneview.js';
 
 /**
  * The platform runs behind the given lanes (their workflow steps), as { [run_id]: view }. A run is
@@ -25,4 +26,13 @@ export function useRunViews(lanes) {
 export function useRunView(lane) {
   const lanes = useMemo(() => [lane], [lane.run_id, lane.stage, lane.status, lane.needs_action]);
   return useRunViews(lanes)[lane.run_id] || null;
+}
+
+/** Lanes with their workflow track attached; a role-pipeline lane's progress is the share of its workflow steps done. */
+export function useWorkflowLanes(lanes) {
+  const views = useRunViews(lanes);
+  return useMemo(() => (lanes || []).map(l => {
+    const track = workflowTrack(views[l.run_id], l);
+    return track ? { ...l, track, progress: track.progress } : l;
+  }), [lanes, views]);
 }

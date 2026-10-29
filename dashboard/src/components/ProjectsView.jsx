@@ -18,6 +18,7 @@ import BlueprintStatus from './projects/BlueprintStatus.jsx';
 import { scaffold } from '../lib/scaffold.js';
 import { platform } from '../lib/platform.js';
 import { ROLE_LABEL } from '../lib/review.js';
+import { useWorkflowLanes } from '../hooks/useRunViews.js';
 import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
 
 const NewProjectWizard = lazy(() => import('./NewProjectWizard.jsx'));
@@ -79,7 +80,8 @@ export default function ProjectsView({
   const canManage = roles.includes('OWNER') || roles.includes('MAINTAINER');
   const canScaffold = !user || user.role === 'SYS_ADMIN';
 
-  const allLanes = lanesData?.lanes || [];
+  // Same progress as the project board: a role-pipeline lane counts its own workflow steps.
+  const allLanes = useWorkflowLanes(lanesData?.lanes);
   const projectCosts = lanesData?.project_costs || {};
   const byProjectList = projectCosts.byProject || [];
 
