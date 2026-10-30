@@ -68,3 +68,25 @@ export function fileToBase64(file) {
 }
 
 export const formatSize = n => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+
+const SKILL_KIND_ORDER = { installed: 0, repo: 1, catalog: 2, unknown: 3 };
+
+/**
+ * Rows of the skill × role matrix: skills installed on the machine for every project, skills already in
+ * the repo (.claude/skills/), Shipyard's catalog (copied into the repo when approved) and any name a role
+ * lists that none of those knows. `suggested`: the roles Shipyard recommends the skill for.
+ */
+export function skillRows(state, team) {
+  const out = new Map();
+  for (const c of state?.skillCatalog || []) {
+    out.set(c.id, { id: c.id, label: c.label || c.id, desc: c.desc || '', kind: c.installed ? 'installed' : 'catalog', suggested: c.roles || [] });
+  }
+  for (const id of state?.skills || []) {
+    const c = out.get(id);
+    out.set(id, c && c.kind === 'installed' ? c : { ...(c || { label: id, desc: '', suggested: [] }), id, kind: 'repo' });
+  }
+  for (const r of Object.values(team?.roles || {})) {
+    for (const id of r?.skills || []) if (!out.has(id)) out.set(id, { id, label: id, desc: '', kind: 'unknown', suggested: [] });
+  }
+  return [...out.values()].sort((a, b) => SKILL_KIND_ORDER[a.kind] - SKILL_KIND_ORDER[b.kind] || a.label.localeCompare(b.label));
+}

@@ -1,0 +1,20 @@
+{
+  "note": "Skills installed machine-wide by bin/install-claude-assets.sh (~/.claude/skills/<id>). A project turns one on per AI role in .shipyard/team.json (dashboard: Dự án → Kỹ năng AI & khung); nothing is copied into the project's repo. `usage` is how Shipyard's role steps apply it; `{dir}` becomes the installed folder.",
+  "skills": {
+    "hallmark": {
+      "label": "Hallmark — giao diện không rập khuôn AI",
+      "desc": "Bộ kỹ năng thiết kế của Nutlope/Together AI: lớp \"Floor\" bắt buộc (token màu/font, focus, reduced-motion, tương phản, không số liệu bịa), 50 theme, máy quét sloplint chạy trên trình duyệt thật ở 8 độ rộng màn hình.",
+      "roles": ["DESIGN"],
+      "stacks": ["ts-react-vite", "ts-react"],
+      "usage": [
+        "Trước khi làm, đọc toàn bộ `{dir}/SKILL.md` và làm theo (Floor, các bước, sloplint). Các file trong `{dir}/references/` chỉ đọc khi SKILL.md bảo.",
+        "Bước này chạy không có người hỏi đáp: bỏ bước \"Ask once\", tự suy ra lựa chọn và ghi rõ ở đầu báo cáo.",
+        "Màn hình trong app (đăng nhập, bảng, form, dashboard, cài đặt) là \"App screens\" (`{dir}/references/flow.md` § App screens): chạy sloplint với `--scope app`.",
+        "Dự án đã có thiết kế được duyệt (`docs/design/`, mockup đã duyệt, token/CSS của frontend): GIỮ NGUYÊN ngôn ngữ thiết kế đó, không chia theme mới — chỉ áp Floor và quét sloplint để sửa lỗi. Chỉ chọn theme khi dự án chưa có thiết kế nào.",
+        "Vai trò Dev/Review: chạy `node {dir}/scripts/sloplint.mjs <file giao diện đã đổi> --scope app` để bắt lỗi Floor; không đổi thiết kế đã duyệt.",
+        "Mockup vẫn tự chứa (không tải font/ảnh từ mạng; font của theme không có sẵn thì dùng font hệ thống). Không gọi `imagegen.mjs` hay `theme.mjs photos --save` nếu người duyệt không yêu cầu.",
+        "Nhật ký Hallmark (`--log`, thư mục `.hallmark/`) đặt trong thư mục tài liệu của tính năng (`$SPEC_DIR/design/.hallmark/`), không để ở gốc repo và không commit vào code app."
+      ]
+    }
+  }
+}

@@ -10,6 +10,7 @@ Only files under `.shipyard/rules/` are injected; `.shipyard/human/` is material
 the AI Manager, not instructions. Prints nothing when the project has no AI team.
 """
 import json
+import os
 import re
 import subprocess
 import sys
@@ -25,6 +26,24 @@ STEP_ROLE = {
 RULE_PATH = re.compile(r"^rules/[a-z0-9][a-z0-9_-]*\.md$")
 SKILL_NAME = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 MAX_BYTES = 48_000
+VENDOR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "claude", "vendor-skills")
+
+
+def installed_skill(name, home=None):
+    """A skill installed for every project (claude/vendor-skills/shipyard.json): (folder, usage lines) or None."""
+    try:
+        with open(os.path.join(VENDOR, "shipyard.json"), encoding="utf-8") as f:
+            meta = (json.load(f).get("skills") or {}).get(name)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(meta, dict):
+        return None
+    home = home or os.path.expanduser("~")
+    folder = next((d for d in (os.path.join(home, ".claude", "skills", name), os.path.join(VENDOR, name))
+                   if os.path.isfile(os.path.join(d, "SKILL.md"))), None)
+    if not folder:
+        return None
+    return folder, [str(u).replace("{dir}", folder) for u in meta.get("usage") or []]
 
 
 def git_show(repo, ref, path):
@@ -76,6 +95,12 @@ def render(repo, key, branch="development"):
         sk_path = f".claude/skills/{s}/SKILL.md"
         sk_text = git_show_root(repo, ref, sk_path)
         if sk_text is None:
+            inst = installed_skill(s)
+            if inst:  # installed on the machine: point at it, its own SKILL.md is too large to inline
+                folder, usage = inst
+                block = f"## Skill bắt buộc ({s} — cài sẵn tại {folder})\n\n" + "\n".join(f"- {u}" for u in usage) + "\n"
+                parts.append(block)
+                used += len(block.encode())
             continue
         block = f"## Skill bắt buộc ({s} — {sk_path})\n\n{sk_text.strip()}\n"
         if used + len(block.encode()) <= MAX_BYTES:
@@ -90,7 +115,7 @@ def render(repo, key, branch="development"):
         "Không tự sửa các file trong .shipyard/rules/ — luật chỉ thay đổi qua bước duyệt.",
     ]
     if skills:
-        head.append("Skill của dự án bắt buộc áp dụng cho vai trò này: " + ", ".join(skills) + " (trong .claude/skills/).")
+        head.append("Skill của dự án bắt buộc áp dụng cho vai trò này: " + ", ".join(skills) + " (chi tiết bên dưới).")
     return "\n".join(head) + "\n\n" + "\n".join(parts)
 
 

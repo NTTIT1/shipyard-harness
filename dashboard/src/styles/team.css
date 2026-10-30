@@ -44,6 +44,12 @@
 .tm-editor textarea { flex: 1; min-height: 320px; border: 0; border-radius: 0; background: var(--panel); font-family: var(--mono); font-size: 12.5px; line-height: 1.6 }
 .tm-submit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--bg-subtle) }
 .tm-submit input { flex: 1; min-width: 200px }
+.tm-sticky { position: sticky; bottom: 0; z-index: 2; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); box-shadow: 0 -4px 16px color-mix(in srgb, var(--text) 8%, transparent) }
+.tm-submit-what { font-weight: 500 }
+.tm-skillmatrix th[scope=row] { white-space: normal; min-width: 240px; max-width: 420px }
+.tm-sk-name { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-weight: 500 }
+.tm-sk-desc { display: block; margin-top: 2px; color: var(--text-muted); font-size: 12px; font-weight: 400; line-height: 1.4 }
+.tm-skillmatrix td.tm-sug .tm-cell { border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px var(--accent) }
 .tm-human { list-style: none; margin: 0; padding: 6px 16px }
 .tm-human li { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border) }
 .tm-human li:last-child { border-bottom: 0 }

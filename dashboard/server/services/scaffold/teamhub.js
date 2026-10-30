@@ -131,7 +131,7 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
       projectId: project.id, dir: ctx.dir, branch: ctx.branch, provider: ctx.provider,
       adopted: teamText != null, team, teamError, rules: teamText != null ? rulesOf(ctx) : {},
       skills: skillsOf(ctx), human: humanOf(ctx), setup: setupView(e), open: isOpen(e),
-      skillCatalog: skillCatalog.map(({ id, label, desc, roles }) => ({ id, label, desc, roles: roles || [] })),
+      skillCatalog: skillCatalog.map(({ id, label, desc, roles, installed }) => ({ id, label, desc, roles: roles || [], ...(installed ? { installed: true } : {}) })),
     };
   }
 
@@ -195,6 +195,7 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
           if (inRepo.has(s)) continue;
           const c = skillCatalog.find(x => x.id === s);
           if (!c) throw fail(400, `${role}: skill "${s}" không có trong repo lẫn danh mục gợi ý`);
+          if (c.installed) continue; // installed on the machine for every project — nothing goes into the repo
           skillFiles[`.claude/skills/${c.id}/SKILL.md`] = `---\nname: ${c.id}\ndescription: ${c.desc}\n---\n\n${c.content}\n`;
         }
       }

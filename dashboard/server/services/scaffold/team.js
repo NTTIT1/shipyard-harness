@@ -100,6 +100,22 @@ export const SKILL_CATALOG = [
   },
 ];
 
+/**
+ * Skills installed machine-wide by bin/install-claude-assets.sh (claude/vendor-skills/shipyard.json):
+ * a project turns one on per role; nothing is copied into its repo (`installed: true`, no `content`).
+ */
+export function installedSkills(file = path.join(HARNESS_ROOT, 'claude', 'vendor-skills', 'shipyard.json')) {
+  try {
+    const m = JSON.parse(fs.readFileSync(file, 'utf8')).skills || {};
+    return Object.entries(m).filter(([id]) => /^[a-z0-9][a-z0-9_-]*$/.test(id))
+      .map(([id, v]) => ({ id, label: v.label || id, desc: v.desc || '', roles: v.roles || [], stacks: v.stacks || [], installed: true }));
+  } catch { return []; }
+}
+SKILL_CATALOG.push(...installedSkills());
+
+/** A catalog skill whose SKILL.md goes into the project's repo (installed ones never do). */
+export const repoSkill = id => SKILL_CATALOG.find(x => x.id === id && !x.installed);
+
 export function defaultRoleSkillsForStack(stackId = 'java-spring') {
   const out = {};
   for (const role of Object.keys(ROLES)) {
@@ -254,7 +270,7 @@ export function teamFiles(ctx, stack, starter = null) {
       }
     }
     for (const sid of selectedSkillIds) {
-      const sk = SKILL_CATALOG.find(x => x.id === sid);
+      const sk = repoSkill(sid);
       if (sk) {
         files[`.claude/skills/${sk.id}/SKILL.md`] = `---\nname: ${sk.id}\ndescription: ${sk.desc}\n---\n\n${sk.content}\n`;
       }
@@ -309,7 +325,7 @@ export function saveProjectTeamConfig(projectKey, payload, workspacesRoot) {
           fs.writeFileSync(rp, `${base}\n\n${marker} (${ROLES[role]?.label || role})\n\n${customText}\n`);
         }
         for (const sid of cfg?.skills || []) {
-          const sk = SKILL_CATALOG.find(x => x.id === sid);
+          const sk = repoSkill(sid);
           if (sk) {
             const sp = path.join(dir, '.claude', 'skills', sk.id, 'SKILL.md');
             fs.mkdirSync(path.dirname(sp), { recursive: true });

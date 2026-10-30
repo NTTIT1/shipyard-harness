@@ -1,6 +1,6 @@
 // Phase 5: pure helpers behind the "Đội AI" editor.
 import { describe, it, expect } from 'vitest';
-import { roleKeys, ruleColumns, toggleRole, forgetRule, ruleChanges, sameTeam, formatSize } from '../src/lib/team.js';
+import { roleKeys, ruleColumns, toggleRole, forgetRule, ruleChanges, sameTeam, formatSize, skillRows } from '../src/lib/team.js';
 
 const team = { roles: { DEV: { reads: ['rules/project.md'], skills: [] }, CUSTOM: { reads: [] }, PM: { reads: ['rules/project.md', 'rules/dev.md'] } } };
 
@@ -26,5 +26,25 @@ describe('team editor helpers', () => {
     expect(formatSize(900)).toBe('900 B');
     expect(formatSize(2048)).toBe('2.0 KB');
     expect(formatSize(3 * 1024 * 1024)).toBe('3.0 MB');
+  });
+});
+
+describe('skillRows', () => {
+  it('lists installed, repo, catalog then unknown skills, keeping the suggested roles', () => {
+    const state = {
+      skills: ['react-ui', 'hallmark'],
+      skillCatalog: [
+        { id: 'react-ui', label: 'React UI', desc: 'd', roles: ['DEV'] },
+        { id: 'jpa', label: 'JPA', desc: 'j', roles: ['DEV', 'REVIEW'] },
+        { id: 'hallmark', label: 'Hallmark', desc: 'h', roles: ['DESIGN'], installed: true },
+      ],
+    };
+    const rows = skillRows(state, { roles: { DEV: { skills: ['old-skill'] } } });
+    expect(rows.map(r => [r.id, r.kind])).toEqual([['hallmark', 'installed'], ['react-ui', 'repo'], ['jpa', 'catalog'], ['old-skill', 'unknown']]);
+    expect(rows.find(r => r.id === 'react-ui')).toMatchObject({ label: 'React UI', suggested: ['DEV'] });
+    expect(rows[0].suggested).toEqual(['DESIGN']);
+  });
+  it('handles a state without a catalog', () => {
+    expect(skillRows({ skills: ['x'] }, null)).toEqual([{ id: 'x', label: 'x', desc: '', suggested: [], kind: 'repo' }]);
   });
 });

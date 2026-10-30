@@ -8,6 +8,7 @@
 #
 # Bundled skills:  /ship-feature, /review-prs, /harness-adapt, /split-batch, /qc-sweep, /spec-constitution, /spec-new, /spec-plan, /spec-tasks
 # Bundled agents:  senior-gate-reviewer, qc-local, dev-qc, ticketer, pr-reviewer, impl-worker
+# Vendored skills: claude/vendor-skills/* (e.g. /hallmark) — whole folders, turned on per project role
 #
 # Also auto-installs the superpowers plugin at the tail (the skills lean on it:
 # brainstorming/writing-plans/test-driven-development/systematic-debugging/
@@ -50,6 +51,27 @@ for a in "$SRC"/agents/*.md; do
   echo "harness: installed harness agent $(basename "$a")"
 done
 echo "harness: installed $(ls "$SRC"/skills/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ') skills + $(ls "$SRC"/agents/*.md 2>/dev/null | wc -l | tr -d ' ') agents into ~/.claude (paths populated at install; self-contained)"
+
+# Vendored third-party skills (claude/vendor-skills/<name>/, verbatim upstream copies — see its README):
+# copied whole (references, scripts) for every project on this machine. A project turns one on per AI
+# role in .shipyard/team.json; bin/team_rules.py points that role at the installed folder.
+PUPPETEER_CORE_VERSION="24.43.1"
+for d in "$SRC"/vendor-skills/*/; do
+  [ -f "$d/SKILL.md" ] || continue
+  name="$(basename "$d")"
+  dest="$HOME/.claude/skills/$name"
+  keep=""; [ -d "$dest/node_modules" ] && keep="$(mktemp -d)" && mv "$dest/node_modules" "$keep/"
+  rm -rf "$dest"; mkdir -p "$dest"; cp -R "$d". "$dest/"
+  [ -n "$keep" ] && mv "$keep/node_modules" "$dest/" && rmdir "$keep"
+  echo "harness: installed vendored skill /$name"
+  # Hallmark's render tier (sloplint --render) needs puppeteer-core beside the skill; Chrome is the system one.
+  if [ "$name" = "hallmark" ] && command -v npm >/dev/null 2>&1 \
+     && [ "$(node -p "try{require('$dest/node_modules/puppeteer-core/package.json').version}catch{''}" 2>/dev/null)" != "$PUPPETEER_CORE_VERSION" ]; then
+    npm install --prefix "$dest" --no-save --no-package-lock --no-audit --no-fund --silent "puppeteer-core@$PUPPETEER_CORE_VERSION" \
+      && echo "harness: hallmark render tier ready (puppeteer-core $PUPPETEER_CORE_VERSION)" \
+      || echo "harness: NOTE — puppeteer-core install failed; Hallmark's sloplint runs its static checks only"
+  fi
+done
 
 # Recommended plugin: superpowers (brainstorming, writing-plans, test-driven-
 # development, systematic-debugging, receiving-code-review) — the ship-feature /

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, Bot, FileText, Plus, RefreshCw, RotateCcw, Send, Sparkles, Trash2, Upload, Loader2 } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
-import { teamApi, roleKeys, ruleColumns, toggleRole, forgetRule, ruleChanges, sameTeam, fileToBase64, formatSize, RULE_NAME_RE } from '../lib/team.js';
+import { teamApi, roleKeys, ruleColumns, toggleRole, forgetRule, ruleChanges, sameTeam, fileToBase64, formatSize, skillRows, RULE_NAME_RE } from '../lib/team.js';
 import { SETUP_STATUS } from '../lib/scaffold.js';
 import '../styles/team.css';
 
@@ -29,16 +29,59 @@ function SetupProgress({ setup, branch, canManage, busy, onOpenRun, onRetry }) {
   );
 }
 
-/** Chips for one role: skills the repo has, Shipyard's suggestions for this role, and whatever is already chosen. */
-function skillChoices(s, team, role) {
-  const out = new Map();
-  for (const id of s.skills || []) out.set(id, { id, label: id });
-  for (const c of s.skillCatalog || []) if (!out.has(c.id) && (c.roles || []).includes(role)) out.set(c.id, { ...c, suggested: true });
-  for (const id of team.roles[role]?.skills || []) if (!out.has(id)) {
-    const c = (s.skillCatalog || []).find(x => x.id === id);
-    out.set(id, c ? { ...c, suggested: true } : { id, label: id });
-  }
-  return [...out.values()];
+const SKILL_KIND = {
+  installed: ['ok', 'Cài sẵn', 'Cài sẵn trên máy cho mọi dự án — không chép vào repo'],
+  repo: ['neutral', 'Trong repo', 'Đã có trong .claude/skills/ của repo'],
+  catalog: ['info', 'Gợi ý', 'Gợi ý của Shipyard — được thêm vào .claude/skills/ của repo khi duyệt'],
+  unknown: ['warn', 'Không tìm thấy', 'Vai trò đang dùng skill này nhưng repo và Shipyard đều không có'],
+};
+
+/** Skill × role: tick a cell and that AI role applies the skill on every feature of the project. */
+function SkillMatrix({ s, team, locked, setTeam }) {
+  const roles = roleKeys(team);
+  const rows = skillRows(s, team);
+  const label = r => team.roles[r]?.label || r;
+  return (
+    <section className="card-panel" aria-labelledby="tm-skills-h">
+      <div className="card-header tm-head"><h3 id="tm-skills-h" className="tm-h">Kỹ năng AI</h3>
+        <span className="faint">Tích ô để vai trò AI đó dùng kỹ năng trong mọi tính năng của dự án. Có hiệu lực sau khi duyệt.</span></div>
+      {rows.length === 0 ? <p className="faint tm-pad">Chưa có kỹ năng nào.</p> : (
+        <div className="tm-matrix-wrap">
+          <table className="tm-matrix tm-skillmatrix">
+            <thead>
+              <tr><th scope="col">Kỹ năng</th>{roles.map(r => <th key={r} scope="col">{label(r).replace(/^AI /, '')}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map(sk => {
+                const [tone, kind, why] = SKILL_KIND[sk.kind];
+                return (
+                  <tr key={sk.id}>
+                    <th scope="row">
+                      <span className="tm-sk-name">{sk.label} <Badge tone={tone} title={why}>{kind}</Badge></span>
+                      {sk.desc && <small className="tm-sk-desc">{sk.desc}</small>}
+                    </th>
+                    {roles.map(r => {
+                      const on = (team.roles[r]?.skills || []).includes(sk.id);
+                      const sug = sk.suggested.includes(r);
+                      return (
+                        <td key={r} className={sug && !on ? 'tm-sug' : undefined} title={sug ? `Shipyard gợi ý cho ${label(r)}` : undefined}>
+                          <label className="tm-cell">
+                            <input type="checkbox" aria-label={`${label(r)} dùng ${sk.label}`} disabled={locked}
+                              checked={on} onChange={() => setTeam(t => toggleRole(t, r, 'skills', sk.id))} />
+                          </label>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="faint tm-pad">Ô có viền là vai trò Shipyard gợi ý cho kỹ năng đó. Kỹ năng "Cài sẵn" nằm trên máy chạy lane, dùng chung cho mọi dự án.</p>
+    </section>
+  );
 }
 
 const OPEN_TONE = { queued: 'neutral', drafting: 'accent', 'awaiting-review': 'warn', publishing: 'accent', error: 'danger', done: 'ok', cancelled: 'neutral' };
@@ -168,6 +211,8 @@ export default function TeamPanel({ pid, onOpenRun }) {
       )) : (
         <>
           {s.teamError && <div className="alert-banner err"><AlertCircle size={16} /><div className="alert-banner-content">{s.teamError}</div></div>}
+          {team && <SkillMatrix s={s} team={team} locked={locked} setTeam={setTeam} />}
+
           {team && (
             <section className="card-panel">
               <div className="card-header tm-head"><h3 className="tm-h">Ai đọc luật nào</h3>
@@ -175,7 +220,7 @@ export default function TeamPanel({ pid, onOpenRun }) {
               <div className="tm-matrix-wrap">
                 <table className="tm-matrix">
                   <thead>
-                    <tr><th scope="col">Vai trò</th>{cols.map(c => <th key={c} scope="col"><code>{c.replace(/\.md$/, '')}</code></th>)}<th scope="col">Skill</th></tr>
+                    <tr><th scope="col">Vai trò</th>{cols.map(c => <th key={c} scope="col"><code>{c.replace(/\.md$/, '')}</code></th>)}</tr>
                   </thead>
                   <tbody>
                     {roleKeys(team).map(role => (
@@ -192,23 +237,11 @@ export default function TeamPanel({ pid, onOpenRun }) {
                             </td>
                           );
                         })}
-                        <td className="tm-skills">
-                          {skillChoices(s, team, role).length === 0 && <span className="faint">—</span>}
-                          {skillChoices(s, team, role).map(sk => {
-                            const on = (team.roles[role]?.skills || []).includes(sk.id);
-                            return (
-                              <button key={sk.id} type="button" className={`tm-chip${on ? ' on' : ''}${sk.suggested ? ' sug' : ''}`} aria-pressed={on} disabled={locked}
-                                title={sk.suggested ? `${sk.label} — ${sk.desc} (gợi ý của Shipyard; được thêm vào repo khi duyệt)` : sk.desc || sk.id}
-                                onClick={() => setTeam(t => toggleRole(t, role, 'skills', sk.id))}>{sk.label}</button>
-                            );
-                          })}
-                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <p className="faint tm-pad">Skill viền nét đứt là gợi ý của Shipyard: chọn rồi gửi duyệt thì được thêm vào <code>.claude/skills/</code> của repo.</p>
             </section>
           )}
 
@@ -256,17 +289,6 @@ export default function TeamPanel({ pid, onOpenRun }) {
                 </div>
               )}
             </div>
-            {dirty && s.canManage && (
-              <div className="tm-submit">
-                <input aria-label="Ghi chú cho người duyệt" placeholder="Ghi chú cho người duyệt (không bắt buộc)" value={note} onChange={e => setNote(e.target.value)} />
-                <Button variant="ghost" disabled={!!busy} onClick={() => { setTeam(s.team); setRules(s.rules); }}>Huỷ thay đổi</Button>
-                <Button variant="primary" icon={Send} disabled={!!busy || s.open}
-                  onClick={() => act('propose', () => teamApi.propose(pid, { rules: changes, team: sameTeam(s.team, team) ? undefined : team, note }),
-                    'Đã gửi thay đổi — vào "Chờ duyệt" để duyệt').then(() => setNote(''))}>
-                  {busy === 'propose' ? 'Đang gửi…' : 'Gửi duyệt'}
-                </Button>
-              </div>
-            )}
           </section>
 
           <section className="card-panel">
@@ -316,6 +338,19 @@ export default function TeamPanel({ pid, onOpenRun }) {
                   {busy === 'redraft' ? 'Đang gửi…' : 'Soạn lại luật'}</Button></div>
               </div>
             </section>
+          )}
+
+          {dirty && s.canManage && (
+            <div className="tm-submit tm-sticky" role="region" aria-label="Thay đổi chưa gửi">
+              <span className="tm-submit-what">Có thay đổi chưa gửi duyệt</span>
+              <input aria-label="Ghi chú cho người duyệt" placeholder="Ghi chú cho người duyệt (không bắt buộc)" value={note} onChange={e => setNote(e.target.value)} />
+              <Button variant="ghost" disabled={!!busy} onClick={() => { setTeam(s.team); setRules(s.rules); }}>Huỷ thay đổi</Button>
+              <Button variant="primary" icon={Send} disabled={!!busy || s.open}
+                onClick={() => act('propose', () => teamApi.propose(pid, { rules: changes, team: sameTeam(s.team, team) ? undefined : team, note }),
+                  'Đã gửi thay đổi — vào "Chờ duyệt" để duyệt').then(() => setNote(''))}>
+                {busy === 'propose' ? 'Đang gửi…' : 'Gửi duyệt'}
+              </Button>
+            </div>
           )}
         </>
       )}
