@@ -10,27 +10,21 @@ import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
 import { fmtAge } from '../lib/format.js';
 import { LANE_STATUS, stageLabel as stageLabel_ } from '../lib/laneview.js';
 import { laneAttention } from '../lib/laneview.js';
+import { simpleStepIndex } from '../lib/constants.js';
 import { useWorkflowLanes } from '../hooks/useRunViews.js';
 
 
 
 const SIMPLE_STEPS = [
-  { id: 'plan', label: '1. Kế hoạch', match: ['intake', 'plan'] },
-  { id: 'code', label: '2. Lập trình', match: ['implement', 'fix'] },
-  { id: 'check', label: '3. Kiểm tra', match: ['gates', 'e2e'] },
-  { id: 'qc', label: '4. Review & QC', match: ['review', 'qc', 'sr-gate'] },
-  { id: 'pr', label: '5. Pull Request', match: ['pr', 'watch-pr', 'merged', 'dev-qc'] },
-  { id: 'done', label: '6. Hoàn tất', match: ['done'] },
+  { id: 'plan', label: '1. Kế hoạch' },
+  { id: 'code', label: '2. Lập trình' },
+  { id: 'check', label: '3. Kiểm tra' },
+  { id: 'qc', label: '4. Review & QC' },
+  { id: 'pr', label: '5. Pull Request' },
+  { id: 'done', label: '6. Hoàn tất' },
 ];
 
-export function getSimpleStepIndex(stage, status) {
-  const s = (stage || '').toLowerCase();
-  if (status === 'passed' || s === 'done') return 5;
-  for (let i = 0; i < SIMPLE_STEPS.length; i++) {
-    if (SIMPLE_STEPS[i].match.some(m => s.includes(m))) return i;
-  }
-  return s && s !== 'no-state' ? 1 : -1;
-}
+export const getSimpleStepIndex = simpleStepIndex;
 
 function dotTone(l) {
   if (l.liveness === 'dead' || l.status === 'blocked' || l.status === 'failed') return 'danger';

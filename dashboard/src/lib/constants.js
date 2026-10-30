@@ -45,6 +45,20 @@ export function phaseIdx(stage) {
   return PHASES.findIndex(p => p.includes(s));
 }
 
+// The 6 customer stages (lane overview, board cards) per map node, so both always agree:
+// intake+plan → Kế hoạch · implement → Lập trình · gates+e2e → Kiểm tra tự động ·
+// review+QC+sr gate → Review & QC · PR+watch+merged+dev QC → Pull Request · done → Hoàn tất.
+const SIMPLE_OF_NODE = [0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5];
+
+/** Index (0–5) of the customer stage a lane is in, from the same table as the map; -1 = not started. */
+export function simpleStepIndex(stage, status) {
+  const s = (stage || '').toLowerCase();
+  if (status === 'passed' || s === 'done') return 5;
+  if (/^fix/.test(s)) return 1;
+  const i = phaseIdx(s);
+  return i >= 0 ? SIMPLE_OF_NODE[i] : -1;
+}
+
 export const ACT_CONFIRM = {
   up:     { m: "Boot / rebuild this lane's stack.", y: 'Boot' },
   down:   { m: "Stop this lane's stack (kills its servers, frees its ports).", y: 'Stop' },
