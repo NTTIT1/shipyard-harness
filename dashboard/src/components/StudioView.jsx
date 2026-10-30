@@ -1,15 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, MessageSquare, Loader2, Trash2, Check, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import ErrorBoundary from './ui/ErrorBoundary.jsx';
 import Chat from './studio/Chat.jsx';
 import DocPanel from './studio/DocPanel.jsx';
 import NewIdea from './studio/NewIdea.jsx';
-import { studio, isLive } from '../lib/studio.js';
+import { studio, isLive, projectIdOf } from '../lib/studio.js';
 import '../styles/wizard.css';
 import '../styles/studio.css';
 
-export default function StudioView({ onOpenProject }) {
+export default function StudioView({ onOpenProject, onProjectCreated }) {
   const [list, setList] = useState([]);
   const [current, setCurrent] = useState(null);
   const [err, setErr] = useState('');
@@ -39,6 +39,16 @@ export default function StudioView({ onOpenProject }) {
     const t = setTimeout(() => studio.get(current.id).then(s => { setCurrent(s); if (!isLive(s)) refreshList(); }, () => {}), 2500);
     return () => clearTimeout(t);
   }, [current, refreshList]);
+
+  // The project is registered while it is generated: add it to the projects list right away and
+  // make it the active project, instead of waiting for "Mở dự án". Opening an older idea does not.
+  const pid = projectIdOf(current);
+  const seen = useRef({ id: null, pid: null });
+  useEffect(() => {
+    const prev = seen.current;
+    seen.current = { id: current?.id || null, pid };
+    if (pid && prev.id === current?.id && !prev.pid) onProjectCreated?.(pid);
+  }, [current?.id, pid, onProjectCreated]);
 
   // Wrap mutator actions with error boundary.
   const act = fn => async (...args) => {

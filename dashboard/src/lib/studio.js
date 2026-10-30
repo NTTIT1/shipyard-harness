@@ -39,6 +39,9 @@ export function speaker(msg, stages) {
   return stages.find(s => s.id === msg.stage)?.role || 'AI';
 }
 
+/** The platform id of the project a session created, once it is registered (null before). */
+export const projectIdOf = s => s?.project?.projectId || s?.job?.project?.id || null;
+
 /** Should the view keep polling? (an AI is answering, or the project is being generated) */
 export const isLive = s => !!s && (s.busy || s.job?.status === 'running');
 

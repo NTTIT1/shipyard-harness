@@ -5,6 +5,7 @@ import { useReviews } from './hooks/useReviews.js';
 import { postAction, deleteProof } from './lib/api.js';
 import { platform } from './lib/platform.js';
 import { useTheme } from './hooks/useTheme.js';
+import { useRemembered, restoreProject, restoreView } from './hooks/useRemembered.js';
 import { laneAttention } from './lib/laneview.js';
 import { Menu as MenuIcon, Plus } from 'lucide-react';
 import Sidebar from './components/Sidebar.jsx';
@@ -44,9 +45,11 @@ const DocsView = lazy(() => import('./components/DocsView.jsx'));
 export default function App({ user, onLogout }) {
   const { data, refreshNow } = useLanes();
   const [projects, setProjects] = useState([]);
-  const [activeProjectId, setActiveProjectId] = useState('ALL');
-  const [projectSubTab, setProjectSubTab] = useState('members');
-  const [selectedLane, setSelectedLane] = useState(null);
+  const [activeProjectId, setActiveProjectId] = useRemembered('shipyard-project', 'ALL');
+  const activeRef = useRef(activeProjectId);
+  activeRef.current = activeProjectId;
+  const [projectSubTab, setProjectSubTab] = useRemembered('shipyard-project-tab', 'members');
+  const [selectedLane, setSelectedLane] = useRemembered('shipyard-lane', null);
   const [shot, setShot] = useState(null);
   const [gallery, setGallery] = useState(null);
   const [confirm, setConfirm] = useState(null);
@@ -54,7 +57,7 @@ export default function App({ user, onLogout }) {
   const [addLane, setAddLane] = useState(false);
   const [providers, setProviders] = useState(false);
   const [wizard, setWizard] = useState(false);
-  const [view, setView] = useState('board');
+  const [view, setView] = useRemembered('shipyard-view', 'board', restoreView);
   const [review, setReview] = useState(null);
   const inbox = useInbox();
   const openReview = useCallback(r => { setReview(r); setView('review'); }, []);
@@ -65,11 +68,16 @@ export default function App({ user, onLogout }) {
   const loadProjects = useCallback(async () => {
     try {
       const ps = await platform.projects();
-      if (Array.isArray(ps)) setProjects(ps);
+      if (Array.isArray(ps)) {
+        setProjects(ps);
+        // A remembered project that was deleted (or is no longer ours) falls back to all projects.
+        if (activeRef.current !== restoreProject(activeRef.current, ps)) setActiveProjectId('ALL');
+      }
     } catch { /* platform optional */ }
-  }, []);
+  }, [setActiveProjectId]);
 
-  useEffect(() => { loadProjects(); }, [loadProjects]);
+  // Re-read on every screen change: a project created elsewhere (studio, wizard) shows up without F5.
+  useEffect(() => { loadProjects(); }, [loadProjects, view]);
 
   const lanes = data?.lanes || [];
   const config = data?.config || {};
@@ -280,6 +288,7 @@ export default function App({ user, onLogout }) {
           <Suspense fallback={<ViewLoading />}>
             <ErrorBoundary title="Không thể hiển thị Ý tưởng sản phẩm">
               <StudioView
+                onProjectCreated={async pid => { await loadProjects(); setActiveProjectId(pid); }}
                 onOpenProject={async pid => { await loadProjects(); setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }}
               />
             </ErrorBoundary>
