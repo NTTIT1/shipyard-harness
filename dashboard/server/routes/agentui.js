@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { spawnSync } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { BIN, HARNESS_ROOT, LANES_ROOT, laneBinding } from '../services/config.js';
@@ -157,7 +157,12 @@ export function startLaneQueues() {
     state: (n, args) => stateSh(n, args),
     assign: (n, body) => assignLane(n, body, assignDeps(n, 'queue')),
   });
-  return () => { stopProjects(); stopLanes(); };
+  // The shared Android emulator (mobile projects) is stopped once nobody has used it for 10 minutes.
+  const idle = setInterval(() => {
+    try { spawn('bash', [path.join(BIN, 'android-emulator.sh'), 'idle-stop'], { stdio: 'ignore', detached: false }).on('error', () => {}); } catch { /* next pass */ }
+  }, 30_000);
+  idle.unref?.();
+  return () => { stopProjects(); stopLanes(); clearInterval(idle); };
 }
 router.get(`${lanePath}/specs`, wrap(async req => ({ specs: listSpecs(num(req)) })));
 // Change the in-flight feature's step models (e.g. after a step failed on a provider, or from Lane/Feature config).
