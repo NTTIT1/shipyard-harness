@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
-import MemoryPanel from './MemoryPanel.jsx';
+import ProjectMemoryView from './ProjectMemoryView.jsx';
 import TeamPanel from './TeamPanel.jsx';
 import DeleteProjectButton from './DeleteProjectButton.jsx';
 import ProjectMembersTab from './projects/ProjectMembersTab.jsx';
@@ -253,7 +253,7 @@ export default function ProjectsView({
           {tab === 'gates' && <ProjectGatesTab key={project.id} pid={project.id} canManage={canManage} />}
           {tab === 'team' && <TeamPanel key={project.id} pid={project.id} onOpenRun={onOpenRun} />}
           {tab === 'runs' && <ProjectRunsTab key={project.id} pid={project.id} onOpenRun={onOpenRun} />}
-          {tab === 'memory' && <MemoryPanel key={project.id} projectId={project.id} canManage={canManage} />}
+          {tab === 'memory' && <ProjectMemoryView key={project.id} projectId={project.id} canManage={canManage} />}
         </div>
       ) : (
         <div className="modern-empty-state" style={{ minHeight: 280 }}>

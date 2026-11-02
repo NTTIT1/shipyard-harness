@@ -14,7 +14,8 @@ import { tr } from '../lib/i18n.js';
  * feature roadmap and where each feature is), the UI design and its screens, and every feature added
  * later — to read back at any time without reopening the chat.
  */
-export default function ProjectDocsView({ pid, project, onOpenChat }) {
+// embedded: shown as the first tab of "Bộ nhớ dự án" (no page title of its own).
+export default function ProjectDocsView({ pid, project, onOpenChat, embedded = false }) {
   const [docs, setDocs] = useState(null);
   const [tab, setTab] = useState('brief');
   const [err, setErr] = useState('');
@@ -34,14 +35,15 @@ export default function ProjectDocsView({ pid, project, onOpenChat }) {
   }
   const empty = docs && !docs.brief && !docs.architecture;
   return (
-    <section className="hub" aria-labelledby="pd-title">
-      <header className="hub-head">
+    <section className="hub" {...(embedded ? { 'aria-label': tr('Tài liệu sản phẩm') } : { 'aria-labelledby': 'pd-title' })}>
+      {!embedded && <header className="hub-head">
         <div>
           <h1 id="pd-title" className="pb-h1">{tr('Tài liệu dự án')}{project?.name ? ` · ${project.name}` : ''}</h1>
           <p className="pb-subtitle">{tr('Những gì đã duyệt trong chat dự án: yêu cầu sản phẩm, thiết kế hệ thống, giao diện và các tính năng thêm sau. Cũng có trong Bộ nhớ dự án để các AI dùng lại.')}</p>
         </div>
         <Button variant="secondary" icon={MessagesSquare} onClick={() => onOpenChat(pid)}>{tr('Mở chat dự án')}</Button>
-      </header>
+      </header>}
+      {embedded && <p className="pb-subtitle">{tr('Bản mới nhất của những gì đã duyệt trong chat dự án: yêu cầu sản phẩm, thiết kế hệ thống, giao diện và các tính năng thêm sau. Tab Bộ nhớ AI giữ đầy đủ lịch sử để các AI dùng lại.')}</p>}
       {err && <p className="m-err" role="alert">{err}</p>}
       {!docs && !err && <p className="faint">{tr('Đang tải…')}</p>}
       {empty && <p className="muted-empty">{tr('Dự án chưa có tài liệu đã duyệt. Thêm tính năng trong chat dự án: AI đọc code sẵn có rồi cùng bạn viết tài liệu.')}</p>}

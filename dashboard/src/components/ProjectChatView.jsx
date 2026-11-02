@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, MessagesSquare, Loader2, ArrowUp, ArrowDown, X, Send, Rocket } from 'lucide-react';
+import { Plus, MessagesSquare, Loader2, ArrowUp, ArrowDown, X, Send } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import ErrorBoundary from './ui/ErrorBoundary.jsx';
 import { Session } from './StudioView.jsx';
@@ -15,7 +15,7 @@ import { tr } from '../lib/i18n.js';
  */
 export default function ProjectChatView({ pid, project }) {
   const [chat, setChat] = useState(null);
-  const [sel, setSel] = useState(null);       // a thread id, 'root', 'new' or null
+  const [sel, setSel] = useState(null);       // a feature thread id, 'new' or null
   const [current, setCurrent] = useState(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -32,9 +32,8 @@ export default function ProjectChatView({ pid, project }) {
   const open = useCallback(id => {
     setSel(id);
     if (id === 'new') { setCurrent(null); return; }
-    const sid = id === 'root' ? chat?.root?.id : id;
-    if (sid) projectChat.thread(pid, sid).then(setCurrent, e => setErr(e.message));
-  }, [pid, chat?.root?.id]);
+    projectChat.thread(pid, id).then(setCurrent, e => setErr(e.message));
+  }, [pid]);
   // Poll the open thread while its AI answers.
   useEffect(() => {
     if (!isLive(current)) return undefined;
@@ -86,14 +85,6 @@ export default function ProjectChatView({ pid, project }) {
         {err && <div className="m-err st-err" role="alert">{err}</div>}
         <div className="st-list-scroll">
           <ul className="st-list-items">
-            {chat?.root && (
-              <li className="st-item-row">
-                <button type="button" className={`st-item${sel === 'root' ? ' on' : ''}`} onClick={() => open('root')}>
-                  <Rocket size={13} className="st-item-icon" />
-                  <span className="st-item-title">{tr('Tạo dự án')}</span>
-                </button>
-              </li>
-            )}
             {(chat?.threads || []).map(t => (
               <li key={t.id} className="st-item-row">
                 <button type="button" className={`st-item${sel === t.id ? ' on' : ''}`} onClick={() => open(t.id)}>
@@ -104,7 +95,7 @@ export default function ProjectChatView({ pid, project }) {
               </li>
             ))}
           </ul>
-          {chat && !chat.root && !(chat.threads || []).length && (
+          {chat && !(chat.threads || []).length && (
             <div className="st-list-empty">{tr('Chưa có trao đổi nào. Thêm tính năng đầu tiên: AI sẽ đọc tài liệu và code sẵn có của dự án trước khi tư vấn.')}</div>
           )}
 

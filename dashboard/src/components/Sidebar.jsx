@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useMe
 import {
   Plus, Server, Settings2, Sun, Moon, X, Ship, LogOut, Inbox,
   FolderKanban, LayoutGrid, Users, Coins, FileText, Gauge,
-  ListTodo, Layers, SlidersHorizontal, Database, Palette, MessagesSquare, FolderOpen, BookOpen
+  ListTodo, Layers, SlidersHorizontal, Database, Palette, MessagesSquare, FolderOpen
 } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import IconButton from './ui/IconButton.jsx';
@@ -127,7 +127,6 @@ export default function Sidebar({
               <NavItem icon={SlidersHorizontal} label={tr('Quy trình & duyệt')} active={view === 'projects' && projectSubTab === 'gates'} onClick={() => handleNav('projects', 'gates')} />
               <NavItem icon={Layers} label={tr('Tính năng & model AI')} active={view === 'projects' && projectSubTab === 'runs'} onClick={() => handleNav('projects', 'runs')} />
               <NavItem icon={MessagesSquare} label={tr('Chat dự án')} active={view === 'chat'} onClick={() => handleNav('chat')} />
-              <NavItem icon={BookOpen} label={tr('Tài liệu dự án')} active={view === 'pdocs'} onClick={() => handleNav('pdocs')} />
               <NavItem icon={FileText} label={tr('Tài liệu đã duyệt')} active={view === 'docs'} onClick={() => handleNav('docs')} />
               <NavItem icon={Database} label={tr('Bộ nhớ dự án')} active={view === 'projects' && projectSubTab === 'memory'} onClick={() => handleNav('projects', 'memory')} />
               <NavItem icon={Palette} label={tr('Kỹ năng AI & khung')} active={view === 'projects' && projectSubTab === 'team'} onClick={() => handleNav('projects', 'team')} />

@@ -44,7 +44,6 @@ const StudioView = lazy(() => import('./components/StudioView.jsx'));
 const CreateProjectModal = lazy(() => import('./components/projects/CreateProjectModal.jsx'));
 const ProjectChatView = lazy(() => import('./components/ProjectChatView.jsx'));
 const ProjectHubView = lazy(() => import('./components/ProjectHubView.jsx'));
-const ProjectDocsView = lazy(() => import('./components/ProjectDocsView.jsx'));
 const DocsView = lazy(() => import('./components/DocsView.jsx'));
 
 export default function App({ user, onLogout }) {
@@ -313,14 +312,6 @@ export default function App({ user, onLogout }) {
               onOpenDraft={id => { setStudioSession(id); setView('studio'); }}
               onOpenChat={pid => { setActiveProjectId(pid); setView('chat'); }}
               onOpenSettings={pid => { setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }} />
-          </Suspense>
-        )}
-        {view === 'pdocs' && (
-          <Suspense fallback={<ViewLoading />}>
-            <ErrorBoundary title={tr('Không thể hiển thị tài liệu dự án')}>
-              <ProjectDocsView key={activeProjectId} pid={activeProjectId === 'ALL' ? null : activeProjectId}
-                project={projects.find(p => p.id === activeProjectId)} onOpenChat={pid => { setActiveProjectId(pid); setView('chat'); }} />
-            </ErrorBoundary>
           </Suspense>
         )}
         {view === 'chat' && (

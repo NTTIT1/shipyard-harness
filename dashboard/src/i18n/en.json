@@ -1522,5 +1522,8 @@
   "Đã duyệt — chưa làm": "Approved — not built yet",
   "Tài liệu gốc của dự án": "Project's base documents",
   "Yêu cầu mới": "New request",
-  "Chat với đội AI của dự án": "Chat with the project's AI team"
+  "Chat với đội AI của dự án": "Chat with the project's AI team",
+  "Tài liệu sản phẩm": "Product documents",
+  "Bộ nhớ AI": "AI memory",
+  "Bản mới nhất của những gì đã duyệt trong chat dự án: yêu cầu sản phẩm, thiết kế hệ thống, giao diện và các tính năng thêm sau. Tab Bộ nhớ AI giữ đầy đủ lịch sử để các AI dùng lại.": "The latest version of what the project chat approved: product requirements, system design, UI and the features added later. The AI memory tab keeps the full history for the AIs to reuse."
 }
