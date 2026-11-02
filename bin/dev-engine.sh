@@ -9,6 +9,11 @@ require_lane "${1:-}"
 N="$1"
 R="$(python3 "$CODE_ROOT/bin/step_model.py" "$(lane_state_file "$N")" "$HARNESS_ROOT/config/models.json" dev "$N")"
 MODEL="${R%%$'\t'*}"
+# OpenHands sandboxes have no Flutter / Android SDK: a mobile project's DEV is always the lane session.
+if [ "${APP_KIND:-}" = "mobile" ] && [[ "$MODEL" == openhands:* ]]; then
+  echo "harness: dev-engine: OpenHands không có Flutter — DEV của dự án mobile do phiên của lane làm" >&2
+  echo "session"; exit 0
+fi
 case "$MODEL" in
   openhands:?*) echo "openhands ${MODEL#openhands:}" ;;
   *) echo "session" ;;

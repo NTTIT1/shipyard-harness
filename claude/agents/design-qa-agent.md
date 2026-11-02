@@ -37,3 +37,11 @@ You are the **Design QA Auditor**. You perform an independent, rigorous design a
 ROLE-STEP: DONE design/design-qa-report.md
 ROLE-STEP: BLOCKED <reason>
 ```
+
+## Dự án Flutter (Android)
+When `APP_KIND="mobile"`, audit the mockups as **phone screens (360–412px wide)**:
+- touch targets at least 48dp;
+- no horizontal scroll;
+- text that does not overflow;
+- the on-screen keyboard must not cover the input being typed into;
+- Material conventions (app bar, back navigation, bottom sheets).

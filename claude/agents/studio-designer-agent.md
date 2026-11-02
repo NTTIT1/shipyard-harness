@@ -27,3 +27,8 @@ When your prompt has `CHẾ ĐỘ BỔ SUNG TÍNH NĂNG`: follow `./project-docs
 
 ## Report
 End your reply with exactly one line: `ROLE-STEP: DONE chat` (or `ROLE-STEP: BLOCKED <reason>`).
+
+## Dự án Flutter (Android)
+When the approved `stack.json` has `"frontend": {"stack": "flutter-android", …}`, the product is an Android app:
+- draw the main screens as **phone screens (360–412px wide)**;
+- use Material 3 conventions (app bar, bottom navigation, cards, touch targets ≥ 48px), not desktop web layouts.

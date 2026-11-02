@@ -31,3 +31,10 @@ When your prompt has `CHẾ ĐỘ BỔ SUNG TÍNH NĂNG`: the approved feature b
 
 ## Report
 End your reply with exactly one line: `ROLE-STEP: DONE chat` (or `ROLE-STEP: BLOCKED <reason>`).
+
+## Dự án Flutter (Android)
+When the product is a phone app (người dùng dùng trên điện thoại Android):
+- Recommend `"kind": "fullstack"` with a backend from `stacks.json` (`java-spring`, `python-fastapi` or `ts-nestjs`) and `"frontend": {"stack": "flutter-android", "options": {"org": "<com.congty>"}}`.
+- In `architecture.md`, the client is the Flutter app in `mobile/`: screens, local state, calling the backend's REST API through `lib/api.dart`.
+- Plan backend auth for a mobile client (tokens, not cookies).
+- Only Android is supported (no iOS).
