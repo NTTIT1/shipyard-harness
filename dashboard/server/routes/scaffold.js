@@ -165,6 +165,10 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
     const d = projectDocs.readDocs(req.params.pid);
     return { ...d, list: projectDocs.featureList(d.architecture, projectQueue.readProjectQueue(req.params.pid)) };
   }));
+  // The roadmap with where each feature stands (built, lane N, waiting, not scheduled…): the project's progress.
+  router.get('/api/projects/:pid/features', member, wrapS(req => ({
+    list: projectDocs.featureList(projectDocs.readDocs(req.params.pid).architecture, projectQueue.readProjectQueue(req.params.pid)),
+  })));
   router.get('/api/projects/:pid/queue', member, wrapS(req => projectQueue.readProjectQueue(req.params.pid)));
   router.put('/api/projects/:pid/queue', admin, member, wrapS(req => projectQueue.writeProjectQueue(req.params.pid, req.body || {})));
 

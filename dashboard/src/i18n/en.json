@@ -1558,5 +1558,12 @@
   "email tài khoản QA": "QA account email",
   "Dùng để AI đăng nhập kiểm tra trên trang dev. Để trống cũng được — đặt sau ở nút khoá của lane.": "Lets the AI sign in to check the dev site. Can be left blank — set it later with the lane's key button.",
   "Clone dự án": "Clone the project",
-  "Cài thư viện": "Install packages"
+  "Cài thư viện": "Install packages",
+  "Tiến độ lane ({0} lane)": "Lane progress ({0} lanes)",
+  "{0} đang làm": "{0} in progress",
+  "{0} chờ lane": "{0} waiting for a lane",
+  "{0} chưa xếp lịch": "{0} not scheduled",
+  "Tiến độ dự án": "Project progress",
+  "{0} trên {1} tính năng đã có": "{0} of {1} features built",
+  "{0}/{1} tính năng đã có": "{0}/{1} features built"
 }

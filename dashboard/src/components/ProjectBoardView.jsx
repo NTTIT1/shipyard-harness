@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FolderKanban, Plus, Wand2, Gauge, Coins, Play, CheckCircle2,
   Clock, AlertTriangle, ArrowRight, Server, SlidersHorizontal, GitBranch
@@ -9,7 +9,8 @@ import StatusDot from './ui/StatusDot.jsx';
 import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
 import { fmtAge } from '../lib/format.js';
 import { LANE_STATUS, stageLabel as stageLabel_ } from '../lib/laneview.js';
-import { laneAttention } from '../lib/laneview.js';
+import { laneAttention, projectProgress } from '../lib/laneview.js';
+import { projectChat } from '../lib/studio.js';
 import { simpleStepIndex } from '../lib/constants.js';
 import { useWorkflowLanes } from '../hooks/useRunViews.js';
 import { tr } from '../lib/i18n.js';
@@ -52,6 +53,19 @@ export default function ProjectBoardView({
 
   // A role-pipeline lane is measured by its own workflow steps (same as the lane's overview tab).
   const lanes = useWorkflowLanes(rawLanes);
+
+  // Each project's roadmap (features and where they stand): its real progress, not just its lanes'.
+  const [roadmaps, setRoadmaps] = useState({});
+  const ids = projects.map(p => p.id).join(',');
+  useEffect(() => {
+    if (!ids) return undefined;
+    let stop = false;
+    const load = () => Promise.all(ids.split(',').map(id => projectChat.features(id).then(list => [id, list], () => [id, null])))
+      .then(rs => { if (!stop) setRoadmaps(Object.fromEntries(rs)); });
+    load();
+    const t = setInterval(load, 30_000);
+    return () => { stop = true; clearInterval(t); };
+  }, [ids]);
 
   // Group lanes by project; if only 1 project exists and lanes have no run_project_id, attach them to that project
   const projectGroups = useMemo(() => {
@@ -230,15 +244,7 @@ export default function ProjectBoardView({
                 </div>
 
                 <div className="pb-project-metrics">
-                  <div className="pb-pm-item">
-                    <span className="pb-pm-label">{tr('Tiến độ dự án ({0} lane)', [activeCount])}</span>
-                    <div className="pb-pm-val-row">
-                      <span className="pb-pm-val">{avgProg != null ? `${avgProg}%` : '—'}</span>
-                      <span className="pb-pm-mini-bar">
-                        <i style={{ width: `${Math.max(0, Math.min(100, Number(avgProg) || 0))}%` }} />
-                      </span>
-                    </div>
-                  </div>
+                  <ProjectProgress progress={projectProgress(roadmaps[pj.id], pjLanes)} avgProg={avgProg} activeCount={activeCount} />
 
                   <div className="pb-pm-divider" />
 
@@ -355,5 +361,37 @@ export default function ProjectBoardView({
         })}
       </div>
     </section>
+  );
+}
+
+/**
+ * Where the project stands by its roadmap: % built (a feature a lane is building counts by its progress), a bar
+ * split built / building / waiting / not scheduled, and the counts. A project without a roadmap shows its lanes'.
+ */
+function ProjectProgress({ progress: p, avgProg, activeCount }) {
+  if (!p) {
+    return (
+      <div className="pb-pm-item">
+        <span className="pb-pm-label">{tr('Tiến độ lane ({0} lane)', [activeCount])}</span>
+        <div className="pb-pm-val-row">
+          <span className="pb-pm-val">{avgProg != null ? `${avgProg}%` : '—'}</span>
+          <span className="pb-pm-mini-bar"><i style={{ width: `${Math.max(0, Math.min(100, Number(avgProg) || 0))}%` }} /></span>
+        </div>
+      </div>
+    );
+  }
+  const seg = [['done', p.done], ['building', p.building], ['waiting', p.waiting], ['planned', p.planned]];
+  const detail = [p.building && tr('{0} đang làm', [p.building]), p.waiting && tr('{0} chờ lane', [p.waiting]), p.planned && tr('{0} chưa xếp lịch', [p.planned])].filter(Boolean).join(' · ');
+  return (
+    <div className="pb-pm-item pb-prog">
+      <span className="pb-pm-label">{tr('Tiến độ dự án')}</span>
+      <div className="pb-pm-val-row">
+        <span className="pb-pm-val">{p.percent}%</span>
+        <span className="pb-prog-bar" role="img" aria-label={tr('{0} trên {1} tính năng đã có', [p.done, p.total])}>
+          {seg.filter(([, n]) => n > 0).map(([k, n]) => <i key={k} className={`pb-prog-${k}`} style={{ flexGrow: n }} />)}
+        </span>
+      </div>
+      <span className="pb-prog-sub">{tr('{0}/{1} tính năng đã có', [p.done, p.total])}{detail ? ` · ${detail}` : ''}</span>
+    </div>
   );
 }

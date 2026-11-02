@@ -34,6 +34,7 @@ export const projectChat = {
   addFeature: (pid, text) => call('POST', `/api/projects/${pid}/chat/features`, { text }),
   queue: pid => call('GET', `/api/projects/${pid}/queue`),
   docs: pid => call('GET', `/api/projects/${pid}/docs`),
+  features: pid => call('GET', `/api/projects/${pid}/features`).then(r => r.list || []),
   // op: { order: [slug…] } or { remove: slug } — applied to the queue as it is on the server now.
   saveQueue: (pid, op) => call('PUT', `/api/projects/${pid}/queue`, op),
 };
