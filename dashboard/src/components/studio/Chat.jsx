@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Send, Loader2, Bot, User, ChevronDown, ChevronUp, Check, History } from 'lucide-react';
 import Markdown from '../Markdown.jsx';
 import { studio, speaker } from '../../lib/studio.js';
+import { tr, locale } from '../../lib/i18n.js';
 
 export default function Chat({ s, act, enabled, role }) {
   const [text, setText] = useState('');
@@ -81,35 +82,31 @@ export default function Chat({ s, act, enabled, role }) {
           <div className="st-chat-role-meta">
             <strong className="st-chat-role-title">{role || 'AI Assistant'}</strong>
             <span className="st-chat-role-sub">
-              {s.busy ? 'Đang soạn thảo…' : enabled ? 'Sẵn sàng trao đổi' : 'Đang chờ bước sau'}
+              {s.busy ? tr('Đang soạn thảo…') : enabled ? tr('Sẵn sàng trao đổi') : tr('Đang chờ bước sau')}
             </span>
           </div>
         </div>
 
         <div className="st-chat-header-actions">
           {pastMessagesCount > 0 && (
-            <div className="st-chat-scope" role="group" aria-label="Lọc tin nhắn">
+            <div className="st-chat-scope" role="group" aria-label={tr('Lọc tin nhắn')}>
               <button
                 type="button"
                 className={`st-scope-btn${scope === 'current' ? ' on' : ''}`}
                 onClick={() => setScope('current')}
-                title="Chỉ hiển thị hội thoại của bước hiện tại">
-                Bước này
-              </button>
+                title={tr('Chỉ hiển thị hội thoại của bước hiện tại')}>{tr('Bước này')}</button>
               <button
                 type="button"
                 className={`st-scope-btn${scope === 'all' ? ' on' : ''}`}
                 onClick={() => setScope('all')}
-                title="Xem tất cả tin nhắn từ đầu">
-                Tất cả ({s.messages.length})
-              </button>
+                title={tr('Xem tất cả tin nhắn từ đầu')}>{tr('Tất cả ({0})', [s.messages.length])}</button>
             </div>
           )}
 
           {s.busy && (
             <div className="st-chat-busy-pill">
               <Loader2 size={12} className="wz-spin" aria-hidden="true" />
-              <span>AI đang làm việc…</span>
+              <span>{tr('AI đang làm việc…')}</span>
             </div>
           )}
         </div>
@@ -120,19 +117,17 @@ export default function Chat({ s, act, enabled, role }) {
         {scope === 'current' && pastMessagesCount > 0 && (
           <div className="st-past-banner">
             <History size={13} className="st-past-icon" />
-            <span>Đã ẩn {pastMessagesCount} tin nhắn ở các bước trước để tập trung.</span>
+            <span>{tr('Đã ẩn {0} tin nhắn ở các bước trước để tập trung.', [pastMessagesCount])}</span>
             <button
               type="button"
               className="st-past-link"
-              onClick={() => setScope('all')}>
-              Xem tất cả
-            </button>
+              onClick={() => setScope('all')}>{tr('Xem tất cả')}</button>
           </div>
         )}
 
         {filteredGroups.length === 0 && (
           <div className="st-msgs-empty">
-            <p>Chưa có tin nhắn nào trong bước này. Nhắn cho {role} để bắt đầu.</p>
+            <p>{tr('Chưa có tin nhắn nào trong bước này. Nhắn cho {0} để bắt đầu.', [role])}</p>
           </div>
         )}
 
@@ -154,10 +149,10 @@ export default function Chat({ s, act, enabled, role }) {
                       <Check size={11} strokeWidth={2.5} />
                     </span>
                     <span className="st-past-stage-name">{group.stageInfo.label}</span>
-                    <span className="st-past-count">({group.messages.length} tin nhắn)</span>
+                    <span className="st-past-count">{tr('({0} tin nhắn)', [group.messages.length])}</span>
                   </div>
                   <div className="st-past-toggle-right">
-                    <span>{isCollapsed ? 'Mở xem lại' : 'Thu gọn'}</span>
+                    <span>{isCollapsed ? tr('Mở xem lại') : tr('Thu gọn')}</span>
                     {isCollapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
                   </div>
                 </button>
@@ -207,8 +202,8 @@ export default function Chat({ s, act, enabled, role }) {
             value={text}
             maxLength={8000}
             disabled={!enabled}
-            aria-label="Nhắn cho AI"
-            placeholder={enabled ? `Nhắn cho ${role}… (Ctrl+Enter để gửi)` : 'Bước này không trò chuyện'}
+            aria-label={tr('Nhắn cho AI')}
+            placeholder={enabled ? tr('Nhắn cho {0}… (Ctrl+Enter để gửi)', [role]) : tr('Bước này không trò chuyện')}
             onChange={e => {
               setText(e.target.value);
               e.target.style.height = 'auto';
@@ -226,7 +221,7 @@ export default function Chat({ s, act, enabled, role }) {
             className="st-composer-send-btn"
             disabled={!enabled || s.busy || sending || !text.trim()}
             onClick={send}
-            aria-label="Gửi tin nhắn">
+            aria-label={tr('Gửi tin nhắn')}>
             {sending ? <Loader2 size={15} className="wz-spin" /> : <Send size={15} />}
           </button>
         </div>
@@ -264,9 +259,9 @@ function MessageBubble({ m, stages, isLatest }) {
               className="st-msg-expand-btn"
               onClick={() => setExpanded(!expanded)}>
               {expanded ? (
-                <><span>Thu gọn</span><ChevronUp size={12} /></>
+                <><span>{tr('Thu gọn')}</span><ChevronUp size={12} /></>
               ) : (
-                <><span>Xem toàn bộ tin nhắn ({msgText.length} ký tự)</span><ChevronDown size={12} /></>
+                <><span>{tr('Xem toàn bộ tin nhắn ({0} ký tự)', [msgText.length])}</span><ChevronDown size={12} /></>
               )}
             </button>
           </div>
@@ -274,7 +269,7 @@ function MessageBubble({ m, stages, isLatest }) {
       </div>
       {isAi && m.steps?.length > 0 && (
         <details className="st-steps-log">
-          <summary>AI đã làm gì · {m.steps.length} bước{m.model ? ` · ${m.model}` : ''}</summary>
+          <summary>{tr('AI đã làm gì · {0} bước{1}', [m.steps.length, m.model ? ` · ${m.model}` : ''])}</summary>
           <StepList steps={m.steps} />
         </details>
       )}
@@ -289,7 +284,7 @@ function StepList({ steps, live }) {
     <ol className="st-steps">
       {steps.map((x, i) => (
         <li key={`${x.at}-${i}`} className={live && i === steps.length - 1 ? 'now' : undefined}>
-          <time>{new Date(x.at).toLocaleTimeString('vi-VN', { hour12: false })}</time>
+          <time>{new Date(x.at).toLocaleTimeString(locale, { hour12: false })}</time>
           <span>{x.text}</span>
         </li>
       ))}
@@ -309,13 +304,13 @@ function LiveActivity({ a }) {
         <span className="typing-bubble" aria-hidden="true">
           <span className="st-typing-dot" /><span className="st-typing-dot" /><span className="st-typing-dot" />
         </span>
-        <span className="st-live-title">Đang làm việc</span>
+        <span className="st-live-title">{tr('Đang làm việc')}</span>
         {a?.model && <code className="st-live-model">{a.model}</code>}
         <span className="st-live-time">{clock(since)}</span>
       </div>
       {steps.length > 0
         ? <StepList steps={steps.slice(-8)} live />
-        : <p className="st-live-empty">Đang khởi động AI…</p>}
+        : <p className="st-live-empty">{tr('Đang khởi động AI…')}</p>}
     </div>
   );
 }

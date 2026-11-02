@@ -3,6 +3,7 @@ import { ArrowUp, ArrowDown, Plus, X } from 'lucide-react';
 import ModelSelect from '../ModelSelect.jsx';
 import { STEP_LABEL, GATE_MODES, MOVABLE, APPROVER_ROLE_OPTIONS, defaultApproverRole } from '../../lib/review.js';
 import { CONDITIONS, ON_FAILURE, KNOWN_INPUTS, PHASE_WORK, validInput, configProblem } from '../../lib/workflow.js';
+import { tr } from '../../lib/i18n.js';
 
 /**
  * Settings of one workflow step. Every field is stored on the project, frozen into each run and
@@ -50,15 +51,15 @@ export default function WorkflowStepInspector({ item, index, value, onChange, in
         </div>
         {movable && !disabled && (
           <span className="wfi-move">
-            <button type="button" className="wf-move-btn" aria-label={`Đưa ${STEP_LABEL[step]} lên trước`} disabled={index === 0} onClick={() => move(-1)}><ArrowUp size={14} aria-hidden="true" /></button>
-            <button type="button" className="wf-move-btn" aria-label={`Đưa ${STEP_LABEL[step]} xuống sau`} disabled={index >= lastMovable} onClick={() => move(1)}><ArrowDown size={14} aria-hidden="true" /></button>
+            <button type="button" className="wf-move-btn" aria-label={tr('Đưa {0} lên trước', [STEP_LABEL[step]])} disabled={index === 0} onClick={() => move(-1)}><ArrowUp size={14} aria-hidden="true" /></button>
+            <button type="button" className="wf-move-btn" aria-label={tr('Đưa {0} xuống sau', [STEP_LABEL[step]])} disabled={index >= lastMovable} onClick={() => move(1)}><ArrowDown size={14} aria-hidden="true" /></button>
           </span>
         )}
       </header>
 
       <fieldset className="wfi-group">
-        <legend>Sau khi AI làm xong</legend>
-        <div className="wf-mode" role="radiogroup" aria-label={`Chế độ bước ${STEP_LABEL[step]}`}>
+        <legend>{tr('Sau khi AI làm xong')}</legend>
+        <div className="wf-mode" role="radiogroup" aria-label={tr('Chế độ bước {0}', [STEP_LABEL[step]])}>
           {GATE_MODES.filter(g => !(step === 'DEV' && g.id === 'SKIP')).map(g => (
             <label key={g.id} className={item.mode === g.id ? 'on' : ''}>
               <input type="radio" name={id('mode')} checked={item.mode === g.id} disabled={disabled} onChange={() => set({ mode: g.id })} />
@@ -68,74 +69,67 @@ export default function WorkflowStepInspector({ item, index, value, onChange, in
         </div>
         {item.mode === 'REQUIRED' && (
           <div className="wfi-row">
-            <label className="wfi-field" htmlFor={id('role')}>Vai trò duyệt
-              <select id={id('role')} className="msel" disabled={disabled} value={role} onChange={e => set({ approverRole: e.target.value, approverId: null })}>
+            <label className="wfi-field" htmlFor={id('role')}>{tr('Vai trò duyệt')}<select id={id('role')} className="msel" disabled={disabled} value={role} onChange={e => set({ approverRole: e.target.value, approverId: null })}>
                 {APPROVER_ROLE_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
             </label>
-            <label className="wfi-field" htmlFor={id('who')}>Người duyệt
-              <select id={id('who')} className="msel" disabled={disabled || !eligible.length} value={item.approverId || ''} onChange={e => set({ approverId: e.target.value || null })}>
-                <option value="">Bất kỳ ai có vai trò này</option>
+            <label className="wfi-field" htmlFor={id('who')}>{tr('Người duyệt')}<select id={id('who')} className="msel" disabled={disabled || !eligible.length} value={item.approverId || ''} onChange={e => set({ approverId: e.target.value || null })}>
+                <option value="">{tr('Bất kỳ ai có vai trò này')}</option>
                 {eligible.map(m => <option key={m.userId} value={m.userId}>{users[m.userId]?.name || users[m.userId]?.email || m.userId}</option>)}
               </select>
             </label>
           </div>
         )}
-        {skipped && <p className="wfi-hint">Bước không chạy; bước sau làm từ yêu cầu gốc và tài liệu đã có.</p>}
+        {skipped && <p className="wfi-hint">{tr('Bước không chạy; bước sau làm từ yêu cầu gốc và tài liệu đã có.')}</p>}
       </fieldset>
 
       {!skipped && (
         <>
           <fieldset className="wfi-group">
-            <legend>Model AI</legend>
+            <legend>{tr('Model AI')}</legend>
             {info ? (
               <ModelSelect id={id('model')} value={cfg.model || ''} info={info} openhands={step === 'DEV' || step === 'TEST'}
-                emptyLabel="Mặc định của lane" label={`Model AI — ${STEP_LABEL[step]}`} onChange={v => setCfg({ model: v })} />
-            ) : <p className="wfi-hint">Đang tải danh sách model…</p>}
+                emptyLabel={tr('Mặc định của lane')} label={`Model AI — ${STEP_LABEL[step]}`} onChange={v => setCfg({ model: v })} />
+            ) : <p className="wfi-hint">{tr('Đang tải danh sách model…')}</p>}
             <p className="wfi-hint">
               {step === 'DEV'
-                ? 'Claude = phiên chính của lane tự code; OpenHands = code trong hộp kín qua cổng LiteLLM.'
-                : 'Chọn sẵn khi giao việc cho lane của dự án; từng tính năng vẫn đổi được ở Giao việc.'}
+                ? tr('Claude = phiên chính của lane tự code; OpenHands = code trong hộp kín qua cổng LiteLLM.')
+                : tr('Chọn sẵn khi giao việc cho lane của dự án; từng tính năng vẫn đổi được ở Giao việc.')}
             </p>
           </fieldset>
 
           <fieldset className="wfi-group">
-            <legend>Giới hạn</legend>
+            <legend>{tr('Giới hạn')}</legend>
             <div className="wfi-row wfi-row-3">
-              <label className="wfi-field" htmlFor={id('time')}>Giới hạn phút
-                <input id={id('time')} type="number" inputMode="numeric" min="1" max="480" placeholder="Không giới hạn" disabled={disabled}
+              <label className="wfi-field" htmlFor={id('time')}>{tr('Giới hạn phút')}<input id={id('time')} type="number" inputMode="numeric" min="1" max="480" placeholder={tr('Không giới hạn')} disabled={disabled}
                   value={cfg.timeoutMinutes ?? ''} onChange={e => setCfg({ timeoutMinutes: e.target.value === '' ? undefined : Number(e.target.value) })} />
               </label>
-              <label className="wfi-field" htmlFor={id('budget')}>Ngân sách (₫)
-                <input id={id('budget')} type="number" inputMode="numeric" min="0" step="50000" placeholder="Không giới hạn" disabled={disabled}
+              <label className="wfi-field" htmlFor={id('budget')}>{tr('Ngân sách (₫)')}<input id={id('budget')} type="number" inputMode="numeric" min="0" step="50000" placeholder={tr('Không giới hạn')} disabled={disabled}
                   value={cfg.budgetVnd ?? ''} onChange={e => setCfg({ budgetVnd: e.target.value === '' ? undefined : Number(e.target.value) })} />
               </label>
-              <label className="wfi-field" htmlFor={id('retries')}>Số vòng thử lại
-                <input id={id('retries')} type="number" inputMode="numeric" min="0" max="5" placeholder="0" disabled={disabled}
+              <label className="wfi-field" htmlFor={id('retries')}>{tr('Số vòng thử lại')}<input id={id('retries')} type="number" inputMode="numeric" min="0" max="5" placeholder="0" disabled={disabled}
                   value={cfg.maxRetries ?? ''} onChange={e => setCfg({ maxRetries: e.target.value === '' ? undefined : Number(e.target.value) })} />
               </label>
             </div>
             <div className="wfi-row">
-              <label className="wfi-field" htmlFor={id('cond')}>Điều kiện chạy
-                <select id={id('cond')} className="msel" disabled={disabled || step === 'DEV'} value={cfg.condition || 'ALWAYS'} onChange={e => setCfg({ condition: e.target.value })}>
+              <label className="wfi-field" htmlFor={id('cond')}>{tr('Điều kiện chạy')}<select id={id('cond')} className="msel" disabled={disabled || step === 'DEV'} value={cfg.condition || 'ALWAYS'} onChange={e => setCfg({ condition: e.target.value })}>
                   {CONDITIONS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
               </label>
-              <label className="wfi-field" htmlFor={id('fail')}>Khi AI lỗi / quá giờ / vượt ngân sách
-                <select id={id('fail')} className="msel" disabled={disabled} value={cfg.onFailure || 'ESCALATE_HUMAN'} onChange={e => setCfg({ onFailure: e.target.value })}>
+              <label className="wfi-field" htmlFor={id('fail')}>{tr('Khi AI lỗi / quá giờ / vượt ngân sách')}<select id={id('fail')} className="msel" disabled={disabled} value={cfg.onFailure || 'ESCALATE_HUMAN'} onChange={e => setCfg({ onFailure: e.target.value })}>
                   {ON_FAILURE.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
               </label>
             </div>
             <p className="wfi-hint">
               {step === 'DEV'
-                ? 'Code trong phiên chính: số vòng thử = số vòng tự sửa khi CI/e2e đỏ (mặc định 3); giới hạn phút và ngân sách được kiểm tra trước mỗi vòng.'
-                : 'Mỗi lần AI chạy bị cắt ở giới hạn phút; vượt ngân sách thì không chạy thêm. Thử lại chỉ áp dụng khi chọn "Tự thử lại".'}
+                ? tr('Code trong phiên chính: số vòng thử = số vòng tự sửa khi CI/e2e đỏ (mặc định 3); giới hạn phút và ngân sách được kiểm tra trước mỗi vòng.')
+                : tr('Mỗi lần AI chạy bị cắt ở giới hạn phút; vượt ngân sách thì không chạy thêm. Thử lại chỉ áp dụng khi chọn "Tự thử lại".')}
             </p>
           </fieldset>
 
           <fieldset className="wfi-group">
-            <legend>Đầu vào bắt buộc</legend>
+            <legend>{tr('Đầu vào bắt buộc')}</legend>
             <div className="wfi-chips">
               {KNOWN_INPUTS.map(k => {
                 const on = inputs.includes(k.path);
@@ -146,20 +140,20 @@ export default function WorkflowStepInspector({ item, index, value, onChange, in
               })}
               {inputs.filter(p => !KNOWN_INPUTS.some(k => k.path === p)).map(p => (
                 <span key={p} className="wfi-chip on mono">{p}
-                  {!disabled && <button type="button" className="wfi-chip-x" aria-label={`Bỏ ${p}`} onClick={() => toggleInput(p)}><X size={12} aria-hidden="true" /></button>}
+                  {!disabled && <button type="button" className="wfi-chip-x" aria-label={tr('Bỏ {0}', [p])} onClick={() => toggleInput(p)}><X size={12} aria-hidden="true" /></button>}
                 </span>
               ))}
             </div>
             {!disabled && (
               <div className="wfi-row wfi-add">
-                <input aria-label="Thêm đường dẫn file đầu vào" placeholder="Đường dẫn khác, vd backend/openapi.yaml" value={custom}
+                <input aria-label={tr('Thêm đường dẫn file đầu vào')} placeholder={tr('Đường dẫn khác, vd backend/openapi.yaml')} value={custom}
                   onChange={e => setCustom(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }} />
                 <button type="button" className="btn btn-sm btn-secondary" disabled={!validInput(custom.trim())} onClick={addCustom}>
-                  <Plus size={14} aria-hidden="true" /><span>Thêm</span>
+                  <Plus size={14} aria-hidden="true" /><span>{tr('Thêm')}</span>
                 </button>
               </div>
             )}
-            <p className="wfi-hint">Thiếu file nào thì bước dừng trước khi tốn token. AI chỉ được dặn đọc đúng các file này. Tên không có “/” nằm trong thư mục spec của tính năng.</p>
+            <p className="wfi-hint">{tr('Thiếu file nào thì bước dừng trước khi tốn token. AI chỉ được dặn đọc đúng các file này. Tên không có “/” nằm trong thư mục spec của tính năng.')}</p>
           </fieldset>
         </>
       )}

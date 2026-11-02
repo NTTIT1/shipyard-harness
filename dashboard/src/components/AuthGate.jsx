@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import LoginPage from './LoginPage.jsx';
 import { fetchMe, logout } from '../lib/api.js';
+import { tr } from '../lib/i18n.js';
 
 // Renders the app only for a signed-in user. The server is the real gate (every
 // /api, /proof, /spec route 401s without the session cookie); this just decides
@@ -15,7 +16,7 @@ export default function AuthGate({ children }) {
         : { phase: 'out', user: null, authEnabled: true, notice: '' }))
       .catch(() => setState({ phase: 'out', user: null, authEnabled: true, notice: '' }));
     const expired = () => setState(s => s.phase === 'in' && s.authEnabled
-      ? { phase: 'out', user: null, authEnabled: true, notice: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.' }
+      ? { phase: 'out', user: null, authEnabled: true, notice: tr('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.') }
       : s);
     window.addEventListener('auth:expired', expired);
     return () => window.removeEventListener('auth:expired', expired);

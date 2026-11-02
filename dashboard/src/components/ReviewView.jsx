@@ -6,10 +6,11 @@ import Tabs from './ui/Tabs.jsx';
 import Markdown from './Markdown.jsx';
 import { platform } from '../lib/platform.js';
 import { runSteps, STEP_LABEL, ROLE_LABEL, STATUS_LABEL, ACTION_LABEL, validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, inboxItemFor, hasUiToSend, safeImageSrc } from '../lib/review.js';
+import { tr } from '../lib/i18n.js';
 
 function Stepper({ steps, current }) {
   return (
-    <ol className="stepper" aria-label="Tiến trình">
+    <ol className="stepper" aria-label={tr('Tiến trình')}>
       {runSteps(steps).map(s => {
         const st = (steps.find(x => x.step === s) || {}).status || 'PENDING';
         return <li key={s} className={`${st}${s === current ? ' on' : ''}`} aria-current={s === current ? 'step' : undefined}>
@@ -29,8 +30,8 @@ function ZoomedImage({ src, onClose }) {
     return () => { document.removeEventListener('keydown', h); prev?.focus?.(); };
   }, [onClose]);
   return (
-    <div className="rv-zoom" onClick={onClose} role="dialog" aria-modal="true" aria-label="Ảnh phóng to">
-      <button ref={btn} className="sh-x" onClick={onClose} aria-label="Đóng (Esc)">✕</button>
+    <div className="rv-zoom" onClick={onClose} role="dialog" aria-modal="true" aria-label={tr('Ảnh phóng to')}>
+      <button ref={btn} className="sh-x" onClick={onClose} aria-label={tr('Đóng (Esc)')}>✕</button>
       <img src={src} alt="" />
     </div>
   );
@@ -82,8 +83,8 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
     return () => { alive = false; };
   }, [view, revId, runId]);
 
-  if (err && !view) return <section className="rv-page"><Button icon={ArrowLeft} onClick={onBack}>Quay lại</Button><p className="m-err">{err}</p></section>;
-  if (!view || !detail) return <section className="rv-page"><p className="muted-empty">Đang tải…</p></section>;
+  if (err && !view) return <section className="rv-page"><Button icon={ArrowLeft} onClick={onBack}>{tr('Quay lại')}</Button><p className="m-err">{err}</p></section>;
+  if (!view || !detail) return <section className="rv-page"><p className="muted-empty">{tr('Đang tải…')}</p></section>;
 
   const rev = detail.revision;
   const pending = rev.approvalStatus === 'PENDING';
@@ -100,7 +101,7 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
     const realEdits = Object.fromEntries(Object.entries(edits).filter(([k, v]) => v !== docs[k]));
     const problem = validateDecision({ action, feedback, sendBackTo, edits: realEdits, currentStep: rev.step, steps });
     if (problem) { setMsg({ tone: 'warn', text: problem }); return; }
-    if (action === 'CANCEL' && !window.confirm('Huỷ cả tính năng này? AI sẽ dừng lại.')) return;
+    if (action === 'CANCEL' && !window.confirm(tr('Huỷ cả tính năng này? AI sẽ dừng lại.'))) return;
     setBusy(true); setMsg(null);
     try {
       const body = { action, step: rev.step, feedback: feedback.trim() || undefined };
@@ -110,61 +111,61 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
       if (ui !== undefined) body.hasUi = ui;
       const r = await platform.decide(rev.approvalId, body);
       setMsg(r.resumed
-        ? { tone: 'ok', text: `Đã ${ACTION_LABEL[action].toLowerCase()} — lane đã được đánh thức để làm tiếp.` }
-        : { tone: 'warn', text: `Đã ${ACTION_LABEL[action].toLowerCase()}. Không đánh thức được lane trên máy này — mở lane và bấm “Tiếp tục”.` });
+        ? { tone: 'ok', text: tr('Đã {0} — lane đã được đánh thức để làm tiếp.', [ACTION_LABEL[action].toLowerCase()]) }
+        : { tone: 'warn', text: tr('Đã {0}. Không đánh thức được lane trên máy này — mở lane và bấm “Tiếp tục”.', [ACTION_LABEL[action].toLowerCase()]) });
       onDecided?.();
       await load();
     } catch (e) {
-      setMsg({ tone: 'warn', text: e.status === 409 ? 'Bước này vừa được người khác quyết định — đã tải lại.'
-        : e.status === 413 ? 'Tài liệu sửa quá lớn để gửi.' : e.message });
+      setMsg({ tone: 'warn', text: e.status === 409 ? tr('Bước này vừa được người khác quyết định — đã tải lại.')
+        : e.status === 413 ? tr('Tài liệu sửa quá lớn để gửi.') : e.message });
       if (e.status === 409) { onDecided?.(); await load(); }
     } finally { setBusy(false); }
   };
 
   return (
     <section className="rv-page" aria-labelledby="rv-title">
-      <div><Button variant="ghost" icon={ArrowLeft} onClick={onBack}>Hộp duyệt</Button></div>
+      <div><Button variant="ghost" icon={ArrowLeft} onClick={onBack}>{tr('Hộp duyệt')}</Button></div>
       <div className="rv-head">
         <div>
           <h1 id="rv-title" className="rv-h1">{view.run.title}</h1>
-          <p className="rv-sub">{STEP_LABEL[rev.step]} · bản {rev.revisionNo} · cần vai trò {ROLE_LABEL[detail.requiredRole] || detail.requiredRole}
-            {inboxItem?.decideAs === 'OWNER_FALLBACK' && ' · bạn duyệt thay với tư cách Owner'}</p>
+          <p className="rv-sub">{tr('{0} · bản {1} · cần vai trò {2}', [STEP_LABEL[rev.step], rev.revisionNo, ROLE_LABEL[detail.requiredRole] || detail.requiredRole])}
+            {inboxItem?.decideAs === 'OWNER_FALLBACK' && tr(' · bạn duyệt thay với tư cách Owner')}</p>
         </div>
-        <label className="rv-sub">Bản sửa đổi{' '}
+        <label className="rv-sub">{tr('Bản sửa đổi')}{' '}
           <select value={revId} onChange={e => {
             const dirty = Object.keys(edits).some(k => edits[k] !== docs[k]);
-            if (!dirty || window.confirm('Bỏ các chỗ đã sửa tay chưa gửi?')) setRevId(e.target.value);
+            if (!dirty || window.confirm(tr('Bỏ các chỗ đã sửa tay chưa gửi?'))) setRevId(e.target.value);
           }}>
-            {view.revisions.map(r => <option key={r.id} value={r.id}>{STEP_LABEL[r.step]} · bản {r.revisionNo} · {r.approvalStatus || ''}</option>)}
+            {view.revisions.map(r => <option key={r.id} value={r.id}>{tr('{0} · bản {1} · {2}', [STEP_LABEL[r.step], r.revisionNo, r.approvalStatus || ''])}</option>)}
           </select>
         </label>
       </div>
       <Stepper steps={steps} current={view.run.currentStep || rev.step} />
 
-      <div className="rv-box"><h2>Tóm tắt của AI</h2><Markdown text={rev.summary} />
-        {rev.feedback && !pending && <p className="rv-sub">Góp ý khi duyệt ({ROLE_LABEL[rev.decidedAsRole] || rev.decidedAsRole}): {rev.feedback}</p>}
+      <div className="rv-box"><h2>{tr('Tóm tắt của AI')}</h2><Markdown text={rev.summary} />
+        {rev.feedback && !pending && <p className="rv-sub">{tr('Góp ý khi duyệt ({0}): {1}', [ROLE_LABEL[rev.decidedAsRole] || rev.decidedAsRole, rev.feedback])}</p>}
       </div>
 
       {(detail.contextUsed || []).length > 0 && (
-        <details className="rv-box"><summary>AI đã dùng {detail.contextUsed.length} mục ngữ cảnh</summary>
+        <details className="rv-box"><summary>{tr('AI đã dùng {0} mục ngữ cảnh', [detail.contextUsed.length])}</summary>
           <ul className="rv-ctx">{detail.contextUsed.map((c, i) => <li key={i}>[{c.kind}] {c.title} <span className="faint">({c.via})</span></li>)}</ul>
         </details>
       )}
 
       {names.length > 0 && (
         <div className="rv-box">
-          <h2>Tài liệu</h2>
+          <h2>{tr('Tài liệu')}</h2>
           <Tabs value={doc} onChange={setDoc} items={names.map(n => ({ id: n, label: n + (edits[n] !== undefined && edits[n] !== docs[n] ? ' •' : '') }))} />
           <div className="rv-doc-tools">
-            <Button size="sm" variant={mode === 'view' ? 'secondary' : 'ghost'} icon={Eye} onClick={() => setMode('view')}>Xem</Button>
-            {canDecide && <Button size="sm" variant={mode === 'edit' ? 'secondary' : 'ghost'} icon={Pencil} onClick={() => setMode('edit')}>Sửa</Button>}
-            {prevText !== undefined && <Button size="sm" variant={mode === 'diff' ? 'secondary' : 'ghost'} icon={GitCompare} onClick={() => setMode('diff')}>So với bản trước</Button>}
-            {edits[doc] !== undefined && <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => setEdits(({ [doc]: _, ...rest }) => rest)}>Bỏ bản sửa</Button>}
+            <Button size="sm" variant={mode === 'view' ? 'secondary' : 'ghost'} icon={Eye} onClick={() => setMode('view')}>{tr('Xem')}</Button>
+            {canDecide && <Button size="sm" variant={mode === 'edit' ? 'secondary' : 'ghost'} icon={Pencil} onClick={() => setMode('edit')}>{tr('Sửa')}</Button>}
+            {prevText !== undefined && <Button size="sm" variant={mode === 'diff' ? 'secondary' : 'ghost'} icon={GitCompare} onClick={() => setMode('diff')}>{tr('So với bản trước')}</Button>}
+            {edits[doc] !== undefined && <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => setEdits(({ [doc]: _, ...rest }) => rest)}>{tr('Bỏ bản sửa')}</Button>}
           </div>
           {mode === 'view' && (doc.endsWith('.md') ? <Markdown text={current} /> : <pre className="diff">{current}</pre>)}
           {mode === 'edit' && (
             <div className="rv-edit">
-              <textarea aria-label={`Sửa ${doc}`} value={current} onChange={e => setEdits(x => ({ ...x, [doc]: e.target.value }))} />
+              <textarea aria-label={tr('Sửa {0}', [doc])} value={current} onChange={e => setEdits(x => ({ ...x, [doc]: e.target.value }))} />
               {doc.endsWith('.md') ? <Markdown text={current} /> : <pre className="diff">{current}</pre>}
             </div>
           )}
@@ -173,11 +174,11 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
       )}
 
       {(detail.images || []).length > 0 && (
-        <div className="rv-box"><h2>Hình ảnh ({detail.images.length})</h2>
+        <div className="rv-box"><h2>{tr('Hình ảnh ({0})', [detail.images.length])}</h2>
           <div className="rv-imgs">
             {detail.images.filter(im => safeImageSrc(im.path)).map((im, i) => (
               <figure key={i} style={{ margin: 0 }}>
-                <button onClick={() => setZoom(im.path)} aria-label={`Phóng to ${im.caption || im.path}`}><img src={im.path} alt={im.caption || ''} loading="lazy" /></button>
+                <button onClick={() => setZoom(im.path)} aria-label={tr('Phóng to {0}', [im.caption || im.path])}><img src={im.path} alt={im.caption || ''} loading="lazy" /></button>
                 <figcaption>{im.caption || im.path.split('/').pop()}</figcaption>
               </figure>
             ))}
@@ -187,37 +188,37 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
       {zoom && <ZoomedImage src={zoom} onClose={() => setZoom(null)} />}
 
       {Object.keys(meta).length > 0 && (
-        <div className="rv-box"><h2>Thông tin kỹ thuật</h2>
+        <div className="rv-box"><h2>{tr('Thông tin kỹ thuật')}</h2>
           <dl className="kv">{Object.entries(meta).map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{typeof v === 'string' ? v : JSON.stringify(v)}</dd></React.Fragment>)}</dl>
         </div>
       )}
 
       {canDecide ? (
         <div className="rv-actions">
-          <textarea aria-label="Góp ý cho AI" placeholder="Góp ý cho AI (bắt buộc khi yêu cầu sửa / trả về)…" value={feedback} onChange={e => setFeedback(e.target.value)} />
+          <textarea aria-label={tr('Góp ý cho AI')} placeholder={tr('Góp ý cho AI (bắt buộc khi yêu cầu sửa / trả về)…')} value={feedback} onChange={e => setFeedback(e.target.value)} />
           {rev.step === 'ARCH' && (
-            <label className="rv-sub"><input type="checkbox" checked={!!hasUi} onChange={e => setHasUi(e.target.checked)} /> Tính năng có giao diện (cần bước Thiết kế)</label>
+            <label className="rv-sub"><input type="checkbox" checked={!!hasUi} onChange={e => setHasUi(e.target.checked)} />{' '}{tr('Tính năng có giao diện (cần bước Thiết kế)')}</label>
           )}
           {rev.step === 'BLUEPRINT' && (
-            <p className="rv-sub">Dự án chưa có code. <b>Duyệt</b> → Shipyard tạo khung dự án theo bản kiến trúc này (lưu ở <code>docs/architecture.md</code>);
-              {' '}<b>Yêu cầu sửa</b> → kiến trúc sư AI soạn lại; <b>Huỷ</b> → không tạo khung (dự án đã đăng ký vẫn còn, có thể xoá).</p>
+            <p className="rv-sub">{tr('Dự án chưa có code.')}{' '}<b>{tr('Duyệt')}</b>{' '}{tr('→ Shipyard tạo khung dự án theo bản kiến trúc này (lưu ở')}{' '}<code>docs/architecture.md</code>);
+              {' '}<b>{tr('Yêu cầu sửa')}</b>{' '}{tr('→ kiến trúc sư AI soạn lại;')}{' '}<b>{tr('Huỷ')}</b>{' '}{tr('→ không tạo khung (dự án đã đăng ký vẫn còn, có thể xoá).')}</p>
           )}
           <div className="rv-btns">
             <Button variant="primary" icon={Check} disabled={busy} onClick={() => decide('APPROVE')}>
-              {Object.keys(edits).some(k => edits[k] !== docs[k]) ? 'Duyệt kèm bản đã sửa' : 'Duyệt'}</Button>
-            <Button icon={MessageSquareWarning} disabled={busy} onClick={() => decide('REQUEST_CHANGES')}>Yêu cầu sửa</Button>
-            <select aria-label="Trả về bước" value={sendBackTo} onChange={e => setSendBackTo(e.target.value)}>
-              <option value="">Trả về bước…</option>
+              {Object.keys(edits).some(k => edits[k] !== docs[k]) ? tr('Duyệt kèm bản đã sửa') : tr('Duyệt')}</Button>
+            <Button icon={MessageSquareWarning} disabled={busy} onClick={() => decide('REQUEST_CHANGES')}>{tr('Yêu cầu sửa')}</Button>
+            <select aria-label={tr('Trả về bước')} value={sendBackTo} onChange={e => setSendBackTo(e.target.value)}>
+              <option value="">{tr('Trả về bước…')}</option>
               {sendBackTargets(rev.step, steps).map(s => <option key={s} value={s}>{STEP_LABEL[s]}</option>)}
             </select>
-            <Button icon={Undo2} disabled={busy || !sendBackTo} onClick={() => decide('SEND_BACK')}>Trả về</Button>
-            <Button variant="ghost" icon={Ban} disabled={busy} onClick={() => decide('CANCEL')}>{rev.step === 'BLUEPRINT' ? 'Huỷ' : 'Huỷ tính năng'}</Button>
+            <Button icon={Undo2} disabled={busy || !sendBackTo} onClick={() => decide('SEND_BACK')}>{tr('Trả về')}</Button>
+            <Button variant="ghost" icon={Ban} disabled={busy} onClick={() => decide('CANCEL')}>{rev.step === 'BLUEPRINT' ? tr('Huỷ') : tr('Huỷ tính năng')}</Button>
           </div>
           {msg && <p className={`rv-note ${msg.tone}`} role="status">{msg.text}</p>}
         </div>
       ) : (
         <div className="rv-box">
-          <Badge tone={pending ? 'warn' : 'neutral'}>{pending ? 'Đang chờ người có vai trò phù hợp duyệt' : `Đã quyết định: ${rev.approvalStatus || '—'}`}</Badge>
+          <Badge tone={pending ? 'warn' : 'neutral'}>{pending ? tr('Đang chờ người có vai trò phù hợp duyệt') : tr('Đã quyết định: {0}', [rev.approvalStatus || '—'])}</Badge>
           {msg && <p className={`rv-note ${msg.tone}`} role="status">{msg.text}</p>}
         </div>
       )}

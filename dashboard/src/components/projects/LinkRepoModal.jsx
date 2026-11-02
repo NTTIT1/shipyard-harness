@@ -5,6 +5,7 @@ import Button from '../ui/Button.jsx';
 import Badge from '../ui/Badge.jsx';
 import { platform } from '../../lib/platform.js';
 import { slugify } from '../../lib/scaffold.js';
+import { tr } from '../../lib/i18n.js';
 
 export default function LinkRepoModal({ canScaffold, onClose, onCreated, onOpenWizard, onOpenImport }) {
   const [form, setForm] = useState({ name: '', slug: '', slugTouched: false, repoUrl: '' });
@@ -31,54 +32,47 @@ export default function LinkRepoModal({ canScaffold, onClose, onCreated, onOpenW
   };
 
   return (
-    <Modal title="Thêm hoặc liên kết dự án" onClose={onClose}>
+    <Modal title={tr('Thêm hoặc liên kết dự án')} onClose={onClose}>
       <div style={{ display: 'grid', gap: 16 }}>
         {canScaffold && (
           <div className="pj-modal-scaffold-box">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-              <strong style={{ fontSize: 13.5 }}>Khởi tạo dự án tự động từ khung</strong>
-              <Badge tone="accent">Khuyên dùng</Badge>
+              <strong style={{ fontSize: 13.5 }}>{tr('Khởi tạo dự án tự động từ khung')}</strong>
+              <Badge tone="accent">{tr('Khuyên dùng')}</Badge>
             </div>
-            <p style={{ margin: '4px 0 10px', fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              Chọn ngôn ngữ (Java/Spring Boot, Python/FastAPI, TypeScript/NestJS/React), Database, tự tạo thư mục + kho Git và cấu hình Skill cho từng vai trò AI.
-            </p>
+            <p style={{ margin: '4px 0 10px', fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>{tr('Chọn ngôn ngữ (Java/Spring Boot, Python/FastAPI, TypeScript/NestJS/React), Database, tự tạo thư mục + kho Git và cấu hình Skill cho từng vai trò AI.')}</p>
             <Button
               variant="primary"
               icon={Wand2}
               onClick={() => {
                 onClose();
                 onOpenWizard?.();
-              }}>
-              Mở trình tạo dự án từ khung
-            </Button>
+              }}>{tr('Mở trình tạo dự án từ khung')}</Button>
           </div>
         )}
 
         {canScaffold && (
           <div className="pj-modal-scaffold-box">
-            <strong style={{ fontSize: 13.5 }}>Nhập dự án có sẵn để AI làm việc</strong>
-            <p style={{ margin: '4px 0 10px', fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>
-              Repo đã có code trên GitHub/GitLab/máy này: bạn khai báo cách cài, chạy, test của dự án; Shipyard clone về, sinh script cho lane,
-              đăng ký quy trình và để AI Manager đọc code soạn luật.
-            </p>
-            <Button icon={Download} onClick={() => { onClose(); onOpenImport?.(); }}>Nhập dự án có sẵn từ Git</Button>
+            <strong style={{ fontSize: 13.5 }}>{tr('Nhập dự án có sẵn để AI làm việc')}</strong>
+            <p style={{ margin: '4px 0 10px', fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>{tr('Repo đã có code trên GitHub/GitLab/máy này: bạn khai báo cách cài, chạy, test của dự án; Shipyard clone về, sinh script cho lane, đăng ký quy trình và để AI Manager đọc code soạn luật.')}</p>
+            <Button icon={Download} onClick={() => { onClose(); onOpenImport?.(); }}>{tr('Nhập dự án có sẵn từ Git')}</Button>
           </div>
         )}
 
         <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
             <Link2 size={15} style={{ color: 'var(--accent-text)' }} />
-            <span>Hoặc chỉ liên kết (không clone, không lane)</span>
+            <span>{tr('Hoặc chỉ liên kết (không clone, không lane)')}</span>
           </div>
 
           {err && <p className="m-err" role="alert" style={{ margin: 0 }}>{err}</p>}
 
           <div className="form-field">
-            <label className="form-label">Tên dự án</label>
+            <label className="form-label">{tr('Tên dự án')}</label>
             <input
               required
-              aria-label="Tên dự án"
-              placeholder="Ví dụ: Hệ thống Quản lý Nhân sự"
+              aria-label={tr('Tên dự án')}
+              placeholder={tr('Ví dụ: Hệ thống Quản lý Nhân sự')}
               value={form.name}
               onChange={e => {
                 const name = e.target.value;
@@ -92,7 +86,7 @@ export default function LinkRepoModal({ canScaffold, onClose, onCreated, onOpenW
           </div>
 
           <div className="form-field">
-            <label className="form-label">Mã định danh (Slug)</label>
+            <label className="form-label">{tr('Mã định danh (Slug)')}</label>
             <input
               required
               aria-label="Slug"
@@ -104,7 +98,7 @@ export default function LinkRepoModal({ canScaffold, onClose, onCreated, onOpenW
           </div>
 
           <div className="form-field">
-            <label className="form-label">Kho mã nguồn (Repo URL hoặc đường dẫn máy chủ)</label>
+            <label className="form-label">{tr('Kho mã nguồn (Repo URL hoặc đường dẫn máy chủ)')}</label>
             <input
               required
               aria-label="Repo URL"
@@ -116,7 +110,7 @@ export default function LinkRepoModal({ canScaffold, onClose, onCreated, onOpenW
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
             <Button type="submit" variant="primary" icon={Plus} disabled={busy}>
-              {busy ? 'Đang tạo…' : 'Liên kết dự án'}
+              {busy ? tr('Đang tạo…') : tr('Liên kết dự án')}
             </Button>
           </div>
         </form>

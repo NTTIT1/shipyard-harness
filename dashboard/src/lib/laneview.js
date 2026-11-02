@@ -1,48 +1,49 @@
 // Pure view logic for the lane sidebar/header — kept out of components so it is unit-tested.
 import { STEP_LABEL, leftOut } from './review.js';
+import { tr } from './i18n.js';
 
 const RUNNING = new Set(['running', 'provisioning']);
 
 /** Lane status → [badge tone, Vietnamese label]; one table for the board, the lane header and the sidebar. */
 export const LANE_STATUS = {
-  running: ['accent', 'Đang chạy'],
-  waiting: ['warn', 'Chờ duyệt'],
-  passed: ['ok', 'Hoàn tất'],
-  blocked: ['danger', 'Đang dừng'],
-  failed: ['danger', 'Lỗi'],
-  provisioning: ['info', 'Khởi tạo'],
-  idle: ['neutral', 'Rảnh'],
-  down: ['neutral', 'Đã tắt'],
+  running: ['accent', tr('Đang chạy')],
+  waiting: ['warn', tr('Chờ duyệt')],
+  passed: ['ok', tr('Hoàn tất')],
+  blocked: ['danger', tr('Đang dừng')],
+  failed: ['danger', tr('Lỗi')],
+  provisioning: ['info', tr('Khởi tạo')],
+  idle: ['neutral', tr('Rảnh')],
+  down: ['neutral', tr('Đã tắt')],
 };
 export const laneStatus = st => LANE_STATUS[st || 'idle'] || ['neutral', st];
 
 /** Harness stage id → what a person calls it. */
 export const STAGE_VI = {
-  intake: 'Tiếp nhận yêu cầu',
-  plan: 'Lập kế hoạch & Spec',
-  implement: 'Đang lập trình',
-  gates: 'Kiểm tra chất lượng',
-  e2e: 'Kiểm thử tự động (E2E)',
+  intake: tr('Tiếp nhận yêu cầu'),
+  plan: tr('Lập kế hoạch & Spec'),
+  implement: tr('Đang lập trình'),
+  gates: tr('Kiểm tra chất lượng'),
+  e2e: tr('Kiểm thử tự động (E2E)'),
   review: 'AI Review code',
-  qc: 'Kiểm thử QC',
-  'sr-gate': 'Cổng duyệt Senior',
-  pr: 'Tạo Pull Request',
-  'watch-pr': 'Chờ gộp PR',
-  merged: 'Đã gộp nhánh',
-  'dev-qc': 'Kiểm thử môi trường Dev',
-  done: 'Hoàn tất',
-  'no-state': 'Chưa nhận việc',
-  assigned: 'Vừa giao việc',
-  provisioning: 'Đang khởi tạo lane',
-  'spec-review': 'Chờ duyệt spec',
-  fix: 'Đang sửa lỗi',
+  qc: tr('Kiểm thử QC'),
+  'sr-gate': tr('Cổng duyệt Senior'),
+  pr: tr('Tạo Pull Request'),
+  'watch-pr': tr('Chờ gộp PR'),
+  merged: tr('Đã gộp nhánh'),
+  'dev-qc': tr('Kiểm thử môi trường Dev'),
+  done: tr('Hoàn tất'),
+  'no-state': tr('Chưa nhận việc'),
+  assigned: tr('Vừa giao việc'),
+  provisioning: tr('Đang khởi tạo lane'),
+  'spec-review': tr('Chờ duyệt spec'),
+  fix: tr('Đang sửa lỗi'),
 };
 
-const roleLabel = id => STEP_LABEL[id.toUpperCase()] || `Bước ${id.toUpperCase()}`;
+const roleLabel = id => STEP_LABEL[id.toUpperCase()] || tr('Bước {0}', [id.toUpperCase()]);
 export const stageLabel = st => STAGE_VI[(st || '').toLowerCase()]
-  || (/^role-(\w+)$/.test(st || '') ? roleLabel(st.slice(5)) : /^review-(\w+)$/.test(st || '') ? `Chờ duyệt ${roleLabel(st.slice(7))}` : st || 'Chưa nhận việc');
+  || (/^role-(\w+)$/.test(st || '') ? roleLabel(st.slice(5)) : /^review-(\w+)$/.test(st || '') ? tr('Chờ duyệt {0}', [roleLabel(st.slice(7))]) : st || tr('Chưa nhận việc'));
 
-const STEP_SUB = { APPROVED: 'Đã duyệt', AWAITING_REVIEW: 'Chờ duyệt', AI_WORKING: 'AI đang làm', PENDING: 'Chưa tới' };
+const STEP_SUB = { APPROVED: tr('Đã duyệt'), AWAITING_REVIEW: tr('Chờ duyệt'), AI_WORKING: tr('AI đang làm'), PENDING: tr('Chưa tới') };
 
 /**
  * The lane's feature as the steps of its own workflow (e.g. Doanh nghiệp: BA → Plan → Thiết kế UI →
@@ -58,10 +59,10 @@ export function workflowTrack(view, lane = {}) {
   const finished = run.status === 'RELEASING' || run.status === 'DONE' || lane.status === 'passed' || lane.stage === 'done';
   const out = steps.map(s => {
     const base = { id: s.step, label: STEP_LABEL[s.step] || s.step };
-    if (s.status === 'SKIPPED') return { ...base, state: 'skipped', sub: 'Bỏ qua (không có giao diện)' };
-    if (finished || s.status === 'APPROVED') return { ...base, state: 'done', sub: 'Đã duyệt' };
+    if (s.status === 'SKIPPED') return { ...base, state: 'skipped', sub: tr('Bỏ qua (không có giao diện)') };
+    if (finished || s.status === 'APPROVED') return { ...base, state: 'done', sub: tr('Đã duyệt') };
     if (s.status === 'AI_WORKING' || s.status === 'AWAITING_REVIEW' || s.step === run.currentStep) {
-      const sub = run.status === 'CANCELLED' ? 'Đã huỷ' : lane.status === 'blocked' ? 'Đang dừng' : STEP_SUB[s.status] || 'Đang làm';
+      const sub = run.status === 'CANCELLED' ? tr('Đã huỷ') : lane.status === 'blocked' ? tr('Đang dừng') : STEP_SUB[s.status] || tr('Đang làm');
       return { ...base, state: 'current', sub };
     }
     return { ...base, state: 'pending', sub: STEP_SUB.PENDING };
@@ -77,8 +78,8 @@ export function workflowTrack(view, lane = {}) {
 
 /** Why a lane wants attention → [tone, label]. */
 export const ATTENTION = {
-  question: ['warn', 'đang hỏi'], approve: ['warn', 'chờ duyệt'], blocked: ['danger', 'bị chặn'],
-  dead: ['danger', 'mất kết nối'], needs: ['accent', 'cần bạn'],
+  question: ['warn', tr('đang hỏi')], approve: ['warn', tr('chờ duyệt')], blocked: ['danger', tr('bị chặn')],
+  dead: ['danger', tr('mất kết nối')], needs: ['accent', tr('cần bạn')],
 };
 const FREE = new Set(['idle', 'down', '']);
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { tr } from '../lib/i18n.js';
 
 // SSE chat for one lane. The server replays the whole log after a 'hello', so a
 // reconnect simply resets the list — no client-side dedup needed.
@@ -20,7 +21,7 @@ export function useChat(n) {
         if ((ev.kind === 'question' || ev.kind === 'permission') && document.hidden
             && 'Notification' in window && Notification.permission === 'granted'
             && Date.now() - Date.parse(ev.ts) < 60000) {
-          new Notification(`Lane ${n} cần bạn trả lời`, { body: ev.kind === 'question' ? ev.questions[0]?.question : ev.tool, tag: `lane-${n}` });
+          new Notification(tr('Lane {0} cần bạn trả lời', [n]), { body: ev.kind === 'question' ? ev.questions[0]?.question : ev.tool, tag: `lane-${n}` });
         }
       }
     };

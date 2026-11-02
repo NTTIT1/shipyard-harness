@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ExternalLink, Monitor, Smartphone } from 'lucide-react';
 import Markdown from '../Markdown.jsx';
 import { WORKFLOW_PRESETS } from '../../lib/review.js';
+import { tr } from '../../lib/i18n.js';
 
 export function AdviceCard({ advice }) {
   const preset = WORKFLOW_PRESETS.find(p => p.id === advice.workflow);
@@ -12,10 +13,10 @@ export function AdviceCard({ advice }) {
         <span className="wz-pill">{advice.kind === 'fullstack' ? `backend/ ${advice.stack}` : advice.stack}</span>
         {advice.frontend && <span className="wz-pill">frontend/ {advice.frontend.stack}</span>}
         {advice.options?.db && advice.options.db !== 'none' && <span className="wz-pill">{advice.options.db}</span>}
-        {preset && <span className="wz-pill">Quy trình: {preset.label}</span>}
-        <span className="wz-pill">{advice.hasUi ? 'Có thiết kế giao diện' : 'Không cần thiết kế giao diện'}</span>
+        {preset && <span className="wz-pill">{tr('Quy trình: {0}', [preset.label])}</span>}
+        <span className="wz-pill">{advice.hasUi ? tr('Có thiết kế giao diện') : tr('Không cần thiết kế giao diện')}</span>
       </div>
-      {[['Vì sao', advice.reasons], ['Với quy mô này', advice.scale], ['Cần làm rõ', advice.risks]].filter(([, l]) => l?.length).map(([t, l]) => (
+      {[[tr('Vì sao'), advice.reasons], [tr('Với quy mô này'), advice.scale], [tr('Cần làm rõ'), advice.risks]].filter(([, l]) => l?.length).map(([t, l]) => (
         <div key={t} className="wz-advice-sec"><b>{t}</b><ul>{l.map((x, i) => <li key={i}>{x}</li>)}</ul></div>
       ))}
     </div>
@@ -138,7 +139,7 @@ export function Mockups({ mockups }) {
     <div className="st-mockups-wrap">
       {/* Streamlined Mockup Toolbar */}
       <div className="st-mock-bar">
-        <div className="st-mock-tabs" role="tablist" aria-label="Danh sách màn hình mẫu">
+        <div className="st-mock-tabs" role="tablist" aria-label={tr('Danh sách màn hình mẫu')}>
           {mockups.map((x, k) => {
             const rawName = x.name.replace(/^\d+-/, '').replace(/\.html$/, '');
             const active = k === i;
@@ -162,7 +163,7 @@ export function Mockups({ mockups }) {
               type="button"
               className={`st-vp-btn${screenMode === 'desktop' ? ' on' : ''}`}
               onClick={() => setScreenMode('desktop')}
-              title="Chế độ Desktop">
+              title={tr('Chế độ Desktop')}>
               <Monitor size={12} />
               <span>Desktop</span>
             </button>
@@ -170,7 +171,7 @@ export function Mockups({ mockups }) {
               type="button"
               className={`st-vp-btn${screenMode === 'mobile' ? ' on' : ''}`}
               onClick={() => setScreenMode('mobile')}
-              title="Chế độ Mobile (375px)">
+              title={tr('Chế độ Mobile (375px)')}>
               <Smartphone size={12} />
               <span>Mobile</span>
             </button>
@@ -179,13 +180,13 @@ export function Mockups({ mockups }) {
           <button
             type="button"
             className="st-mock-popout"
-            title="Mở toàn màn hình xem thử ở tab mới"
+            title={tr('Mở toàn màn hình xem thử ở tab mới')}
             onClick={() => {
               const win = window.open('', '_blank');
               if (win) { win.document.write(m.html); win.document.close(); }
             }}>
             <ExternalLink size={12} />
-            <span>Mở tab mới</span>
+            <span>{tr('Mở tab mới')}</span>
           </button>
         </div>
       </div>
@@ -206,7 +207,7 @@ export function Mockups({ mockups }) {
         <iframe
           key={m.name}
           className="st-mock-iframe"
-          title={`Giao diện mẫu ${m.name}`}
+          title={tr('Giao diện mẫu {0}', [m.name])}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           srcDoc={injectedHtml}
         />

@@ -1,8 +1,9 @@
 import React from 'react';
 import { TriangleAlert } from 'lucide-react';
 import ModelSelect from './ModelSelect.jsx';
+import { tr } from '../lib/i18n.js';
 
-const EFFORTS = [['', 'Effort mặc định'], ['low', 'Thấp'], ['medium', 'Trung bình'], ['high', 'Cao'], ['xhigh', 'Rất cao'], ['max', 'Tối đa']];
+const EFFORTS = [['', tr('Effort mặc định')], ['low', tr('Thấp')], ['medium', tr('Trung bình')], ['high', 'Cao'], ['xhigh', tr('Rất cao')], ['max', tr('Tối đa')]];
 
 // One row per pipeline step. `value` = { [stepId]: "<provider>:<model>", impl_agents, effort: { [stepId]: level } }.
 // Effort only applies to Claude models (higher = more thinking = more tokens).
@@ -20,10 +21,10 @@ function EngineRow({ step, info, value, onChange }) {
   return (
     <div className="step-row">
       <span className="step-label">{step.label}</span>
-      <select className="msel step-engine" aria-label={`Công cụ — ${step.label}`} value={isOh ? v : 'session'}
+      <select className="msel step-engine" aria-label={tr('Công cụ — {0}', [step.label])} value={isOh ? v : 'session'}
         onChange={e => onChange(e.target.value === 'session' ? 'claude:claude-opus-5-5' : e.target.value)}>
-        <option value="session">Claude Code (phiên chính của lane)</option>
-        {!known && <option value={v}>(không còn) {v}</option>}
+        <option value="session">{tr('Claude Code (phiên chính của lane)')}</option>
+        {!known && <option value={v}>{tr('(không còn) {0}', [v])}</option>}
         {options.length > 0 && (
           <optgroup label="OpenHands — sandbox">
             {options.map(([o, l]) => <option key={o} value={o}>{l}</option>)}
@@ -32,8 +33,8 @@ function EngineRow({ step, info, value, onChange }) {
       </select>
       <span className="step-warn">
         <TriangleAlert size={12} strokeWidth={1.75} aria-hidden="true" />{' '}
-        {isOh ? 'chạy trong container, tính tiền API theo token'
-          : options.length ? 'chọn OpenHands để code trong sandbox' : 'thêm Anthropic ở Nhà cung cấp để dùng OpenHands'}
+        {isOh ? tr('chạy trong container, tính tiền API theo token')
+          : options.length ? tr('chọn OpenHands để code trong sandbox') : tr('thêm Anthropic ở Nhà cung cấp để dùng OpenHands')}
       </span>
     </div>
   );
@@ -52,12 +53,12 @@ export default function StepModels({ info, value, onChange }) {
             <span className="step-label">{s.label}</span>
             <ModelSelect value={value[s.id]} info={info} claudeOnly={s.claudeOnly} openhands={s.openhands} label={`Model — ${s.label}`} onChange={v => set(s.id, v)} />
             <select className="msel step-effort" aria-label={`Effort — ${s.label}`} disabled={external}
-              title={external ? 'Effort chỉ áp dụng cho model Claude' : 'Mức suy nghĩ: cao hơn = kỹ hơn nhưng tốn token hơn'}
+              title={external ? tr('Effort chỉ áp dụng cho model Claude') : tr('Mức suy nghĩ: cao hơn = kỹ hơn nhưng tốn token hơn')}
               value={external ? '' : (value.effort || {})[s.id] || ''} onChange={e => setEffort(s.id, e.target.value)}>
               {EFFORTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
             {s.id === 'impl-worker' && (
-              <label className="step-n" title="số agent code song song (1 = tắt)">
+              <label className="step-n" title={tr('số agent code song song (1 = tắt)')}>
                 ×<input type="number" min="1" max="9" value={value.impl_agents}
                   onChange={e => set('impl_agents', parseInt(e.target.value, 10) || 1)} />
               </label>

@@ -9,6 +9,9 @@ import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import AuthGate from './components/AuthGate.jsx';
 import './index.css';
+import { lang } from './lib/i18n.js';
+
+document.documentElement.lang = lang;
 
 ReactDOM.createRoot(document.getElementById('root')).render(<AuthGate>{auth => <App {...auth} />}</AuthGate>);
 

@@ -1,7 +1,8 @@
+import { tr } from './i18n.js';
 // Pure helpers for the review screen (unit-tested; mirrors orchestrator rules, spec §3.2).
 export const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
-export const STEP_LABEL = { PM: 'PM — Yêu cầu', BA: 'BA — Nghiệp vụ', ARCH: 'Plan — Kiến trúc', DESIGN: 'Thiết kế UI', DEV: 'Lập trình', TEST: 'Kiểm thử',
-  MANAGER: 'Luật dự án (AI Manager)', BLUEPRINT: 'Kiến trúc dự án (trước khi tạo khung)' };
+export const STEP_LABEL = { PM: tr('PM — Yêu cầu'), BA: tr('BA — Nghiệp vụ'), ARCH: tr('Plan — Kiến trúc'), DESIGN: tr('Thiết kế UI'), DEV: tr('Lập trình'), TEST: tr('Kiểm thử'),
+  MANAGER: tr('Luật dự án (AI Manager)'), BLUEPRINT: tr('Kiến trúc dự án (trước khi tạo khung)') };
 
 /**
  * Steps shown for a run, in the run's own workflow order (the server lists them in order; steps the
@@ -26,9 +27,9 @@ export function runProgress(run) {
 }
 
 export const GATE_MODES = [
-  { id: 'REQUIRED', label: 'Cần người duyệt' },
-  { id: 'AUTO', label: 'Tự duyệt' },
-  { id: 'SKIP', label: 'Bỏ bước' },
+  { id: 'REQUIRED', label: tr('Cần người duyệt') },
+  { id: 'AUTO', label: tr('Tự duyệt') },
+  { id: 'SKIP', label: tr('Bỏ bước') },
 ];
 
 /** Steps that may be reordered (they feed DEV); DEV then TEST always close the workflow. */
@@ -53,18 +54,18 @@ const wf = (...pairs) => pairs.map(([step, mode]) => ({ step, mode }));
  * writes plan.md + tasks.md. Auto steps only pass green submissions; a red test waits for a human.
  */
 export const WORKFLOW_PRESETS = [
-  { id: 'enterprise', label: 'Doanh nghiệp',
-    desc: 'BA → Kiến trúc → Thiết kế UI → PM chốt phạm vi → Code → Test, bước nào cũng có người duyệt.',
+  { id: 'enterprise', label: tr('Doanh nghiệp'),
+    desc: tr('BA → Kiến trúc → Thiết kế UI → PM chốt phạm vi → Code → Test, bước nào cũng có người duyệt.'),
     steps: wf(['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['PM', 'REQUIRED'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
-  { id: 'full', label: 'Đầy đủ', desc: 'PM → BA → Plan → Thiết kế UI → Code → Test, bước nào cũng có người duyệt.',
+  { id: 'full', label: tr('Đầy đủ'), desc: tr('PM → BA → Plan → Thiết kế UI → Code → Test, bước nào cũng có người duyệt.'),
     steps: wf(['PM', 'REQUIRED'], ['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
-  { id: 'plan-code-test', label: 'Plan → Code → Test', desc: 'Bạn duyệt Plan; Code và Test tự qua khi xanh, đỏ thì dừng chờ người.',
+  { id: 'plan-code-test', label: 'Plan → Code → Test', desc: tr('Bạn duyệt Plan; Code và Test tự qua khi xanh, đỏ thì dừng chờ người.'),
     steps: wf(['ARCH', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['TEST', 'AUTO']) },
-  { id: 'auto', label: 'Tự chạy hết', desc: 'Plan → Code → Test không chờ duyệt; chỉ dừng khi test hoặc CI đỏ.',
+  { id: 'auto', label: tr('Tự chạy hết'), desc: tr('Plan → Code → Test không chờ duyệt; chỉ dừng khi test hoặc CI đỏ.'),
     steps: wf(['ARCH', 'AUTO'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['TEST', 'AUTO']) },
-  { id: 'ui', label: 'Thiết kế UI → Code → Test', desc: 'Cho dự án nặng giao diện: duyệt mockup trước khi code.',
+  { id: 'ui', label: tr('Thiết kế UI → Code → Test'), desc: tr('Cho dự án nặng giao diện: duyệt mockup trước khi code.'),
     steps: wf(['DESIGN', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
-  { id: 'code', label: 'Chỉ Code + Test', desc: 'Việc nhỏ, rõ ràng: AI tự lên kế hoạch trong bước Code.',
+  { id: 'code', label: tr('Chỉ Code + Test'), desc: tr('Việc nhỏ, rõ ràng: AI tự lên kế hoạch trong bước Code.'),
     steps: wf(['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['TEST', 'REQUIRED']) },
 ];
 export const presetById = id => WORKFLOW_PRESETS.find(p => p.id === id) || null;
@@ -81,11 +82,11 @@ export function moveStep(workflow, step, dir) {
 /** '' when the workflow is valid, else a Vietnamese message (mirrors the orchestrator's rules). */
 export function workflowProblem(workflow) {
   const order = (workflow || []).map(w => w.step);
-  if (order.length !== STEPS.length || STEPS.some(s => !order.includes(s))) return 'Quy trình phải có đủ 6 bước.';
+  if (order.length !== STEPS.length || STEPS.some(s => !order.includes(s))) return tr('Quy trình phải có đủ 6 bước.');
   const dev = order.indexOf('DEV');
-  if (MOVABLE.some(s => order.indexOf(s) > dev)) return 'Các bước tài liệu phải đứng trước Lập trình.';
-  if (order.indexOf('TEST') < dev) return 'Kiểm thử phải đứng sau Lập trình.';
-  if (workflow.find(w => w.step === 'DEV').mode === 'SKIP') return 'Không thể bỏ bước Lập trình.';
+  if (MOVABLE.some(s => order.indexOf(s) > dev)) return tr('Các bước tài liệu phải đứng trước Lập trình.');
+  if (order.indexOf('TEST') < dev) return tr('Kiểm thử phải đứng sau Lập trình.');
+  if (workflow.find(w => w.step === 'DEV').mode === 'SKIP') return tr('Không thể bỏ bước Lập trình.');
   for (const w of workflow) {
     const why = stepConfigProblem(w.step, w.config);
     if (why) return `${STEP_LABEL[w.step]}: ${why}`;
@@ -97,25 +98,25 @@ export function workflowProblem(workflow) {
 function stepConfigProblem(step, cfg = {}) {
   if (!cfg) return '';
   const n = k => (cfg[k] === '' || cfg[k] == null ? null : Number(cfg[k]));
-  if (n('maxRetries') != null && !(n('maxRetries') >= 0 && n('maxRetries') <= 5)) return 'số vòng thử từ 0 đến 5';
-  if (n('timeoutMinutes') != null && !(n('timeoutMinutes') >= 1 && n('timeoutMinutes') <= 480)) return 'giới hạn từ 1 đến 480 phút';
-  if (n('budgetVnd') != null && !(n('budgetVnd') >= 0)) return 'ngân sách phải ≥ 0';
+  if (n('maxRetries') != null && !(n('maxRetries') >= 0 && n('maxRetries') <= 5)) return tr('số vòng thử từ 0 đến 5');
+  if (n('timeoutMinutes') != null && !(n('timeoutMinutes') >= 1 && n('timeoutMinutes') <= 480)) return tr('giới hạn từ 1 đến 480 phút');
+  if (n('budgetVnd') != null && !(n('budgetVnd') >= 0)) return tr('ngân sách phải ≥ 0');
   const bad = (cfg.requiredInputs || []).find(p => !/^[A-Za-z0-9._/@-]{1,200}$/.test(p) || p.includes('..') || p.startsWith('/'));
-  if (bad) return `đường dẫn không hợp lệ: ${bad}`;
-  if (step === 'DEV' && cfg.condition && cfg.condition !== 'ALWAYS') return 'bước Code luôn chạy';
+  if (bad) return tr('đường dẫn không hợp lệ: {0}', [bad]);
+  if (step === 'DEV' && cfg.condition && cfg.condition !== 'ALWAYS') return tr('bước Code luôn chạy');
   return '';
 }
 export const ROLE_LABEL = { PM: 'PM', BA: 'BA', TECH_LEAD: 'Tech Lead', DESIGNER: 'Designer', DEVELOPER: 'Developer', TESTER: 'Tester',
-  OWNER: 'Owner', MAINTAINER: 'Maintainer', VIEWER: 'Viewer', OWNER_FALLBACK: 'Owner (duyệt thay)', AUTO: 'Tự động' };
+  OWNER: 'Owner', MAINTAINER: 'Maintainer', VIEWER: 'Viewer', OWNER_FALLBACK: tr('Owner (duyệt thay)'), AUTO: tr('Tự động') };
 
 export const APPROVER_ROLE_OPTIONS = [
-  { id: 'BA', label: 'BA Lead (vai trò BA)', desc: 'Phê duyệt tài liệu đặc tả nghiệp vụ' },
-  { id: 'TECH_LEAD', label: 'Tech Lead (vai trò TECH_LEAD)', desc: 'Phê duyệt kiến trúc, giải pháp và code' },
-  { id: 'PM', label: 'Product Owner / PM (vai trò PM)', desc: 'Phê duyệt mục tiêu sản phẩm & UI/UX' },
-  { id: 'DESIGNER', label: 'Lead Designer (vai trò DESIGNER)', desc: 'Phê duyệt thiết kế và mockup giao diện' },
-  { id: 'TESTER', label: 'QA Lead (vai trò TESTER)', desc: 'Phê duyệt chất lượng và kết quả kiểm thử' },
-  { id: 'MAINTAINER', label: 'Maintainer (Quản trị viên)', desc: 'Thành viên quản trị dự án' },
-  { id: 'OWNER', label: 'Owner (Chủ dự án)', desc: 'Chủ sở hữu dự án' },
+  { id: 'BA', label: tr('BA Lead (vai trò BA)'), desc: tr('Phê duyệt tài liệu đặc tả nghiệp vụ') },
+  { id: 'TECH_LEAD', label: tr('Tech Lead (vai trò TECH_LEAD)'), desc: tr('Phê duyệt kiến trúc, giải pháp và code') },
+  { id: 'PM', label: tr('Product Owner / PM (vai trò PM)'), desc: tr('Phê duyệt mục tiêu sản phẩm & UI/UX') },
+  { id: 'DESIGNER', label: tr('Lead Designer (vai trò DESIGNER)'), desc: tr('Phê duyệt thiết kế và mockup giao diện') },
+  { id: 'TESTER', label: tr('QA Lead (vai trò TESTER)'), desc: tr('Phê duyệt chất lượng và kết quả kiểm thử') },
+  { id: 'MAINTAINER', label: tr('Maintainer (Quản trị viên)'), desc: tr('Thành viên quản trị dự án') },
+  { id: 'OWNER', label: tr('Owner (Chủ dự án)'), desc: tr('Chủ sở hữu dự án') },
 ];
 
 export function defaultApproverRole(step) {
@@ -129,8 +130,8 @@ export function defaultApproverRole(step) {
     default: return 'TECH_LEAD';
   }
 }
-export const ACTION_LABEL = { APPROVE: 'Duyệt', REQUEST_CHANGES: 'Yêu cầu sửa', SEND_BACK: 'Trả về bước trước', CANCEL: 'Huỷ tính năng' };
-export const STATUS_LABEL = { PENDING: 'chờ', AI_WORKING: 'AI đang làm', AWAITING_REVIEW: 'chờ duyệt', APPROVED: 'đã duyệt', SKIPPED: 'bỏ qua' };
+export const ACTION_LABEL = { APPROVE: tr('Duyệt'), REQUEST_CHANGES: tr('Yêu cầu sửa'), SEND_BACK: tr('Trả về bước trước'), CANCEL: tr('Huỷ tính năng') };
+export const STATUS_LABEL = { PENDING: tr('chờ'), AI_WORKING: tr('AI đang làm'), AWAITING_REVIEW: tr('chờ duyệt'), APPROVED: tr('đã duyệt'), SKIPPED: tr('bỏ qua') };
 
 export function sendBackTargets(currentStep, steps) {
   const order = steps?.length ? steps.map(s => s.step) : STEPS;
@@ -141,9 +142,9 @@ export function sendBackTargets(currentStep, steps) {
 /** '' when valid, else a Vietnamese message. */
 export function validateDecision({ action, feedback, sendBackTo, edits, currentStep, steps }) {
   const hasEdits = edits && Object.keys(edits).length > 0;
-  if ((action === 'REQUEST_CHANGES' || action === 'SEND_BACK') && !(feedback || '').trim()) return 'Cần nhập góp ý cho AI.';
-  if (action === 'SEND_BACK' && !sendBackTargets(currentStep, steps).includes(sendBackTo)) return 'Chọn một bước trước đó (không phải bước bị bỏ qua).';
-  if (hasEdits && action !== 'APPROVE' && action !== 'REQUEST_CHANGES') return 'Bản sửa tay chỉ đi kèm Duyệt hoặc Yêu cầu sửa — huỷ bản sửa trước.';
+  if ((action === 'REQUEST_CHANGES' || action === 'SEND_BACK') && !(feedback || '').trim()) return tr('Cần nhập góp ý cho AI.');
+  if (action === 'SEND_BACK' && !sendBackTargets(currentStep, steps).includes(sendBackTo)) return tr('Chọn một bước trước đó (không phải bước bị bỏ qua).');
+  if (hasEdits && action !== 'APPROVE' && action !== 'REQUEST_CHANGES') return tr('Bản sửa tay chỉ đi kèm Duyệt hoặc Yêu cầu sửa — huỷ bản sửa trước.');
   return '';
 }
 

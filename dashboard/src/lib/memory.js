@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // Memory items are titled by the context service, e.g.
 //   ARTIFACT        "<feature> — <STEP> — <file>"
 //   DECISION        "Quyết định kiến trúc — <feature>"
@@ -27,8 +28,8 @@ export function memoryLabel(it) {
   switch (it.kind) {
     // the step and the file are always the last two parts; the feature title may itself contain " — "
     case 'ARTIFACT': return p.length >= 3 ? `${p[p.length - 2]} · ${p[p.length - 1]}` : it.title;
-    case 'DECISION': return 'Quyết định kiến trúc';
-    case 'FEATURE_SUMMARY': return 'Tóm tắt khi hoàn tất';
+    case 'DECISION': return tr('Quyết định kiến trúc');
+    case 'FEATURE_SUMMARY': return tr('Tóm tắt khi hoàn tất');
     case 'FEEDBACK': return p.length >= 2 ? `${p[0]} · ${p[1]}` : it.title;
     case 'HUMAN_EDIT': return p.length >= 2 ? `${p[0]} · ${p[1]}` : it.title;
     default: return it.title;

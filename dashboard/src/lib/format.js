@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 export function esc(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -7,18 +8,18 @@ export function esc(s) {
 export function fmtDur(s) {
   if (s == null || Number.isNaN(Number(s))) return '—';
   s = Math.max(0, Math.round(Number(s)));
-  if (s < 60) return `${s} giây`;
-  if (s < 3600) return `${Math.floor(s / 60)} phút`;
-  if (s < 86400) { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return m ? `${h} giờ ${m} phút` : `${h} giờ`; }
+  if (s < 60) return tr('{0} giây', [s]);
+  if (s < 3600) return tr('{0} phút', [Math.floor(s / 60)]);
+  if (s < 86400) { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return m ? tr('{0} giờ {1} phút', [h, m]) : tr('{0} giờ', [h]); }
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600);
-  return h ? `${d} ngày ${h} giờ` : `${d} ngày`;
+  return h ? tr('{0} ngày {1} giờ', [d, h]) : tr('{0} ngày', [d]);
 }
 
 /** Heartbeat age: ["3 phút trước", recency class]. */
 export function fmtAge(s) {
   if (s == null) return ['—', ''];
   const cls = s < 120 ? 'hb-fresh' : s < 900 ? 'hb-warn' : 'hb-stale';
-  return [s < 5 ? 'vừa xong' : `${fmtDur(s)} trước`, cls];
+  return [s < 5 ? tr('vừa xong') : tr('{0} trước', [fmtDur(s)]), cls];
 }
 
 // Heartbeat colour follows LIVENESS, not raw age: a DEAD lane is loud red, an

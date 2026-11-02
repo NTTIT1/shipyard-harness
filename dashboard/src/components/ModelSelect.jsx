@@ -1,4 +1,5 @@
 import React from 'react';
+import { tr } from '../lib/i18n.js';
 
 // <select> of "<provider>:<model>" values: Claude first, then every configured
 // provider that has a model list. A value that is no longer offered (provider
@@ -14,13 +15,13 @@ export default function ModelSelect({ value, onChange, info, claudeOnly, openhan
   if (openhands) {
     const oh = Object.entries(info.providers).filter(([, p]) => p.configured && p.models.length)
       .flatMap(([id, p]) => p.models.map(m => [`${id}/${m}`, `OpenHands · ${p.label} · ${m}`]));
-    if (oh.length) groups.push({ id: 'openhands', label: 'OpenHands — hộp kín', models: oh });
+    if (oh.length) groups.push({ id: 'openhands', label: tr('OpenHands — hộp kín'), models: oh });
   }
   const offered = (emptyLabel && !value) || groups.some(g => g.models.some(([m]) => `${g.id}:${m}` === value));
   return (
     <select className="msel" id={id} aria-label={label} value={value || ''} onChange={e => onChange(e.target.value)}>
       {emptyLabel && <option value="">{emptyLabel}</option>}
-      {!offered && <option value={value}>(không còn) {value}</option>}
+      {!offered && <option value={value}>{tr('(không còn) {0}', [value])}</option>}
       {groups.map(g => (
         <optgroup key={g.id} label={g.label}>
           {g.models.map(([m, label]) => <option key={m} value={`${g.id}:${m}`}>{label}</option>)}

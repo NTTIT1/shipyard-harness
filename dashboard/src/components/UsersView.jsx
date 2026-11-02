@@ -9,6 +9,7 @@ import Modal from './Modal.jsx';
 import { platform } from '../lib/platform.js';
 import { validateNewUser, validatePassword, userState, isAdmin } from '../lib/users.js';
 import { avatarColor, initials } from '../lib/avatar.js';
+import { tr } from '../lib/i18n.js';
 
 const EMPTY = { email: '', fullName: '', password: '', systemRole: 'USER' };
 
@@ -21,25 +22,25 @@ function ResetPassword({ target, onClose, onDone }) {
     if (v) return setErr(v);
     try {
       await platform.resetPassword(target.id, pw);
-      onDone(`Đã đặt lại mật khẩu cho ${target.email}.`);
+      onDone(tr('Đã đặt lại mật khẩu cho {0}.', [target.email]));
       onClose();
     } catch (e) {
       setErr(e.message);
     }
   };
   return (
-    <Modal title={`Đặt lại mật khẩu — ${target.email}`} onClose={onClose}
-      buttons={[{ label: 'Huỷ', fn: onClose }, { label: 'Đặt lại', cls: 'add', fn: save }]}>
+    <Modal title={tr('Đặt lại mật khẩu — {0}', [target.email])} onClose={onClose}
+      buttons={[{ label: tr('Huỷ'), fn: onClose }, { label: tr('Đặt lại'), cls: 'add', fn: save }]}>
       <div className="pj-form" style={{ border: 'none', padding: 0 }}>
         <div className="form-field u-mb10">
-          <label className="form-label">Mật khẩu mới</label>
-          <input type="password" autoComplete="new-password" aria-label="Mật khẩu mới"
-            placeholder="Mật khẩu mới (≥ 8 ký tự)" value={pw} onChange={e => setPw(e.target.value)} />
+          <label className="form-label">{tr('Mật khẩu mới')}</label>
+          <input type="password" autoComplete="new-password" aria-label={tr('Mật khẩu mới')}
+            placeholder={tr('Mật khẩu mới (≥ 8 ký tự)')} value={pw} onChange={e => setPw(e.target.value)} />
         </div>
         <div className="form-field u-mb10">
-          <label className="form-label">Nhập lại mật khẩu</label>
-          <input type="password" autoComplete="new-password" aria-label="Nhập lại mật khẩu"
-            placeholder="Nhập lại" value={pw2} onChange={e => setPw2(e.target.value)} />
+          <label className="form-label">{tr('Nhập lại mật khẩu')}</label>
+          <input type="password" autoComplete="new-password" aria-label={tr('Nhập lại mật khẩu')}
+            placeholder={tr('Nhập lại')} value={pw2} onChange={e => setPw2(e.target.value)} />
         </div>
         {err && (
           <div className="alert-banner err" role="alert">
@@ -49,9 +50,7 @@ function ResetPassword({ target, onClose, onDone }) {
         )}
         <div className="alert-banner info u-mt8">
           <Info size={16} />
-          <div className="alert-banner-content rv-sub u-m0">
-            Người dùng sẽ bị đăng xuất khỏi các thiết bị khác và được mở khoá nếu đang bị tạm khoá.
-          </div>
+          <div className="alert-banner-content rv-sub u-m0">{tr('Người dùng sẽ bị đăng xuất khỏi các thiết bị khác và được mở khoá nếu đang bị tạm khoá.')}</div>
         </div>
       </div>
     </Modal>
@@ -68,10 +67,10 @@ function MyPassword({ onLogout }) {
     try {
       await platform.changeMyPassword(f.cur, f.pw);
       setF({ cur: '', pw: '', pw2: '' });
-      setMsg({ err: '', ok: 'Đã đổi mật khẩu. Đăng nhập lại bằng mật khẩu mới…' });
+      setMsg({ err: '', ok: tr('Đã đổi mật khẩu. Đăng nhập lại bằng mật khẩu mới…') });
       setTimeout(() => onLogout?.(), 1500);
     } catch (e2) {
-      setMsg({ err: e2.message === 'Current password is incorrect' ? 'Mật khẩu hiện tại không đúng.' : e2.message, ok: '' });
+      setMsg({ err: e2.message === 'Current password is incorrect' ? tr('Mật khẩu hiện tại không đúng.') : e2.message, ok: '' });
     }
   };
   return (
@@ -79,25 +78,25 @@ function MyPassword({ onLogout }) {
       <div className="card-header">
         <div className="card-header-title">
           <KeyRound size={17} className="ic-accent" />
-          <span>Đổi mật khẩu của tôi</span>
+          <span>{tr('Đổi mật khẩu của tôi')}</span>
         </div>
       </div>
       <div className="card-body">
         <form className="pj-form us-narrow" onSubmit={submit} style={{ border: 'none', padding: 0 }}>
           <div className="form-field">
-            <label className="form-label">Mật khẩu hiện tại</label>
-            <input type="password" required autoComplete="current-password" aria-label="Mật khẩu hiện tại"
-              placeholder="Nhập mật khẩu hiện tại" value={f.cur} onChange={e => setF({ ...f, cur: e.target.value })} />
+            <label className="form-label">{tr('Mật khẩu hiện tại')}</label>
+            <input type="password" required autoComplete="current-password" aria-label={tr('Mật khẩu hiện tại')}
+              placeholder={tr('Nhập mật khẩu hiện tại')} value={f.cur} onChange={e => setF({ ...f, cur: e.target.value })} />
           </div>
           <div className="form-field">
-            <label className="form-label">Mật khẩu mới</label>
-            <input type="password" required autoComplete="new-password" aria-label="Mật khẩu mới"
-              placeholder="Mật khẩu mới (≥ 8 ký tự)" value={f.pw} onChange={e => setF({ ...f, pw: e.target.value })} />
+            <label className="form-label">{tr('Mật khẩu mới')}</label>
+            <input type="password" required autoComplete="new-password" aria-label={tr('Mật khẩu mới')}
+              placeholder={tr('Mật khẩu mới (≥ 8 ký tự)')} value={f.pw} onChange={e => setF({ ...f, pw: e.target.value })} />
           </div>
           <div className="form-field">
-            <label className="form-label">Xác nhận mật khẩu mới</label>
-            <input type="password" required autoComplete="new-password" aria-label="Nhập lại mật khẩu mới"
-              placeholder="Nhập lại mật khẩu mới" value={f.pw2} onChange={e => setF({ ...f, pw2: e.target.value })} />
+            <label className="form-label">{tr('Xác nhận mật khẩu mới')}</label>
+            <input type="password" required autoComplete="new-password" aria-label={tr('Nhập lại mật khẩu mới')}
+              placeholder={tr('Nhập lại mật khẩu mới')} value={f.pw2} onChange={e => setF({ ...f, pw2: e.target.value })} />
           </div>
           {msg.err && (
             <div className="alert-banner err" role="alert">
@@ -112,7 +111,7 @@ function MyPassword({ onLogout }) {
             </div>
           )}
           <div className="u-mt4">
-            <Button type="submit" variant="primary" icon={KeyRound}>Đổi mật khẩu</Button>
+            <Button type="submit" variant="primary" icon={KeyRound}>{tr('Đổi mật khẩu')}</Button>
           </div>
         </form>
       </div>
@@ -148,7 +147,7 @@ function AdminUsers({ me }) {
       await platform.createUser(form);
       setForm(EMPTY);
       setShowAdd(false);
-    }, `Đã tạo tài khoản ${form.email.trim()}. Gửi email + mật khẩu cho họ, rồi thêm họ vào dự án ở mục Dự án → Thành viên.`);
+    }, tr('Đã tạo tài khoản {0}. Gửi email + mật khẩu cho họ, rồi thêm họ vào dự án ở mục Dự án → Thành viên.', [form.email.trim()]));
   };
 
   // KPI calculations
@@ -178,28 +177,28 @@ function AdminUsers({ me }) {
           <div className="stat-icon accent"><Users size={18} /></div>
           <div className="stat-info">
             <span className="stat-val">{stats.total}</span>
-            <span className="stat-label">Tổng tài khoản</span>
+            <span className="stat-label">{tr('Tổng tài khoản')}</span>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon info"><Shield size={18} /></div>
           <div className="stat-info">
             <span className="stat-val">{stats.admins}</span>
-            <span className="stat-label">Quản trị viên</span>
+            <span className="stat-label">{tr('Quản trị viên')}</span>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon ok"><CheckCircle2 size={18} /></div>
           <div className="stat-info">
             <span className="stat-val">{stats.active}</span>
-            <span className="stat-label">Đang hoạt động</span>
+            <span className="stat-label">{tr('Đang hoạt động')}</span>
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-icon warn"><Lock size={18} /></div>
           <div className="stat-info">
             <span className="stat-val">{stats.locked}</span>
-            <span className="stat-label">Đã / Tạm khoá</span>
+            <span className="stat-label">{tr('Đã / Tạm khoá')}</span>
           </div>
         </div>
       </div>
@@ -225,7 +224,7 @@ function AdminUsers({ me }) {
         <div className="card-header">
           <div className="card-header-title">
             <Users size={18} className="ic-accent" />
-            <span>Danh sách người dùng</span>
+            <span>{tr('Danh sách người dùng')}</span>
             <span className="bdg bdg-neutral" style={{ marginLeft: 4 }}>{filteredRows.length}</span>
           </div>
           <Button
@@ -233,7 +232,7 @@ function AdminUsers({ me }) {
             variant={showAdd ? 'secondary' : 'primary'}
             icon={showAdd ? X : UserPlus}
             onClick={() => setShowAdd(!showAdd)}>
-            {showAdd ? 'Đóng form tạo' : 'Tạo tài khoản'}
+            {showAdd ? tr('Đóng form tạo') : tr('Tạo tài khoản')}
           </Button>
         </div>
 
@@ -243,36 +242,36 @@ function AdminUsers({ me }) {
             <form className="pj-form" onSubmit={create} style={{ border: 'none', padding: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                 <UserPlus size={16} className="ic-accent" />
-                <strong style={{ fontSize: 13.5 }}>Tạo tài khoản mới</strong>
+                <strong style={{ fontSize: 13.5 }}>{tr('Tạo tài khoản mới')}</strong>
               </div>
               <div className="form-grid-2">
                 <div className="form-field">
-                  <label className="form-label">Email đăng nhập</label>
-                  <input type="email" required aria-label="Email" placeholder="email@công-ty.vn"
+                  <label className="form-label">{tr('Email đăng nhập')}</label>
+                  <input type="email" required aria-label="Email" placeholder={tr('email@công-ty.vn')}
                     value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
                 </div>
                 <div className="form-field">
-                  <label className="form-label">Họ và tên</label>
-                  <input required aria-label="Họ tên" placeholder="Họ tên người dùng"
+                  <label className="form-label">{tr('Họ và tên')}</label>
+                  <input required aria-label={tr('Họ tên')} placeholder={tr('Họ tên người dùng')}
                     value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} />
                 </div>
                 <div className="form-field">
-                  <label className="form-label">Mật khẩu ban đầu</label>
-                  <input type="password" required autoComplete="new-password" aria-label="Mật khẩu ban đầu"
-                    placeholder="Mật khẩu ban đầu (≥ 8 ký tự)" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+                  <label className="form-label">{tr('Mật khẩu ban đầu')}</label>
+                  <input type="password" required autoComplete="new-password" aria-label={tr('Mật khẩu ban đầu')}
+                    placeholder={tr('Mật khẩu ban đầu (≥ 8 ký tự)')} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
                 </div>
                 <div className="form-field">
-                  <label className="form-label">Quyền hệ thống</label>
-                  <select aria-label="Quyền hệ thống" value={form.systemRole}
+                  <label className="form-label">{tr('Quyền hệ thống')}</label>
+                  <select aria-label={tr('Quyền hệ thống')} value={form.systemRole}
                     onChange={e => setForm({ ...form, systemRole: e.target.value })}>
-                    <option value="USER">Người dùng (USER)</option>
-                    <option value="SYS_ADMIN">Quản trị hệ thống (SYS_ADMIN)</option>
+                    <option value="USER">{tr('Người dùng (USER)')}</option>
+                    <option value="SYS_ADMIN">{tr('Quản trị hệ thống (SYS_ADMIN)')}</option>
                   </select>
                 </div>
               </div>
               <div className="row-wrap-8 u-mt12">
-                <Button type="submit" variant="primary" icon={UserPlus} disabled={busy}>Tạo tài khoản</Button>
-                <Button type="button" variant="ghost" onClick={() => setShowAdd(false)}>Huỷ</Button>
+                <Button type="submit" variant="primary" icon={UserPlus} disabled={busy}>{tr('Tạo tài khoản')}</Button>
+                <Button type="button" variant="ghost" onClick={() => setShowAdd(false)}>{tr('Huỷ')}</Button>
               </div>
             </form>
           </div>
@@ -285,16 +284,14 @@ function AdminUsers({ me }) {
               <Search size={15} />
               <input
                 type="search"
-                aria-label="Tìm người dùng"
-                placeholder="Tìm người dùng theo tên hoặc email…"
+                aria-label={tr('Tìm người dùng')}
+                placeholder={tr('Tìm người dùng theo tên hoặc email…')}
                 value={query}
                 onChange={e => setQuery(e.target.value)}
               />
             </div>
             {query && (
-              <Button size="sm" variant="ghost" onClick={() => setQuery('')}>
-                Xoá bộ lọc
-              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setQuery('')}>{tr('Xoá bộ lọc')}</Button>
             )}
           </div>
         </div>
@@ -304,18 +301,16 @@ function AdminUsers({ me }) {
           <table className="grid modern-table">
             <thead>
               <tr>
-                <th>Người dùng</th>
-                <th>Quyền hệ thống</th>
-                <th>Trạng thái</th>
-                <th className="u-right">Thao tác</th>
+                <th>{tr('Người dùng')}</th>
+                <th>{tr('Quyền hệ thống')}</th>
+                <th>{tr('Trạng thái')}</th>
+                <th className="u-right">{tr('Thao tác')}</th>
               </tr>
             </thead>
             <tbody>
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-faint)' }}>
-                    Không tìm thấy người dùng nào phù hợp với "{query}".
-                  </td>
+                  <td colSpan={4} style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-faint)' }}>{tr('Không tìm thấy người dùng nào phù hợp với "{0}".', [query])}</td>
                 </tr>
               ) : (
                 filteredRows.map(u => {
@@ -334,7 +329,7 @@ function AdminUsers({ me }) {
                           <div>
                             <div className="user-name-row">
                               <span>{u.fullName || '—'}</span>
-                              {self && <Badge tone="accent">bạn</Badge>}
+                              {self && <Badge tone="accent">{tr('bạn')}</Badge>}
                             </div>
                             <div className="user-email-row">
                               <Mail size={12} className="u-o70" />
@@ -351,13 +346,13 @@ function AdminUsers({ me }) {
                             <User size={15} className="u-faint" />
                           )}
                           <select
-                            aria-label={`Quyền hệ thống của ${u.email}`}
+                            aria-label={tr('Quyền hệ thống của {0}', [u.email])}
                             value={u.systemRole}
                             disabled={busy || self}
                             className="role-select-box"
                             onChange={e => act(() => platform.updateUser(u.id, { systemRole: e.target.value }))}>
-                            <option value="USER">Người dùng</option>
-                            <option value="SYS_ADMIN">Quản trị hệ thống</option>
+                            <option value="USER">{tr('Người dùng')}</option>
+                            <option value="SYS_ADMIN">{tr('Quản trị hệ thống')}</option>
                           </select>
                         </div>
                       </td>
@@ -370,31 +365,25 @@ function AdminUsers({ me }) {
                           variant="ghost"
                           icon={KeyRound}
                           disabled={busy}
-                          title="Đặt lại mật khẩu cho tài khoản này"
-                          onClick={() => setResetFor(u)}>
-                          Đặt lại mật khẩu
-                        </Button>
+                          title={tr('Đặt lại mật khẩu cho tài khoản này')}
+                          onClick={() => setResetFor(u)}>{tr('Đặt lại mật khẩu')}</Button>
                         {!self && (u.status === 'DISABLED' ? (
                           <Button
                             size="sm"
                             variant="ghost"
                             icon={Unlock}
                             disabled={busy}
-                            title="Mở khoá tài khoản"
-                            onClick={() => act(() => platform.updateUser(u.id, { status: 'ACTIVE' }), `Đã mở khoá ${u.email}.`)}>
-                            Mở khoá
-                          </Button>
+                            title={tr('Mở khoá tài khoản')}
+                            onClick={() => act(() => platform.updateUser(u.id, { status: 'ACTIVE' }), tr('Đã mở khoá {0}.', [u.email]))}>{tr('Mở khoá')}</Button>
                         ) : (
                           <Button
                             size="sm"
                             variant="ghost"
                             icon={Lock}
                             disabled={busy}
-                            title="Khoá tài khoản"
-                            onClick={() => window.confirm(`Khoá tài khoản ${u.email}? Họ sẽ không đăng nhập được nữa.`)
-                              && act(() => platform.updateUser(u.id, { status: 'DISABLED' }), `Đã khoá ${u.email}.`)}>
-                            Khoá
-                          </Button>
+                            title={tr('Khoá tài khoản')}
+                            onClick={() => window.confirm(tr('Khoá tài khoản {0}? Họ sẽ không đăng nhập được nữa.', [u.email]))
+                              && act(() => platform.updateUser(u.id, { status: 'DISABLED' }), tr('Đã khoá {0}.', [u.email]))}>{tr('Khoá')}</Button>
                         ))}
                       </td>
                     </tr>
@@ -410,7 +399,7 @@ function AdminUsers({ me }) {
       <div className="alert-banner info">
         <Info size={18} className="ic-accent" />
         <div className="alert-banner-content rv-sub u-m0">
-          <b>Quyền hệ thống</b> quyết định ai quản lý tài khoản và thiết lập toàn cục. Để phân quyền truy cập dự án cụ thể (PM, BA, Tech Lead, Tester…), hãy mở mục <b>Dự án → Thành viên</b>.
+          <b>{tr('Quyền hệ thống')}</b>{' '}{tr('quyết định ai quản lý tài khoản và thiết lập toàn cục. Để phân quyền truy cập dự án cụ thể (PM, BA, Tech Lead, Tester…), hãy mở mục')}{' '}<b>{tr('Dự án → Thành viên')}</b>.
         </div>
       </div>
 
@@ -427,12 +416,12 @@ export default function UsersView({ user, onLogout }) {
         <div className="rv-page-title-wrap">
           <h1 id="us-title" className="rv-h1">
             <Users size={22} strokeWidth={1.75} className="ic-accent" />
-            <span>{admin ? 'Quản lý người dùng' : 'Tài khoản cá nhân'}</span>
+            <span>{admin ? tr('Quản lý người dùng') : tr('Tài khoản cá nhân')}</span>
           </h1>
           <p className="rv-page-desc">
             {admin
-              ? 'Quản trị danh sách người dùng, cấp quyền hệ thống và quản lý bảo mật truy cập.'
-              : 'Xem thông tin tài khoản và cập nhật mật khẩu của bạn.'}
+              ? tr('Quản trị danh sách người dùng, cấp quyền hệ thống và quản lý bảo mật truy cập.')
+              : tr('Xem thông tin tài khoản và cập nhật mật khẩu của bạn.')}
           </p>
         </div>
       </div>

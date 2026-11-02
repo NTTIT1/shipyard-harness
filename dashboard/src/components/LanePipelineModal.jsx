@@ -4,6 +4,7 @@ import PipelineEditor from './projects/PipelineEditor.jsx';
 import { fetchLanePipeline, saveLanePipeline, clearLanePipeline, fetchProviders, saveLaneModelDefaults } from '../lib/api.js';
 import { STEP_LABEL } from '../lib/review.js';
 import { defaultPipeline, pipelineProblem, pipelineSteps, SOURCE_LABEL } from '../lib/pipeline.js';
+import { tr } from '../lib/i18n.js';
 
 const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
 const strip = ({ source, ...p }) => p;
@@ -46,31 +47,31 @@ export default function LanePipelineModal({ n, onClose }) {
         setLaneModels(l); setGates(l.gates || {});
       }
       if (pipelineDirty) loadPipeline(await (own ? saveLanePipeline(n, draft) : clearLanePipeline(n)));
-      setNotice('Đã lưu — lane áp dụng từ tính năng / bước tiếp theo nó chạy tới.');
+      setNotice(tr('Đã lưu — lane áp dụng từ tính năng / bước tiếp theo nó chạy tới.'));
     } catch (e) { setErr(e.message); }
     setBusy(false);
   };
 
   const eff = info?.effective;
   return (
-    <Modal title={`Quy trình của lane ${n}`} wide onClose={onClose} buttons={[
-      { label: 'Đóng', fn: onClose },
-      { label: busy ? 'Đang lưu…' : 'Lưu', cls: 'add', disabled: busy || !dirty || !!problem, fn: save },
+    <Modal title={tr('Quy trình của lane {0}', [n])} wide onClose={onClose} buttons={[
+      { label: tr('Đóng'), fn: onClose },
+      { label: busy ? tr('Đang lưu…') : tr('Lưu'), cls: 'add', disabled: busy || !dirty || !!problem, fn: save },
     ]}>
       {err && <p className="m-err" role="alert">{err}</p>}
-      {!info || !laneModels ? (!err && <p className="muted-empty">Đang tải…</p>) : (
+      {!info || !laneModels ? (!err && <p className="muted-empty">{tr('Đang tải…')}</p>) : (
         <div className="pl-body">
           <section className="pl-sec" aria-labelledby={`lp${n}-steps`}>
-            <h3 className="pl-h" id={`lp${n}-steps`}>Các bước của tính năng</h3>
-            <p className="pl-sub">“Theo dự án” = như Quy trình &amp; duyệt của dự án. Đổi ở đây chỉ áp cho lane {n}.</p>
+            <h3 className="pl-h" id={`lp${n}-steps`}>{tr('Các bước của tính năng')}</h3>
+            <p className="pl-sub">{tr('“Theo dự án” = như Quy trình & duyệt của dự án. Đổi ở đây chỉ áp cho lane {0}.', [n])}</p>
             <div className="gate-grid">
               {STEPS.map(st => (
                 <label key={st}>{STEP_LABEL[st]}
                   <select className="msel" value={gates[st] || ''} onChange={e => { setNotice(''); setGates(g => ({ ...g, [st]: e.target.value })); }}>
-                    <option value="">Theo dự án</option>
-                    <option value="REQUIRED">Cần người duyệt</option>
-                    <option value="AUTO">Tự duyệt khi xanh</option>
-                    {st !== 'DEV' && <option value="SKIP">Bỏ bước</option>}
+                    <option value="">{tr('Theo dự án')}</option>
+                    <option value="REQUIRED">{tr('Cần người duyệt')}</option>
+                    <option value="AUTO">{tr('Tự duyệt khi xanh')}</option>
+                    {st !== 'DEV' && <option value="SKIP">{tr('Bỏ bước')}</option>}
                   </select>
                 </label>
               ))}
@@ -78,17 +79,17 @@ export default function LanePipelineModal({ n, onClose }) {
           </section>
 
           <section className="pl-sec" aria-labelledby={`lp${n}-after`}>
-            <h3 className="pl-h" id={`lp${n}-after`}>Sau khi code xong</h3>
+            <h3 className="pl-h" id={`lp${n}-after`}>{tr('Sau khi code xong')}</h3>
             <p className="pl-now">
-              <span className="pl-sub">Đang chạy theo <b>{SOURCE_LABEL[eff.source] || eff.source}</b></span>
+              <span className="pl-sub">{tr('Đang chạy theo')}{' '}<b>{SOURCE_LABEL[eff.source] || eff.source}</b></span>
               <span className="pl-summary">{pipelineSteps(eff).join(' → ')}</span>
             </p>
             <label className="wz-check">
               <input type="checkbox" checked={own}
                 onChange={e => { setNotice(''); setDraft(e.target.checked ? { ...defaultPipeline(eff.prBase), ...strip(eff) } : null); }} />
-              <span>Dùng quy trình riêng cho lane này <span className="faint">(bỏ chọn rồi Lưu = theo dự án)</span></span>
+              <span>{tr('Dùng quy trình riêng cho lane này')}{' '}<span className="faint">{tr('(bỏ chọn rồi Lưu = theo dự án)')}</span></span>
             </label>
-            {own && <PipelineEditor value={draft} idPrefix={`lane${n}`} baseHint={eff.prBase || 'nhánh tích hợp'} onChange={v => { setNotice(''); setDraft(v); }} />}
+            {own && <PipelineEditor value={draft} idPrefix={`lane${n}`} baseHint={eff.prBase || tr('nhánh tích hợp')} onChange={v => { setNotice(''); setDraft(v); }} />}
           </section>
           {notice && <p className="wf-notice" role="status">{notice}</p>}
         </div>

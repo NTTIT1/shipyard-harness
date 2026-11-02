@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, TriangleAlert } from 'lucide-react';
 import { NODES, MAINY, FIXN, BLKN, TKT, BLKY } from '../lib/constants.js';
 import { phaseIdx } from '../lib/constants.js';
+import { tr } from '../lib/i18n.js';
 
 function evidence(l) {
   const gd = (l.gate_decision || '').toUpperCase();
@@ -62,7 +63,7 @@ export default function PipelineNodes({ lane, config }) {
   // self-resolve badges
   const badges = (
     <g>
-      <title>preflight collision / base-sync conflict → resolved in place on the branch</title>
+      <title>{tr('preflight collision / base-sync conflict → resolved in place on the branch')}</title>
       <text x="382" y={MAINY - 14} textAnchor="middle" fontSize="12" style={{ fill: 'var(--warn)' }}>{'↻'}</text>
     </g>
   );

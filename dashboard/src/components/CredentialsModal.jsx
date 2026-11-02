@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff, Hourglass, Check, X } from 'lucide-react';
 import Modal from './Modal.jsx';
 import { fetchCreds, postAction } from '../lib/api.js';
+import { tr } from '../lib/i18n.js';
 
 function PwField({ id, label, value, onChange }) {
   const [show, setShow] = useState(false);
@@ -11,7 +12,7 @@ function PwField({ id, label, value, onChange }) {
         <input id={id} type={show ? 'text' : 'password'} value={value} onChange={onChange}
           autoComplete="off" autoCapitalize="off" spellCheck="false" />
         <button type="button" className={`m-eye ${show ? 'on' : ''}`} tabIndex={-1}
-          onClick={() => setShow(!show)} title="show / hide" aria-label="show / hide">{show ? <EyeOff size={14} strokeWidth={1.75} aria-hidden="true" /> : <Eye size={14} strokeWidth={1.75} aria-hidden="true" />}</button>
+          onClick={() => setShow(!show)} title={tr('show / hide')} aria-label={tr('show / hide')}>{show ? <EyeOff size={14} strokeWidth={1.75} aria-hidden="true" /> : <Eye size={14} strokeWidth={1.75} aria-hidden="true" />}</button>
       </span>
     </label>
   );
@@ -39,7 +40,7 @@ export default function CredentialsModal({ lane, mode, config, onClose, onDone }
     return (
       <Modal title={`Lane ${lane}${mode === 'agents' ? ': agents re-populated' : ': credentials'}`}
         onClose={() => { onClose(); onDone(); }}
-        buttons={[{ label: 'Close', fn: () => { onClose(); onDone(); } }]}>
+        buttons={[{ label: tr('Close'), fn: () => { onClose(); onDone(); } }]}>
         <div className={`m-status ${result.ok ? 'ok' : 'bad'}`}>{result.ok ? <Check size={14} strokeWidth={2} aria-hidden="true" /> : <X size={14} strokeWidth={2} aria-hidden="true" />} {result.ok ? 'done' : 'failed'}</div>
         <pre className="m-out">{result.output || '(no output)'}</pre>
       </Modal>
@@ -50,15 +51,15 @@ export default function CredentialsModal({ lane, mode, config, onClose, onDone }
     return (
       <Modal title={`Lane ${lane}${mode === 'agents' ? ': re-populating agents' : ': applying credentials'}`}
         onClose={() => {}} buttons={[]}>
-        <p className="m-spin"><Hourglass size={14} strokeWidth={1.75} aria-hidden="true" /> Writing creds → re-embedding agents → {mode === 'agents' ? 'syncing MCP' : 're-seeding sessions'} — please wait…</p>
+        <p className="m-spin"><Hourglass size={14} strokeWidth={1.75} aria-hidden="true" />{' '}{tr('Writing creds → re-embedding agents → {0} — please wait…', [mode === 'agents' ? 'syncing MCP' : 're-seeding sessions'])}</p>
       </Modal>
     );
   }
 
   if (!creds) {
     return (
-      <Modal title="Loading…" onClose={onClose} buttons={[{ label: 'Cancel', fn: onClose }]}>
-        <p className="m-spin"><Hourglass size={14} strokeWidth={1.75} aria-hidden="true" /> Loading current credentials…</p>
+      <Modal title={tr('Loading…')} onClose={onClose} buttons={[{ label: tr('Cancel'), fn: onClose }]}>
+        <p className="m-spin"><Hourglass size={14} strokeWidth={1.75} aria-hidden="true" />{' '}{tr('Loading current credentials…')}</p>
       </Modal>
     );
   }
@@ -86,36 +87,35 @@ export default function CredentialsModal({ lane, mode, config, onClose, onDone }
     <Modal title={`Lane ${lane}${mode === 'agents' ? ' — re-populate agents' : ' — credentials'}`}
       onClose={onClose}
       buttons={[
-        { label: 'Cancel', fn: onClose },
+        { label: tr('Cancel'), fn: onClose },
         { label: mode === 'agents' ? 'Regenerate agents' : 'Save & apply', cls: 'add', fn: submit },
       ]}>
       <div className="m-sec">
-        <div className="m-sec-h">dev-QC <span>· this lane · {devSite}</span></div>
-        <label className="m-l">Email<input ref={focusRef} type="text" value={creds.dev.email}
+        <div className="m-sec-h">{tr('dev-QC')}{' '}<span>{tr('· this lane · {0}', [devSite])}</span></div>
+        <label className="m-l">{tr('Email')}<input ref={focusRef} type="text" value={creds.dev.email}
           onChange={e => update('dev', 'email', e.target.value)} autoComplete="off" spellCheck="false" /></label>
-        <PwField id="cr-dev-pw" label="Password" value={creds.dev.password}
+        <PwField id="cr-dev-pw" label={tr('Password')} value={creds.dev.password}
           onChange={e => update('dev', 'password', e.target.value)} />
       </div>
       <div className="m-sec">
-        <div className="m-sec-h">qc-local <span>· shared · seeded lane account</span></div>
-        <label className="m-l">Email<input type="text" value={creds.local.email}
+        <div className="m-sec-h">{tr('qc-local')}{' '}<span>{tr('· shared · seeded lane account')}</span></div>
+        <label className="m-l">{tr('Email')}<input type="text" value={creds.local.email}
           onChange={e => update('local', 'email', e.target.value)} autoComplete="off" spellCheck="false" /></label>
-        <PwField id="cr-loc-pw" label="Password" value={creds.local.password}
+        <PwField id="cr-loc-pw" label={tr('Password')} value={creds.local.password}
           onChange={e => update('local', 'password', e.target.value)} />
       </div>
       <div className="m-sec">
-        <div className="m-sec-h">ticketer <span>· shared · {trackerHost}</span></div>
-        <label className="m-l">Email<input type="text" value={creds.tracker.email}
+        <div className="m-sec-h">{tr('ticketer')}{' '}<span>{tr('· shared · {0}', [trackerHost])}</span></div>
+        <label className="m-l">{tr('Email')}<input type="text" value={creds.tracker.email}
           onChange={e => update('tracker', 'email', e.target.value)} autoComplete="off" spellCheck="false" /></label>
-        <PwField id="cr-trk-pw" label="Password" value={creds.tracker.password}
+        <PwField id="cr-trk-pw" label={tr('Password')} value={creds.tracker.password}
           onChange={e => update('tracker', 'password', e.target.value)} />
       </div>
       <p className="m-hint">
         {mode === 'agents'
           ? "Regenerates this lane's agents + .mcp.json from the current harness templates, embedding these accounts."
           : "Saves these accounts, re-embeds them in this lane's agents, and re-seeds the sessions."}
-        {' '}<b>qc-local</b> &amp; <b>ticketer</b> are shared across all lanes.
-      </p>
+        {' '}<b>{tr('qc-local')}</b> &amp; <b>{tr('ticketer')}</b>{' '}{tr('are shared across all lanes.')}</p>
     </Modal>
   );
 }

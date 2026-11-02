@@ -299,3 +299,11 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
   .sidebar { border-right-color: var(--text-muted) }
 }
 
+/* Interface language picker (sidebar foot, login card). */
+.lang-switch { position: relative; display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 6px; border-radius: var(--radius-sm);
+  color: var(--text-muted); cursor: pointer; transition: background-color 150ms var(--ease, ease-out), color 150ms var(--ease, ease-out) }
+.lang-switch:hover { background: var(--panel-hover); color: var(--text) }
+.lang-switch:focus-within { outline: 2px solid var(--accent); outline-offset: 1px }
+.lang-switch select { appearance: none; border: 0; background: none; color: inherit; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; outline: none; padding: 0 }
+.lang-switch select option { background: var(--panel); color: var(--text) }
+.login-lang { margin-left: auto }

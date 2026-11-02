@@ -1,6 +1,7 @@
 import React from 'react';
 import Modal from './Modal.jsx';
 import { ACT_CONFIRM } from '../lib/constants.js';
+import { tr } from '../lib/i18n.js';
 
 // Backwards compatible: when `action` is given it looks up copy from ACT_CONFIRM.
 // Callers may instead pass generic { title, message, confirmLabel, confirmCls }
@@ -17,7 +18,7 @@ export default function ConfirmModal({
   return (
     <Modal title={ttl} onClose={onClose}
       buttons={[
-        { label: 'Cancel', fn: onClose },
+        { label: tr('Cancel'), fn: onClose },
         { label: yLabel, cls: yCls, fn: () => { onClose(); onConfirm(); } },
       ]}>
       <p className="m-text">{msg}</p>

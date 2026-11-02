@@ -5,6 +5,7 @@ import Badge from './ui/Badge.jsx';
 import { teamApi, roleKeys, ruleColumns, toggleRole, forgetRule, ruleChanges, sameTeam, fileToBase64, formatSize, skillRows, RULE_NAME_RE } from '../lib/team.js';
 import { SETUP_STATUS } from '../lib/scaffold.js';
 import '../styles/team.css';
+import { tr } from '../lib/i18n.js';
 
 const setupLabel = (setup, branch) => (SETUP_STATUS[setup.status] || setup.status).replace('development', branch);
 
@@ -13,27 +14,27 @@ function SetupProgress({ setup, branch, canManage, busy, onOpenRun, onRetry }) {
   const working = ['queued', 'drafting', 'publishing'].includes(setup.status);
   return (
     <section className={`card-panel tm-progress is-${setup.status}`} aria-labelledby="tm-progress-h">
-      <h3 id="tm-progress-h" className="tm-h">{setup.title || 'Bộ luật đang được xử lý'}</h3>
+      <h3 id="tm-progress-h" className="tm-h">{setup.title || tr('Bộ luật đang được xử lý')}</h3>
       <p className="tm-progress-state" role="status">
         {working && <Loader2 size={15} className="wz-spin" aria-hidden="true" />}
         <span>{setupLabel(setup, branch)}</span>
       </p>
-      {setup.status === 'drafting' && <p className="faint">AI Manager đang đọc code và tài liệu để soạn luật — thường mất vài phút. Trang tự cập nhật.</p>}
-      {setup.status === 'awaiting-review' && <p className="faint">Mở bộ luật để duyệt, sửa trực tiếp hoặc yêu cầu AI Manager soạn lại. Luật chỉ có hiệu lực sau khi được duyệt.</p>}
+      {setup.status === 'drafting' && <p className="faint">{tr('AI Manager đang đọc code và tài liệu để soạn luật — thường mất vài phút. Trang tự cập nhật.')}</p>}
+      {setup.status === 'awaiting-review' && <p className="faint">{tr('Mở bộ luật để duyệt, sửa trực tiếp hoặc yêu cầu AI Manager soạn lại. Luật chỉ có hiệu lực sau khi được duyệt.')}</p>}
       {setup.status === 'error' && <p className="tm-err">{setup.error}</p>}
       <div className="tm-progress-actions">
-        {setup.status === 'awaiting-review' && onOpenRun && <Button variant="primary" onClick={() => onOpenRun(setup.runId)}>Xem & duyệt</Button>}
-        {setup.status === 'error' && canManage && <Button icon={RotateCcw} disabled={busy} onClick={onRetry}>Thử lại</Button>}
+        {setup.status === 'awaiting-review' && onOpenRun && <Button variant="primary" onClick={() => onOpenRun(setup.runId)}>{tr('Xem & duyệt')}</Button>}
+        {setup.status === 'error' && canManage && <Button icon={RotateCcw} disabled={busy} onClick={onRetry}>{tr('Thử lại')}</Button>}
       </div>
     </section>
   );
 }
 
 const SKILL_KIND = {
-  installed: ['ok', 'Cài sẵn', 'Cài sẵn trên máy cho mọi dự án — không chép vào repo'],
-  repo: ['neutral', 'Trong repo', 'Đã có trong .claude/skills/ của repo'],
-  catalog: ['info', 'Gợi ý', 'Gợi ý của Shipyard — được thêm vào .claude/skills/ của repo khi duyệt'],
-  unknown: ['warn', 'Không tìm thấy', 'Vai trò đang dùng skill này nhưng repo và Shipyard đều không có'],
+  installed: ['ok', tr('Cài sẵn'), tr('Cài sẵn trên máy cho mọi dự án — không chép vào repo')],
+  repo: ['neutral', 'Trong repo', tr('Đã có trong .claude/skills/ của repo')],
+  catalog: ['info', tr('Gợi ý'), tr('Gợi ý của Shipyard — được thêm vào .claude/skills/ của repo khi duyệt')],
+  unknown: ['warn', tr('Không tìm thấy'), tr('Vai trò đang dùng skill này nhưng repo và Shipyard đều không có')],
 };
 
 /** Skill × role: tick a cell and that AI role applies the skill on every feature of the project. */
@@ -43,13 +44,13 @@ function SkillMatrix({ s, team, locked, setTeam }) {
   const label = r => team.roles[r]?.label || r;
   return (
     <section className="card-panel" aria-labelledby="tm-skills-h">
-      <div className="card-header tm-head"><h3 id="tm-skills-h" className="tm-h">Kỹ năng AI</h3>
-        <span className="faint">Tích ô để vai trò AI đó dùng kỹ năng trong mọi tính năng của dự án. Có hiệu lực sau khi duyệt.</span></div>
-      {rows.length === 0 ? <p className="faint tm-pad">Chưa có kỹ năng nào.</p> : (
+      <div className="card-header tm-head"><h3 id="tm-skills-h" className="tm-h">{tr('Kỹ năng AI')}</h3>
+        <span className="faint">{tr('Tích ô để vai trò AI đó dùng kỹ năng trong mọi tính năng của dự án. Có hiệu lực sau khi duyệt.')}</span></div>
+      {rows.length === 0 ? <p className="faint tm-pad">{tr('Chưa có kỹ năng nào.')}</p> : (
         <div className="tm-matrix-wrap">
           <table className="tm-matrix tm-skillmatrix">
             <thead>
-              <tr><th scope="col">Kỹ năng</th>{roles.map(r => <th key={r} scope="col">{label(r).replace(/^AI /, '')}</th>)}</tr>
+              <tr><th scope="col">{tr('Kỹ năng')}</th>{roles.map(r => <th key={r} scope="col">{label(r).replace(/^AI /, '')}</th>)}</tr>
             </thead>
             <tbody>
               {rows.map(sk => {
@@ -64,9 +65,9 @@ function SkillMatrix({ s, team, locked, setTeam }) {
                       const on = (team.roles[r]?.skills || []).includes(sk.id);
                       const sug = sk.suggested.includes(r);
                       return (
-                        <td key={r} className={sug && !on ? 'tm-sug' : undefined} title={sug ? `Shipyard gợi ý cho ${label(r)}` : undefined}>
+                        <td key={r} className={sug && !on ? 'tm-sug' : undefined} title={sug ? tr('Shipyard gợi ý cho {0}', [label(r)]) : undefined}>
                           <label className="tm-cell">
-                            <input type="checkbox" aria-label={`${label(r)} dùng ${sk.label}`} disabled={locked}
+                            <input type="checkbox" aria-label={tr('{0} dùng {1}', [label(r), sk.label])} disabled={locked}
                               checked={on} onChange={() => setTeam(t => toggleRole(t, r, 'skills', sk.id))} />
                           </label>
                         </td>
@@ -79,7 +80,7 @@ function SkillMatrix({ s, team, locked, setTeam }) {
           </table>
         </div>
       )}
-      <p className="faint tm-pad">Ô có viền là vai trò Shipyard gợi ý cho kỹ năng đó. Kỹ năng "Cài sẵn" nằm trên máy chạy lane, dùng chung cho mọi dự án.</p>
+      <p className="faint tm-pad">{tr('Ô có viền là vai trò Shipyard gợi ý cho kỹ năng đó. Kỹ năng "Cài sẵn" nằm trên máy chạy lane, dùng chung cho mọi dự án.')}</p>
     </section>
   );
 }
@@ -143,26 +144,26 @@ export default function TeamPanel({ pid, onOpenRun }) {
   const curName = cols.includes(cur) ? cur : cols[0];
 
   if (loading && !s) {
-    return <p className="muted-empty"><Loader2 size={14} className="wz-spin" /> Đang tải đội AI… (lần đầu cần clone repo, có thể mất khoảng 1 phút)</p>;
+    return <p className="muted-empty"><Loader2 size={14} className="wz-spin" />{' '}{tr('Đang tải đội AI… (lần đầu cần clone repo, có thể mất khoảng 1 phút)')}</p>;
   }
   if (!s) {
     return (
       <div className="tm">
         <div className="alert-banner err" role="alert">
-          <AlertCircle size={16} /><div className="alert-banner-content">{err || 'Không tải được'}</div>
-          <Button size="sm" variant="ghost" icon={RefreshCw} onClick={() => load(true)}>Thử lại</Button>
+          <AlertCircle size={16} /><div className="alert-banner-content">{err || tr('Không tải được')}</div>
+          <Button size="sm" variant="ghost" icon={RefreshCw} onClick={() => load(true)}>{tr('Thử lại')}</Button>
         </div>
         {branchChoices?.length > 0 && (
           <section className="card-panel tm-pad tm-branch">
-            <label className="form-label" htmlFor="tm-branch">Luật của đội AI nằm trên nhánh nào (nhánh tích hợp của dự án)?</label>
+            <label className="form-label" htmlFor="tm-branch">{tr('Luật của đội AI nằm trên nhánh nào (nhánh tích hợp của dự án)?')}</label>
             <div className="tm-branch-row">
               <select id="tm-branch" value={pick} onChange={e => setPick(e.target.value)}>
                 {branchChoices.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
               <Button variant="primary" disabled={!pick || !!busy}
-                onClick={() => act('branch', () => teamApi.setBranch(pid, pick))}>{busy === 'branch' ? 'Đang lưu…' : 'Dùng nhánh này'}</Button>
+                onClick={() => act('branch', () => teamApi.setBranch(pid, pick))}>{busy === 'branch' ? tr('Đang lưu…') : tr('Dùng nhánh này')}</Button>
             </div>
-            <p className="faint">Chỉ cần chọn một lần. Lane của dự án cũng phải đọc luật từ nhánh này (<code>INTEGRATION_BRANCH</code>).</p>
+            <p className="faint">{tr('Chỉ cần chọn một lần. Lane của dự án cũng phải đọc luật từ nhánh này (')}<code>INTEGRATION_BRANCH</code>).</p>
           </section>
         )}
       </div>
@@ -176,37 +177,36 @@ export default function TeamPanel({ pid, onOpenRun }) {
       {msg && <div className="alert-banner ok" role="status"><div className="alert-banner-content">{msg}</div></div>}
 
       <div className="tm-bar">
-        <span className="tm-where">Nhánh <code>{s.branch}</code> · <span className="mono faint" title="Thư mục làm việc trên máy chủ">{s.dir}</span></span>
+        <span className="tm-where">{tr('Nhánh')}{' '}<code>{s.branch}</code> · <span className="mono faint" title={tr('Thư mục làm việc trên máy chủ')}>{s.dir}</span></span>
         {setup && !s.open && (
           <span className="tm-run">
             <Badge tone={OPEN_TONE[setup.status] || 'neutral'}>{setupLabel(setup, s.branch)}</Badge>
             {setup.title && <span className="faint">{setup.title}</span>}
           </span>
         )}
-        <Button size="sm" variant="ghost" icon={RefreshCw} disabled={loading} onClick={() => load(true)}>Tải lại</Button>
+        <Button size="sm" variant="ghost" icon={RefreshCw} disabled={loading} onClick={() => load(true)}>{tr('Tải lại')}</Button>
       </div>
 
       {s.open && setup && (
         <SetupProgress setup={setup} branch={s.branch} canManage={s.canManage} busy={!!busy} onOpenRun={onOpenRun}
-          onRetry={() => act('retry', () => teamApi.retry(pid), 'Đã chạy lại')} />
+          onRetry={() => act('retry', () => teamApi.retry(pid), tr('Đã chạy lại'))} />
       )}
 
       {!s.adopted ? (s.open ? null : (
         <section className="card-panel tm-adopt" aria-labelledby="tm-adopt-h">
-          <h3 id="tm-adopt-h" className="tm-h"><Bot size={18} aria-hidden="true" /> Dự án chưa có đội AI</h3>
-          <p>Shipyard sẽ thêm <code>.shipyard/team.json</code> và bộ luật khởi đầu, rồi <b>AI Manager đọc code thật</b> để soạn luật cho từng vai trò (Dev, Tester, Review, DevOps…).
-            Bộ luật chỉ được dùng sau khi bạn duyệt trong "Chờ duyệt"; khi duyệt xong luật được commit vào nhánh <code>{s.branch}</code>.</p>
-          <p className="faint">Trong lúc luật chưa được duyệt lần đầu, dự án tạm thời chưa tạo được tính năng mới.</p>
+          <h3 id="tm-adopt-h" className="tm-h"><Bot size={18} aria-hidden="true" />{' '}{tr('Dự án chưa có đội AI')}</h3>
+          <p>{tr('Shipyard sẽ thêm')}{' '}<code>.shipyard/team.json</code>{' '}{tr('và bộ luật khởi đầu, rồi')}{' '}<b>{tr('AI Manager đọc code thật')}</b>{' '}{tr('để soạn luật cho từng vai trò (Dev, Tester, Review, DevOps…). Bộ luật chỉ được dùng sau khi bạn duyệt trong "Chờ duyệt"; khi duyệt xong luật được commit vào nhánh')}{' '}<code>{s.branch}</code>.</p>
+          <p className="faint">{tr('Trong lúc luật chưa được duyệt lần đầu, dự án tạm thời chưa tạo được tính năng mới.')}</p>
           {s.canManage ? (
             <>
-              <label className="form-label" htmlFor="tm-adopt-note">Lưu ý cho AI Manager (không bắt buộc)</label>
+              <label className="form-label" htmlFor="tm-adopt-note">{tr('Lưu ý cho AI Manager (không bắt buộc)')}</label>
               <textarea id="tm-adopt-note" rows={3} value={aiNote} onChange={e => setAiNote(e.target.value)}
-                placeholder="Ví dụ: backend Spring chia module theo nghiệp vụ; frontend dùng Ant Design; không dùng Lombok…" />
+                placeholder={tr('Ví dụ: backend Spring chia module theo nghiệp vụ; frontend dùng Ant Design; không dùng Lombok…')} />
               <div><Button variant="primary" icon={Sparkles} disabled={!!busy || s.open}
-                onClick={() => act('adopt', () => teamApi.adopt(pid, aiNote), 'AI Manager đang soạn luật — xong sẽ có trong "Chờ duyệt"')}>
-                {busy === 'adopt' ? 'Đang thiết lập…' : 'Thiết lập đội AI'}</Button></div>
+                onClick={() => act('adopt', () => teamApi.adopt(pid, aiNote), tr('AI Manager đang soạn luật — xong sẽ có trong "Chờ duyệt"'))}>
+                {busy === 'adopt' ? tr('Đang thiết lập…') : tr('Thiết lập đội AI')}</Button></div>
             </>
-          ) : <p className="faint">Chỉ Owner, Maintainer hoặc Tech Lead thiết lập được.</p>}
+          ) : <p className="faint">{tr('Chỉ Owner, Maintainer hoặc Tech Lead thiết lập được.')}</p>}
         </section>
       )) : (
         <>
@@ -215,12 +215,12 @@ export default function TeamPanel({ pid, onOpenRun }) {
 
           {team && (
             <section className="card-panel">
-              <div className="card-header tm-head"><h3 className="tm-h">Ai đọc luật nào</h3>
-                <span className="faint">Mỗi vai trò AI chỉ nhận các file được tích (đọc từ nhánh {s.branch}).</span></div>
+              <div className="card-header tm-head"><h3 className="tm-h">{tr('Ai đọc luật nào')}</h3>
+                <span className="faint">{tr('Mỗi vai trò AI chỉ nhận các file được tích (đọc từ nhánh {0}).', [s.branch])}</span></div>
               <div className="tm-matrix-wrap">
                 <table className="tm-matrix">
                   <thead>
-                    <tr><th scope="col">Vai trò</th>{cols.map(c => <th key={c} scope="col"><code>{c.replace(/\.md$/, '')}</code></th>)}</tr>
+                    <tr><th scope="col">{tr('Vai trò')}</th>{cols.map(c => <th key={c} scope="col"><code>{c.replace(/\.md$/, '')}</code></th>)}</tr>
                   </thead>
                   <tbody>
                     {roleKeys(team).map(role => (
@@ -231,7 +231,7 @@ export default function TeamPanel({ pid, onOpenRun }) {
                           return (
                             <td key={c}>
                               <label className="tm-cell">
-                                <input type="checkbox" aria-label={`${team.roles[role]?.label || role} đọc ${c}`} disabled={locked}
+                                <input type="checkbox" aria-label={tr('{0} đọc {1}', [team.roles[role]?.label || role, c])} disabled={locked}
                                   checked={(team.roles[role]?.reads || []).includes(p)} onChange={() => setTeam(t => toggleRole(t, role, 'reads', p))} />
                               </label>
                             </td>
@@ -246,30 +246,30 @@ export default function TeamPanel({ pid, onOpenRun }) {
           )}
 
           <section className="card-panel">
-            <div className="card-header tm-head"><h3 className="tm-h">Luật</h3>
-              <span className="faint">Sửa trực tiếp rồi "Gửi duyệt" — luật chỉ có hiệu lực sau khi được duyệt.</span></div>
+            <div className="card-header tm-head"><h3 className="tm-h">{tr('Luật')}</h3>
+              <span className="faint">{tr('Sửa trực tiếp rồi "Gửi duyệt" — luật chỉ có hiệu lực sau khi được duyệt.')}</span></div>
             <div className="tm-rules">
-              <nav className="tm-files" aria-label="File luật">
+              <nav className="tm-files" aria-label={tr('File luật')}>
                 {cols.map(c => (
                   <button key={c} type="button" className={`tm-file${c === curName ? ' on' : ''}`} onClick={() => setCur(c)}>
                     <FileText size={13} /> <span>{c}</span>
-                    {c in changes && <i className="tm-dot" title="Đã sửa" />}
+                    {c in changes && <i className="tm-dot" title={tr('Đã sửa')} />}
                   </button>
                 ))}
                 {Object.entries(changes).filter(([, v]) => v === null).map(([n]) => (
-                  <span key={n} className="tm-file gone">{n} <span className="faint">(xoá)</span></span>
+                  <span key={n} className="tm-file gone">{n} <span className="faint">{tr('(xoá)')}</span></span>
                 ))}
                 {!locked && (
                   <form className="tm-new" onSubmit={e => {
                     e.preventDefault();
                     const n = newName.trim().toLowerCase().replace(/\.md$/, '') + '.md';
-                    if (!RULE_NAME_RE.test(n)) { setErr('Tên file: chữ thường, số, - hoặc _'); return; }
+                    if (!RULE_NAME_RE.test(n)) { setErr(tr('Tên file: chữ thường, số, - hoặc _')); return; }
                     if (n in rules) { setCur(n); setNewName(''); return; }
                     setRules(r => ({ ...r, [n]: `# ${n.replace(/\.md$/, '')}\n\n- \n` }));
                     setCur(n); setNewName('');
                   }}>
-                    <input aria-label="Tên file luật mới" placeholder="arch, security…" value={newName} onChange={e => setNewName(e.target.value)} />
-                    <Button size="sm" type="submit" icon={Plus}>Thêm</Button>
+                    <input aria-label={tr('Tên file luật mới')} placeholder="arch, security…" value={newName} onChange={e => setNewName(e.target.value)} />
+                    <Button size="sm" type="submit" icon={Plus}>{tr('Thêm')}</Button>
                   </form>
                 )}
               </nav>
@@ -281,10 +281,10 @@ export default function TeamPanel({ pid, onOpenRun }) {
                       <Button size="sm" variant="ghost" icon={Trash2} onClick={() => {
                         setRules(r => { const n = { ...r }; delete n[curName]; return n; });
                         setTeam(t => (t ? forgetRule(t, curName) : t));
-                      }}>Xoá file</Button>
+                      }}>{tr('Xoá file')}</Button>
                     )}
                   </div>
-                  <textarea aria-label={`Nội dung ${curName}`} value={rules[curName] ?? ''} readOnly={locked} spellCheck={false}
+                  <textarea aria-label={tr('Nội dung {0}', [curName])} value={rules[curName] ?? ''} readOnly={locked} spellCheck={false}
                     onChange={e => setRules(r => ({ ...r, [curName]: e.target.value }))} />
                 </div>
               )}
@@ -292,22 +292,22 @@ export default function TeamPanel({ pid, onOpenRun }) {
           </section>
 
           <section className="card-panel">
-            <div className="card-header tm-head"><h3 className="tm-h">Tài liệu cho AI</h3>
-              <span className="faint">Nghiệp vụ, chuẩn công ty, kiến trúc, code mẫu… AI Manager đọc để soạn luật (là tài liệu tham khảo, không phải mệnh lệnh).</span></div>
+            <div className="card-header tm-head"><h3 className="tm-h">{tr('Tài liệu cho AI')}</h3>
+              <span className="faint">{tr('Nghiệp vụ, chuẩn công ty, kiến trúc, code mẫu… AI Manager đọc để soạn luật (là tài liệu tham khảo, không phải mệnh lệnh).')}</span></div>
             <ul className="tm-human">
               {s.human.map(h => (
                 <li key={h.name}>
                   <FileText size={14} />
                   <a href={teamApi.humanUrl(pid, h.name)} target="_blank" rel="noreferrer">{h.name}</a>
                   <span className="faint">{formatSize(h.size)}</span>
-                  {!h.committed && <Badge tone="warn" title="Sẽ được commit cùng lần duyệt luật tiếp theo">chưa commit</Badge>}
+                  {!h.committed && <Badge tone="warn" title={tr('Sẽ được commit cùng lần duyệt luật tiếp theo')}>{tr('chưa commit')}</Badge>}
                   {s.canManage && (
-                    <button type="button" className="linklike tm-del" aria-label={`Xoá ${h.name}`} disabled={!!busy}
+                    <button type="button" className="linklike tm-del" aria-label={tr('Xoá {0}', [h.name])} disabled={!!busy}
                       onClick={() => act('del', () => teamApi.deleteHuman(pid, h.name), '', true)}><Trash2 size={13} /></button>
                   )}
                 </li>
               ))}
-              {s.human.length === 0 && <li className="faint">Chưa có tài liệu.</li>}
+              {s.human.length === 0 && <li className="faint">{tr('Chưa có tài liệu.')}</li>}
             </ul>
             {s.canManage && (
               <div className="tm-pad">
@@ -317,38 +317,38 @@ export default function TeamPanel({ pid, onOpenRun }) {
                     e.target.value = '';
                     act('upload', async () => {
                       for (const f of files) await teamApi.putHuman(pid, f.name, await fileToBase64(f));
-                    }, `Đã tải lên ${files.length} file — bấm "Soạn lại luật" để AI đọc`, true);
+                    }, tr('Đã tải lên {0} file — bấm "Soạn lại luật" để AI đọc', [files.length]), true);
                   }} />
                 <Button size="sm" icon={Upload} disabled={!!busy} onClick={() => fileInput.current?.click()}>
-                  {busy === 'upload' ? 'Đang tải lên…' : 'Tải tài liệu lên (tối đa 3MB/file)'}</Button>
+                  {busy === 'upload' ? tr('Đang tải lên…') : tr('Tải tài liệu lên (tối đa 3MB/file)')}</Button>
               </div>
             )}
           </section>
 
           {s.canManage && (
             <section className="card-panel">
-              <div className="card-header tm-head"><h3 className="tm-h">Soạn lại luật bằng AI</h3>
-                <span className="faint">Khi có tài liệu mới hoặc code đã thay đổi nhiều. Bản mới vào "Chờ duyệt" như lần đầu.</span></div>
+              <div className="card-header tm-head"><h3 className="tm-h">{tr('Soạn lại luật bằng AI')}</h3>
+                <span className="faint">{tr('Khi có tài liệu mới hoặc code đã thay đổi nhiều. Bản mới vào "Chờ duyệt" như lần đầu.')}</span></div>
               <div className="tm-pad tm-redraft">
-                <textarea rows={3} aria-label="Yêu cầu cho AI Manager" value={aiNote} onChange={e => setAiNote(e.target.value)}
-                  placeholder="Ví dụ: thêm luật bảo mật cho API; đọc tài liệu kiến trúc mới tải lên…" />
+                <textarea rows={3} aria-label={tr('Yêu cầu cho AI Manager')} value={aiNote} onChange={e => setAiNote(e.target.value)}
+                  placeholder={tr('Ví dụ: thêm luật bảo mật cho API; đọc tài liệu kiến trúc mới tải lên…')} />
                 <div><Button variant="primary" icon={Sparkles} disabled={!!busy || s.open || dirty}
-                  title={dirty ? 'Gửi duyệt hoặc huỷ thay đổi đang sửa trước' : undefined}
-                  onClick={() => act('redraft', () => teamApi.redraft(pid, aiNote), 'AI Manager đang soạn lại — xong sẽ có trong "Chờ duyệt"').then(() => setAiNote(''))}>
-                  {busy === 'redraft' ? 'Đang gửi…' : 'Soạn lại luật'}</Button></div>
+                  title={dirty ? tr('Gửi duyệt hoặc huỷ thay đổi đang sửa trước') : undefined}
+                  onClick={() => act('redraft', () => teamApi.redraft(pid, aiNote), tr('AI Manager đang soạn lại — xong sẽ có trong "Chờ duyệt"')).then(() => setAiNote(''))}>
+                  {busy === 'redraft' ? tr('Đang gửi…') : tr('Soạn lại luật')}</Button></div>
               </div>
             </section>
           )}
 
           {dirty && s.canManage && (
-            <div className="tm-submit tm-sticky" role="region" aria-label="Thay đổi chưa gửi">
-              <span className="tm-submit-what">Có thay đổi chưa gửi duyệt</span>
-              <input aria-label="Ghi chú cho người duyệt" placeholder="Ghi chú cho người duyệt (không bắt buộc)" value={note} onChange={e => setNote(e.target.value)} />
-              <Button variant="ghost" disabled={!!busy} onClick={() => { setTeam(s.team); setRules(s.rules); }}>Huỷ thay đổi</Button>
+            <div className="tm-submit tm-sticky" role="region" aria-label={tr('Thay đổi chưa gửi')}>
+              <span className="tm-submit-what">{tr('Có thay đổi chưa gửi duyệt')}</span>
+              <input aria-label={tr('Ghi chú cho người duyệt')} placeholder={tr('Ghi chú cho người duyệt (không bắt buộc)')} value={note} onChange={e => setNote(e.target.value)} />
+              <Button variant="ghost" disabled={!!busy} onClick={() => { setTeam(s.team); setRules(s.rules); }}>{tr('Huỷ thay đổi')}</Button>
               <Button variant="primary" icon={Send} disabled={!!busy || s.open}
                 onClick={() => act('propose', () => teamApi.propose(pid, { rules: changes, team: sameTeam(s.team, team) ? undefined : team, note }),
-                  'Đã gửi thay đổi — vào "Chờ duyệt" để duyệt').then(() => setNote(''))}>
-                {busy === 'propose' ? 'Đang gửi…' : 'Gửi duyệt'}
+                  tr('Đã gửi thay đổi — vào "Chờ duyệt" để duyệt')).then(() => setNote(''))}>
+                {busy === 'propose' ? tr('Đang gửi…') : tr('Gửi duyệt')}
               </Button>
             </div>
           )}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { NODES, MAINY, BUS, BLKY, TKT } from '../lib/constants.js';
 import { phaseIdx } from '../lib/constants.js';
+import { tr } from '../lib/i18n.js';
 
 export default function PipelineEdges({ lane }) {
   const cur = phaseIdx(lane.stage);
@@ -18,7 +19,7 @@ export default function PipelineEdges({ lane }) {
 
   // edge labels
   els.push(<text key="lgo" className="e-label" x="850" y={MAINY - 8} textAnchor="middle">GO</text>);
-  els.push(<text key="lmg" className="e-label" x="1066" y={MAINY - 8} textAnchor="middle">human merges</text>);
+  els.push(<text key="lmg" className="e-label" x="1066" y={MAINY - 8} textAnchor="middle">{tr('human merges')}</text>);
 
   // fix loop bus
   els.push(<path key="bus" d={`M1227,${BUS} H385`} fill="none" style={{ stroke: 'var(--text-faint)' }}

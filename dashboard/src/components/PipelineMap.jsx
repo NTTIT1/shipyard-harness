@@ -4,6 +4,7 @@ import PipelineNodes from './PipelineNodes.jsx';
 import { phaseIdx } from '../lib/constants.js';
 import { Clock } from 'lucide-react';
 import { fmtDur } from '../lib/format.js';
+import { tr } from '../lib/i18n.js';
 
 export default function PipelineMap({ lane, config, archived }) {
   const isReview = lane.mode === 'pr-review';
@@ -14,11 +15,11 @@ export default function PipelineMap({ lane, config, archived }) {
     <div className="mapwrap">
       {(archived || showTime) && (
         <div className="maphead">
-          {archived && <span className="pf-prev" title="viewing a past feature — read-only snapshot">past feature</span>}
+          {archived && <span className="pf-prev" title={tr('viewing a past feature — read-only snapshot')}>{tr('past feature')}</span>}
           {showTime && (
-            <span title="time on current phase"><Clock size={12} strokeWidth={1.75} aria-hidden="true" /> on <b>{lane.stage}</b> for {fmtDur(lane.stage_age_sec)}</span>
+            <span title={tr('time on current phase')}><Clock size={12} strokeWidth={1.75} aria-hidden="true" /> on <b>{lane.stage}</b>{' '}{tr('for {0}', [fmtDur(lane.stage_age_sec)])}</span>
           )}
-          {archived && <span className="hint">pick “• current” to return to the live feature</span>}
+          {archived && <span className="hint">{tr('pick “• current” to return to the live feature')}</span>}
         </div>
       )}
       <svg viewBox="0 -12 1390 254" xmlns="http://www.w3.org/2000/svg">
@@ -38,10 +39,10 @@ export default function PipelineMap({ lane, config, archived }) {
         <PipelineNodes lane={lane} config={config} />
       </svg>
       <div className="legend">
-        <span><i className="ld g" />done</span>
-        <span><i className="ld b" />current</span>
-        <span><i className="ld w" />passed without evidence — check it</span>
-        <span><i className="ld n" />pending</span>
+        <span><i className="ld g" />{tr('done')}</span>
+        <span><i className="ld b" />{tr('current')}</span>
+        <span><i className="ld w" />{tr('passed without evidence — check it')}</span>
+        <span><i className="ld n" />{tr('pending')}</span>
         <span style={{ color: 'var(--warn-text)' }}>{'↻ self-resolves & continues (hover)'}</span>
         <span className="legend-r">{'red dashed = fail paths → fix · blue = re-entry'}</span>
       </div>
