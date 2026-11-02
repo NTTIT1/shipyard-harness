@@ -29,6 +29,13 @@ export default {
       path.basename(ctx.dir)], { cwd: ctx.parentDir });
   },
 
+  // After Shipyard's wiring (fullstack.js): the app must resolve, pass the analyzer and its tests.
+  async verify(ctx) {
+    await ctx.run('flutter', ['pub', 'get'], { cwd: ctx.dir });
+    await ctx.run('flutter', ['analyze'], { cwd: ctx.dir });
+    if (ctx.options.tests !== false) await ctx.run('flutter', ['test'], { cwd: ctx.dir });
+  },
+
   overlay: () => ({}),
   env: () => ({}),
   commands: () => ({ install: 'flutter pub get', dev: 'flutter run', build: 'flutter build apk --debug', test: 'flutter test' }),

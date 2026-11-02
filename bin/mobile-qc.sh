@@ -20,16 +20,15 @@ case "${2:-}" in
     [ -n "${MOBILE_APK:-}" ] && [ -f "$APK" ] || { echo "Chưa có APK ($APK) — chạy hooks/ci-gate.sh của lane trước" >&2; exit 5; }
     [ -n "${MOBILE_PACKAGE:-}" ] || { echo "Profile chưa có MOBILE_PACKAGE (package id của app)" >&2; exit 6; }
     "$HERE/lane-lock.sh" acquire "$EMULATOR_LOCK" "$N" "${LOCK_WAIT:-1800}" || exit 7
-    rc=0; "$HERE/android-emulator.sh" start || rc=$?
-    if [ "$rc" -ne 0 ]; then "$HERE/lane-lock.sh" release "$EMULATOR_LOCK" "$N" >/dev/null 2>&1 || true; exit "$rc"; fi
+    # From here on, any failure (or a kill) gives the emulator back: no lane is left waiting on a dead holder.
+    trap '"$HERE/lane-lock.sh" release "$EMULATOR_LOCK" "$N" >/dev/null 2>&1 || true' EXIT
+    "$HERE/android-emulator.sh" start
     adb uninstall "$MOBILE_PACKAGE" >/dev/null 2>&1 || true
-    if ! adb install -r "$APK"; then
-      "$HERE/lane-lock.sh" release "$EMULATOR_LOCK" "$N" >/dev/null 2>&1 || true
-      echo "Không cài được APK lên máy ảo" >&2; exit 8
-    fi
+    adb install -r "$APK" || { echo "Không cài được APK lên máy ảo" >&2; exit 8; }
     adb shell pm clear "$MOBILE_PACKAGE" >/dev/null 2>&1 || true
     "$HERE/android-emulator.sh" touch
-    echo "harness: lane $N đang giữ máy ảo — app $MOBILE_PACKAGE đã cài, dữ liệu sạch"
+    trap - EXIT
+    echo "harness: lane $N đang giữ máy ảo ($ANDROID_SERIAL) — app $MOBILE_PACKAGE đã cài, dữ liệu sạch"
     ;;
   release)
     "$HERE/android-emulator.sh" touch || true

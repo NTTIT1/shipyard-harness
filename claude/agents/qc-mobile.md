@@ -18,14 +18,19 @@ if the app has a login, and anything the plan says to cover. The lane's `profile
 
 ## The emulator is shared — take it, then ALWAYS give it back
 
-1. **First command, before anything else:** `"$HARNESS/bin/mobile-qc.sh" "$N" prepare`.
-   - It waits for the `android-emulator` lock (another lane may be QC-ing: waiting is NORMAL), boots the emulator if it is off,
-     uninstalls the previous app, installs this lane's APK and clears its data.
-   - Non-zero exit → stop and return `LOCAL-QC: FAIL — <the message it printed>`:
-     - 4 = no Android SDK;
-     - 5 = no APK (the lane's gate did not build it);
+1. **First command, before anything else:** `"$HARNESS/bin/mobile-qc.sh" "$N" prepare`, run with the Bash tool's
+   **`timeout: 600000`**.
+   - It waits for the `android-emulator` lock (another lane may be QC-ing: waiting is NORMAL), boots the emulator if it is off
+     (a cold boot takes minutes), uninstalls the previous app, installs this lane's APK and clears its data.
+   - If the tool call times out, just run `prepare` again: the lock is yours already and it carries on.
+   - Exit 5 = no APK: the lane's gate did not build it. That is the feature's problem: return
+     `LOCAL-QC: FAIL — chưa build được APK (chạy hooks/ci-gate.sh)`.
+   - Any other non-zero exit is the machine, not the code. Return `LOCAL-QC: BLOCKED — <the message it printed>`, so the lane
+     waits for a person instead of changing code. The exits:
      - 3 = the emulator did not boot;
-     - 7 = lock not acquired;
+     - 4 = no Android SDK;
+     - 6 = the profile has no package id;
+     - 7 = the lock was not acquired;
      - 8 = install failed.
 2. **Last command, on every path (pass, fail, error):** `"$HARNESS/bin/mobile-qc.sh" "$N" release`.
    - Never stop the emulator yourself, never kill another lane's process, never delete the lock dir.
@@ -41,7 +46,8 @@ if the app has a login, and anything the plan says to cover. The lane's `profile
    - then `launchApp`, the taps / inputs / `assertVisible` steps;
    - add a `takeScreenshot: .playwright-mcp/proof/<feature-slug>/qc-local/<NN>-<what>` at every meaningful state;
    - name each screenshot with no extension (Maestro adds `.png`), numbered in flow order across the whole run.
-3. Run each flow with `maestro test <flow file>` from the lane clone. A failing assertion is a finding: keep its screenshot and
+3. Run each flow with `maestro --device "$ANDROID_SERIAL" test <flow file>` from the lane clone (`ANDROID_SERIAL` is
+   Shipyard's emulator, `emulator-5580` unless the machine set another port; another phone or emulator may be connected). A failing assertion is a finding: keep its screenshot and
    the Maestro output line that failed.
 4. Relaunch coverage: after the main flow, `launchApp` again (`clearState: false`) and check the data the feature saved is
    still there.
@@ -71,11 +77,13 @@ A scannable report:
 Then end with exactly one of:
 
 - `LOCAL-QC: PASS`
-- `LOCAL-QC: FAIL — <comma-separated reasons>`
+- `LOCAL-QC: FAIL — <comma-separated reasons>` (the feature does not work)
+- `LOCAL-QC: BLOCKED — <reason>` (the emulator / SDK / lock failed: nothing was tested)
 
 A FAIL must be specific enough for the lane's fix-loop to act on (screen/flow + what broke + screenshot).
 
 ## Agent memory
 
-Record what helps later mobile runs: Maestro selectors that work for Flutter widgets (text vs `id` from `Key`), screens that
-need a scroll before `tapOn`, slow first launches, login steps.
+Record what helps later mobile runs: Maestro selectors that work for Flutter widgets (visible text, or `id:` matching a
+`Semantics(identifier: …)` — a Flutter `Key` is invisible to Maestro), screens that need a scroll before `tapOn`, slow first
+launches, login steps.

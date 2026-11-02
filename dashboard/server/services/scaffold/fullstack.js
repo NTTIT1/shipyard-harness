@@ -161,6 +161,8 @@ class _BackendStatusState extends State<BackendStatus> {
       );
 }
 `;
+/** A Dart single-quoted string literal ($ and quotes escaped, so any project name compiles). */
+const dartString = s => `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\$/g, '\\$').replace(/\n/g, ' ')}'`;
 const mainDart = name => `import 'package:flutter/material.dart';
 import 'backend_status.dart';
 
@@ -170,8 +172,8 @@ class App extends StatelessWidget {
   const App({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: ${JSON.stringify(name)},
-        home: Scaffold(appBar: AppBar(title: Text(${JSON.stringify(name)})), body: const BackendStatus()),
+        title: ${dartString(name)},
+        home: Scaffold(appBar: AppBar(title: const Text(${dartString(name)})), body: const BackendStatus()),
       );
 }
 `;

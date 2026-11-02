@@ -14,7 +14,14 @@ source "$HERE/_android.sh"
 RUN="$HARNESS_ROOT/run/android"; mkdir -p "$RUN"
 HELD="$HARNESS_ROOT/locks/$EMULATOR_LOCK.held"
 now() { date +%s; }
-running() { command -v adb >/dev/null 2>&1 && adb devices 2>/dev/null | grep -qE '^emulator-[0-9]+[[:space:]]+device'; }
+running() { command -v adb >/dev/null 2>&1 && adb devices 2>/dev/null | grep -qE "^$ANDROID_SERIAL[[:space:]]+device"; }
+# Held = a lane holds the lock and is not past LOCK_MAX_HOLD (a lane that died while holding it does not count).
+held() {
+  [ -f "$HELD/owner" ] || return 1
+  local ts max; ts="$(awk '{print $2}' "$HELD/owner" 2>/dev/null)"; max="${LOCK_MAX_HOLD:-2700}"
+  [[ "$max" =~ ^[0-9]+$ ]] && [ "$max" -ge 300 ] || max=300
+  [[ "$ts" =~ ^[0-9]+$ ]] && [ $(( $(now) - ts )) -le "$max" ]
+}
 booted() { [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; }
 mark() { now > "$RUN/last-used"; }
 
@@ -24,7 +31,7 @@ case "${1:-status}" in
       || { echo "Chưa cài Android SDK — chạy bin/android-setup.sh" >&2; exit 4; }
     if ! running; then
       echo "harness: bật máy ảo Android ($ANDROID_AVD)…"
-      nohup emulator -avd "$ANDROID_AVD" -no-window -no-audio -no-boot-anim -no-snapshot-save >"$RUN/emulator.log" 2>&1 &
+      nohup emulator -avd "$ANDROID_AVD" -port "$EMULATOR_PORT" -no-window -no-audio -no-boot-anim -no-snapshot-save >"$RUN/emulator.log" 2>&1 &
       echo $! > "$RUN/emulator.pid"
     fi
     limit="${EMULATOR_BOOT_TIMEOUT:-300}"; start=$(now)
@@ -48,7 +55,9 @@ case "${1:-status}" in
   touch) mark ;;
   idle-stop)
     command -v adb >/dev/null 2>&1 || exit 0
-    [ -d "$HELD" ] && exit 0
+    # Only the emulator Shipyard started and used (last-used exists); never a developer's own.
+    [ -f "$RUN/last-used" ] || exit 0
+    held && exit 0
     running || exit 0
     last="$(cat "$RUN/last-used" 2>/dev/null || echo 0)"
     [[ "$last" =~ ^[0-9]+$ ]] || last=0

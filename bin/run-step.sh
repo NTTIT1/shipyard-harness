@@ -47,7 +47,12 @@ case "$STEP" in
 esac
 # A mobile project (profile APP_KIND=mobile): its QC runs on the shared Android emulator, not a browser —
 # same step id, same LOCAL-QC verdict, so the pipeline, models and dashboard need no other change.
-if [ "$STEP" = "qc-local" ] && [ "${APP_KIND:-}" = "mobile" ]; then AGENT="qc-mobile"; fi
+if [ "$STEP" = "qc-local" ] && [ "${APP_KIND:-}" = "mobile" ]; then
+  AGENT="qc-mobile"
+  # The agent's own shell runs maestro/adb: give it the SDK on PATH and ANDROID_SERIAL (Shipyard's emulator).
+  # shellcheck disable=SC1091
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_android.sh"
+fi
 
 STATE_FILE="$(lane_state_file "$N")"
 # Effort: state effort.<step> -> feature config -> lane config -> config/models.json effort.<step> -> none (Claude models only).

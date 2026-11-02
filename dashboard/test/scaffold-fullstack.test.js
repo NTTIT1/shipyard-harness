@@ -173,3 +173,28 @@ describe('backend + Flutter app in one repo', () => {
   });
 });
 
+describe('Flutter — review fixes', () => {
+  it('every stack can be verified, Flutter by pub get + analyze + test (C1)', async () => {
+    const { STACKS } = await import('../server/services/scaffold/catalog.js');
+    for (const st of STACKS) expect(typeof st.verify, st.id).toBe('function');
+    const calls = [];
+    const flutter = STACKS.find(x => x.id === 'flutter-android');
+    await flutter.verify({ dir: '/x/mobile', options: { tests: true }, run: async (cmd, args, o) => calls.push([cmd, ...args, o.cwd]) });
+    expect(calls).toEqual([['flutter', 'pub', 'get', '/x/mobile'], ['flutter', 'analyze', '/x/mobile'], ['flutter', 'test', '/x/mobile']]);
+    calls.length = 0;
+    await flutter.verify({ dir: '/x/mobile', options: { tests: false }, run: async (cmd, args, o) => calls.push([cmd, ...args, o.cwd]) });
+    expect(calls.map(c => c[1])).toEqual(['pub', 'analyze']);
+  });
+  it('the generated main.dart passes flutter_lints and survives any project name (I1)', () => {
+    const spec = { kind: 'fullstack', stack: 'java-spring', options: { db: 'postgresql', build: 'maven', javaVersion: '21', groupId: 'com.acme', auth: 'none' },
+      frontend: { stack: 'flutter-android', options: { tests: true, org: 'com.example' } } };
+    const [b, f] = partsOf(spec, '/x/p', id => stackById(id));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flutter-'));
+    fs.writeFileSync(path.join(dir, 'pubspec.yaml'), 'dependencies:\n');
+    const main = frontendWiring({ name: "Giá $5 'rẻ' \\ ok", slug: 'gia-re' }, b, { ...f, dir })['lib/main.dart'];
+    expect(main).toContain("appBar: AppBar(title: const Text('Giá \\$5 \\'rẻ\\' \\\\ ok'))");
+    expect(main).toContain("title: 'Giá \\$5 \\'rẻ\\' \\\\ ok'");
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+

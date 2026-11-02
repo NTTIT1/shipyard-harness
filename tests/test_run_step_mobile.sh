@@ -8,6 +8,7 @@ export CLAUDE_BIN="$TMPH/fakebin/claude"
 cat > "$CLAUDE_BIN" <<'EOS'
 #!/usr/bin/env bash
 printf '%s\n' "$@" > "$HARNESS_ROOT/claude.args"
+echo "SERIAL=${ANDROID_SERIAL:-}" > "$HARNESS_ROOT/claude.env"
 python3 -c 'import json,os; print(json.dumps({"type":"result","subtype":"success","is_error":False,"result":os.environ["FAKE_RESULT"]}))'
 EOS
 printf '#!/usr/bin/env bash\nexit 0\n' > "$TMPH/fakebin/curl"
@@ -29,6 +30,7 @@ FAKE_RESULT=$'ok\nLOCAL-QC: PASS — 4 kịch bản' rs 2 qc-local "$P" > "$TMPH
 assert_eq "0" "$rc" "mobile qc-local runs"
 assert_contains "$(cat "$HARNESS_ROOT/claude.args")" $'--agent\nqc-mobile' "mobile project uses the emulator QC agent"
 assert_contains "$(cat "$TMPH/out")" "LOCAL-QC: PASS" "same verdict line"
+assert_eq "SERIAL=emulator-5580" "$(cat "$HARNESS_ROOT/claude.env")" "the QC agent targets Shipyard's emulator"
 
 # Mobile project, TEST set to OpenHands: runs on Claude (OpenHands images have no Flutter).
 st 2 set-json models '{"test":"openhands:gpt-x"}' >/dev/null
