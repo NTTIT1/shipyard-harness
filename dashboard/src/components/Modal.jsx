@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import IconButton from './ui/IconButton.jsx';
 import { createSpring, SPRING, project, rubberband, velocityFrom, prefersReducedMotion } from '../lib/spring.js';
+import { tr } from '../lib/i18n.js';
 
 const VARIANT = { add: 'primary', warn: 'danger' };
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -132,7 +133,7 @@ export default function Modal({ title, children, buttons, onClose, wide }) {
     else spring.current.to(1, { velocity: -vy / h, config: SPRING.sheet });
   };
 
-  const btns = buttons || [{ label: 'Đóng', fn: onClose }];
+  const btns = buttons || [{ label: tr('Đóng'), fn: onClose }];
   const run = fn => (fn === onClose ? () => requestClose() : fn);
   const downOnBackdrop = useRef(false);
   return (
@@ -143,7 +144,7 @@ export default function Modal({ title, children, buttons, onClose, wide }) {
         <div className="modal-title" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
           <span className="modal-grabber" aria-hidden="true" />
           <h2 id={titleId}>{title}</h2>
-          <IconButton icon={X} label="Đóng" onClick={() => requestClose()} />
+          <IconButton icon={X} label={tr('Đóng')} onClick={() => requestClose()} />
         </div>
         <div className="modal-body">{children}</div>
         {btns.length > 0 && (

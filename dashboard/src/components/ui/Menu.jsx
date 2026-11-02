@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
-export default function Menu({ items, label = 'Thêm thao tác' }) {
+import { tr } from '../../lib/i18n.js';
+export default function Menu({ items, label = tr('Thêm thao tác') }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef(null);
   const btns = useRef([]);

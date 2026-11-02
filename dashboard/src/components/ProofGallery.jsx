@@ -2,6 +2,7 @@ import React from 'react';
 import { Camera, Ticket, ExternalLink, Check, Eraser, Trash2, Square, SquareCheck } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import { fmtWhen, prNum } from '../lib/format.js';
+import { tr } from '../lib/i18n.js';
 
 /** Screenshot alt text from its group and file name: "qc-local: login form error". */
 const shotAlt = (group, file) => `${group}: ${file.replace(/\.[a-z0-9]+$/i, '').replace(/^\d+[-_]?/, '').replace(/[-_]+/g, ' ').trim() || file}`;
@@ -30,7 +31,7 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
     return next;
   });
 
-  if (!proof) return <span className="pf-empty">loading proof…</span>;
+  if (!proof) return <span className="pf-empty">{tr('loading proof…')}</span>;
   const n = selectedLane;
   const sel = selectedSlug;
   const d = proof;
@@ -56,7 +57,7 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
 
   const picker = opts.length > 1 ? (
     <select className="pf-sel" value={sel} onChange={e => onSelectFeature(n, e.target.value)}
-      title="choose which feature's proof to view">
+      title={tr('choose which feature\'s proof to view')}>
       {opts.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
     </select>
   ) : null;
@@ -65,27 +66,25 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
     <>
       <span className="pf-slug"><Camera size={14} strokeWidth={1.75} aria-hidden="true" /> {sel ? labelOf(sel) : '(current feature)'}</span>
       {sel === d._cur
-        ? <span className="pf-cur">current</span>
-        : <span className="pf-prev">past</span>}
+        ? <span className="pf-cur">{tr('current')}</span>
+        : <span className="pf-prev">{tr('past')}</span>}
       {picker}
       {f && f.ticket_report && (
         <a className="pf-ticket" href={`/proof/${n}/${encodeURI(f.ticket_report)}`}
-          target="_blank" rel="noreferrer" title="ticketer task report">
-          <Ticket size={13} strokeWidth={1.75} aria-hidden="true" /> task report <ExternalLink size={11} strokeWidth={1.75} aria-hidden="true" />
+          target="_blank" rel="noreferrer" title={tr('ticketer task report')}>
+          <Ticket size={13} strokeWidth={1.75} aria-hidden="true" />{' '}{tr('task report')}{' '}<ExternalLink size={11} strokeWidth={1.75} aria-hidden="true" />
         </a>
       )}
       {hasShots && (
         <Button size="sm" variant={cleanup ? 'primary' : 'secondary'} icon={cleanup ? Check : Eraser}
-          onClick={() => setCleanup(c => !c)} title="toggle screenshot cleanup mode">
+          onClick={() => setCleanup(c => !c)} title={tr('toggle screenshot cleanup mode')}>
           {cleanup ? 'done' : 'clean up'}
         </Button>
       )}
       {hasShots && cleanup && (
         <Button size="sm" variant="danger" icon={Trash2}
           onClick={() => onCleanup(n, { slug: f.slug }, `all screenshots for "${labelOf(f.slug)}"`)}
-          title="delete every screenshot for this feature">
-          clear all screenshots
-        </Button>
+          title={tr('delete every screenshot for this feature')}>{tr('clear all screenshots')}</Button>
       )}
     </>
   );
@@ -97,14 +96,14 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
     const gc = gd === 'GO' ? 'gate-go' : gd === 'NO-GO' ? 'gate-nogo' : '';
     stateBar = (
       <div className="pf-state">
-        <span className="pf-state-chip">stage: {st.stage || '—'}</span>
-        <span className="pf-state-chip">status: {st.status || '—'}</span>
+        <span className="pf-state-chip">{tr('stage: {0}', [st.stage || '—'])}</span>
+        <span className="pf-state-chip">{tr('status: {0}', [st.status || '—'])}</span>
         <span className={`pf-state-chip gchip ${gc}`}>{gd || '—'}</span>
         {st.pr_url
           ? <a href={st.pr_url} target="_blank" rel="noreferrer" style={{ fontSize: '11px' }}>PR {prNum(st.pr_url)} <ExternalLink size={11} strokeWidth={1.75} aria-hidden="true" /></a>
           : <span className="pf-state-chip">PR —</span>}
-        {st.ticket_url && <a href={st.ticket_url} target="_blank" rel="noreferrer" style={{ fontSize: '11px' }}><Ticket size={12} strokeWidth={1.75} aria-hidden="true" /> ticket <ExternalLink size={11} strokeWidth={1.75} aria-hidden="true" /></a>}
-        {st._archived_at && <span className="pf-state-chip" style={{ color: 'var(--faint)' }}>cleared {fmtWhen(st._archived_at)}</span>}
+        {st.ticket_url && <a href={st.ticket_url} target="_blank" rel="noreferrer" style={{ fontSize: '11px' }}><Ticket size={12} strokeWidth={1.75} aria-hidden="true" />{' '}{tr('ticket')}{' '}<ExternalLink size={11} strokeWidth={1.75} aria-hidden="true" /></a>}
+        {st._archived_at && <span className="pf-state-chip" style={{ color: 'var(--faint)' }}>{tr('cleared {0}', [fmtWhen(st._archived_at)])}</span>}
       </div>
     );
   }
@@ -113,7 +112,7 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
     return (
       <div className="proof">
         <div className="pf-feat">{head}{stateBar}</div>
-        <span className="pf-empty"><Camera size={13} strokeWidth={1.75} aria-hidden="true" /> no QC proof captured yet for this feature</span>
+        <span className="pf-empty"><Camera size={13} strokeWidth={1.75} aria-hidden="true" />{' '}{tr('no QC proof captured yet for this feature')}</span>
       </div>
     );
   }
@@ -166,7 +165,7 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
                 })}
                 {!cleanup && imgs.length > CAP && (
                   <button type="button" className="pf-more" onClick={() => onGallery(f.slug, g)}
-                    title={`Xem tất cả ${imgs.length} ảnh`} aria-label={`Xem tất cả ${imgs.length} ảnh của nhóm ${g}`}>
+                    title={tr('Xem tất cả {0} ảnh', [imgs.length])} aria-label={tr('Xem tất cả {0} ảnh của nhóm {1}', [imgs.length, g])}>
                     +{imgs.length - (CAP - 1)}
                   </button>
                 )}
@@ -177,9 +176,9 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
       </div>
       {cleanup && selected.size > 0 && (
         <div className="pf-bar">
-          <span>{selected.size} selected</span>
-          <Button size="sm" variant="danger" icon={Trash2} onClick={deleteSelected}>delete {selected.size} selected</Button>
-          <Button size="sm" onClick={() => setSelected(new Set())}>clear selection</Button>
+          <span>{tr('{0} selected', [selected.size])}</span>
+          <Button size="sm" variant="danger" icon={Trash2} onClick={deleteSelected}>{tr('delete {0} selected', [selected.size])}</Button>
+          <Button size="sm" onClick={() => setSelected(new Set())}>{tr('clear selection')}</Button>
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { tr } from '../../lib/i18n.js';
 export default function Tabs({ value, onChange, items }) {
   const refs = useRef([]);
   const key = (e, i) => {
@@ -14,7 +15,7 @@ export default function Tabs({ value, onChange, items }) {
           className={`tab${value === t.id ? ' on' : ''}`} onClick={() => onChange(t.id)} onKeyDown={e => key(e, i)}>
           {t.label}
           {t.badge != null && <span className="tab-badge">{t.badge}</span>}
-          {t.dot && <i className="tab-dot" role="img" aria-label="cần bạn" />}
+          {t.dot && <i className="tab-dot" role="img" aria-label={tr('cần bạn')} />}
         </button>
       ))}
     </div>

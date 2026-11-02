@@ -9,6 +9,15 @@ import { defaultBlueprintRunner } from '../services/scaffold/blueprint.js';
 import { createAdvisor } from '../services/scaffold/advise.js';
 import { createStudio } from '../services/scaffold/studio.js';
 import { createImporter, validateImport, importWarnings, listBranches } from '../services/scaffold/importer.js';
+import fs from 'fs';
+import path from 'path';
+import * as projectDocs from '../services/projectdocs.js';
+import * as projectQueue from '../services/projectqueue.js';
+import { discoverLanes } from '../services/state.js';
+import { laneBinding, LANES_ROOT } from '../services/config.js';
+import { platformProjectLookup } from './team.js';
+import { runAction } from '../services/actions.js';
+import { memoryClient } from '../services/projectmemory.js';
 
 /** Creates the project on the platform as the calling user (who becomes OWNER). */
 export function platformRegistrar(gatewayUrl = PLATFORM_URL, fetchImpl = fetch) {
@@ -85,13 +94,21 @@ export function cachedProbe(probe = probeTools, ttlMs = 60_000, now = Date.now) 
 // Project wizard (spec 2026-10-19 §3–4). It runs toolchains on this host, so P1 limits it to SYS_ADMIN.
 export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cachedProbe(), providers = createProviderStore(),
   setup = defaultSetupRunner({ providers }), blueprint = defaultBlueprintRunner(), advise = createAdvisor({ tools }), studio = null,
-  importer = null } = {}) {
+  importer = null, lookup = platformProjectLookup() } = {}) {
   const router = Router();
   const jobs = runner || createJobRunner({ registerProject: platformRegistrar(), setWorkflow: platformWorkflowSetter(), setDelivery: platformDeliverySetter(), tools,
     remotes: providers, setup, blueprint });
-  const chat = studio || createStudio({ tools, jobs });
   const imports = importer || createImporter({ root: jobs.root, providers, registerProject: platformRegistrar(),
     setWorkflow: platformWorkflowSetter(), setup });
+  // The project's code, read by the chat's roles: a lane bound to it, else the folder it was generated/cloned in.
+  const repoDirOf = pid => {
+    for (const n of discoverLanes()) if (laneBinding(n)?.projectId === pid) return path.join(process.env.LANES_ROOT || LANES_ROOT, `lane${n}`);
+    const slug = chat.projectSlug(pid);
+    const dir = slug && jobs.root ? path.join(jobs.root, slug) : '';
+    return dir && fs.existsSync(dir) ? dir : null;
+  };
+  const chat = studio || createStudio({ tools, jobs, providers, importer: imports, projectDocs, projectQueue, repoDirOf,
+    addLane: project => runAction(null, 'add', { project }), memory: memoryClient() });
   // An approved architecture scaffolds the project through the job runner (same job, or rebuilt).
   blueprint.setBuilder?.((entry, architecture) => jobs.build(entry.snapshot, architecture));
   const admin = (req, res, next) => {
@@ -114,7 +131,7 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
   // Product studio: idea → AI PM → AI architect → AI designer → project, approved in the chat.
   const wrapS = fn => (req, res) => { try { res.json(fn(req)); } catch (e) { fail(res, e); } };
   router.get('/api/studio', admin, wrapS(req => chat.list(req.user)));
-  router.post('/api/studio', admin, wrapS(req => chat.start(req.user, req.body?.text)));
+  router.post('/api/studio', admin, wrapS(req => chat.start(req.user, req.body || {})));
   router.get('/api/studio/:id', admin, wrapS(req => chat.get(req.params.id, req.user)));
   router.post('/api/studio/:id/messages', admin, wrapS(req => chat.send(req.params.id, req.user, req.body?.text)));
   router.post('/api/studio/:id/approve', admin, wrapS(req => chat.approve(req.params.id, req.user, String(req.body?.stage || ''))));
@@ -124,6 +141,36 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
   router.put('/api/studio/:id/workflow', admin, wrapS(req => chat.setWorkflow(req.params.id, req.user, req.body?.workflow)));
   router.post('/api/studio/:id/create', admin, wrapS(req => chat.create(req.params.id, req.user, token(req), req.body || {})));
   router.delete('/api/studio/:id', admin, wrapS(req => chat.remove(req.params.id, req.user)));
+
+  // A project's chat: members read it, only admins write (send, approve, add features, change the queue).
+  const member = async (req, res, next) => {
+    try {
+      if (authEnabled === false && !req.user) req.user = { id: 'local', email: 'local@shipyard.local', role: 'SYS_ADMIN' };
+      await lookup(req.params.pid, token(req));
+      next();
+    } catch (e) { fail(res, e); }
+  };
+  // Older projects get their documents and memory from their creation chat soon after the dashboard starts.
+  setTimeout(() => { try { chat.backfill?.(); } catch { /* next start */ } }, 5000).unref?.();
+  router.get('/api/projects/:pid/chat', member, wrapS(req => ({ ...chat.projectChat(req.params.pid), canSend: req.user.role === 'SYS_ADMIN' })));
+  router.get('/api/projects/:pid/chat/:id', member, wrapS(req => {
+    const s = chat.get(req.params.id, req.user);
+    if (s.projectId !== req.params.pid) throw Object.assign(new Error('Không tìm thấy cuộc trò chuyện'), { status: 404 });
+    return s;
+  }));
+  router.post('/api/projects/:pid/chat/features', admin, member, wrapS(req => chat.startFeature(req.user, req.params.pid, req.body?.text)));
+  // The project's approved documents (brief, architecture with the roadmap, design, mockups, features).
+  router.get('/api/projects/:pid/docs', member, wrapS(req => {
+    chat.ensureProjectDocs(req.params.pid);
+    const d = projectDocs.readDocs(req.params.pid);
+    return { ...d, list: projectDocs.featureList(d.architecture, projectQueue.readProjectQueue(req.params.pid)) };
+  }));
+  // The roadmap with where each feature stands (built, lane N, waiting, not scheduled…): the project's progress.
+  router.get('/api/projects/:pid/features', member, wrapS(req => ({
+    list: projectDocs.featureList(projectDocs.readDocs(req.params.pid).architecture, projectQueue.readProjectQueue(req.params.pid)),
+  })));
+  router.get('/api/projects/:pid/queue', member, wrapS(req => projectQueue.readProjectQueue(req.params.pid)));
+  router.put('/api/projects/:pid/queue', admin, member, wrapS(req => projectQueue.writeProjectQueue(req.params.pid, req.body || {})));
 
   // Existing repo: the person describes how it is installed/run/tested; Shipyard clones it, writes the
   // lane profile from that, registers the project and (optionally) has the AI Manager write its rules.

@@ -8,6 +8,7 @@ import {
   scaffold, PROVIDER_LABEL, SETUP_STATUS,
   FALLBACK_ROLES, FALLBACK_SKILL_CATALOG
 } from '../../lib/scaffold.js';
+import { tr } from '../../lib/i18n.js';
 
 const AI_ROLES_ORDER = ['DEV', 'ARCH', 'BA', 'PM', 'DESIGN', 'TEST', 'REVIEW', 'DEVOPS'];
 
@@ -32,7 +33,7 @@ const STAGE_ICON = {
   failed: <XCircle size={16} className="wz-bad" aria-hidden="true" />,
   waiting: <Hourglass size={16} className="wz-wait" aria-hidden="true" />,
 };
-const STAGE_STATE = { pending: 'chưa chạy', running: 'đang chạy', done: 'xong', failed: 'lỗi', waiting: 'chờ người duyệt' };
+const STAGE_STATE = { pending: tr('chưa chạy'), running: tr('đang chạy'), done: 'xong', failed: tr('lỗi'), waiting: tr('chờ người duyệt') };
 
 export function JobView({ job, stages, showLog = true }) {
   const logRef = useRef(null);
@@ -43,26 +44,26 @@ export function JobView({ job, stages, showLog = true }) {
         {stages.map(s => (
           <li key={s.id} className={`wz-stage ${job.stages[s.id]}`}>
             {STAGE_ICON[job.stages[s.id]]}
-            <span>{s.label}</span>
+            <span>{tr(s.label)}</span>
             <span className="sr-only">: {STAGE_STATE[job.stages[s.id]]}</span>
           </li>
         ))}
       </ol>
       {job.status === 'done' && (
         <p className="wz-done" role="status">
-          <CheckCircle2 size={16} aria-hidden="true" /> Đã tạo dự án <b>{job.name}</b> tại <code>{job.dir}</code>
+          <CheckCircle2 size={16} aria-hidden="true" />{' '}{tr('Đã tạo dự án')}{' '}<b>{job.name}</b>{' '}{tr('tại')}{' '}<code>{job.dir}</code>
           {job.remote && <a href={job.remote.webUrl} target="_blank" rel="noreferrer" className="wz-link">{job.remote.webUrl} <ExternalLink size={13} aria-hidden="true" /></a>}
         </p>
       )}
       {job.error && (
         <div className="wz-err" role="alert">
           <AlertTriangle size={16} aria-hidden="true" />
-          <div><b>{job.status === 'cancelled' ? 'Đã huỷ' : 'Lỗi'}:</b> {job.error}</div>
+          <div><b>{job.status === 'cancelled' ? tr('Đã huỷ') : tr('Lỗi')}:</b> {job.error}</div>
         </div>
       )}
       {job.blueprintRunId && <BlueprintStatus runId={job.blueprintRunId} />}
       {job.setupRunId && <SetupStatus runId={job.setupRunId} />}
-      {showLog && <pre ref={logRef} className="wz-log" aria-label="Nhật ký" tabIndex={0}>{job.log.join('\n')}</pre>}
+      {showLog && <pre ref={logRef} className="wz-log" aria-label={tr('Nhật ký')} tabIndex={0}>{job.log.join('\n')}</pre>}
     </div>
   );
 }
@@ -80,8 +81,8 @@ function SetupStatus({ runId }) {
   return (
     <div className={`wz-setup ${s.status}`} role="status">
       {busy ? <Loader2 size={16} className="wz-spin" aria-hidden="true" /> : s.status === 'error' ? <AlertTriangle size={16} aria-hidden="true" /> : <CheckCircle2 size={16} aria-hidden="true" />}
-      <span><b>Đội AI:</b> {SETUP_STATUS[s.status] || s.status}{s.error ? ` — ${s.error}` : ''}</span>
-      {s.status === 'error' && <button type="button" className="btn btn-sm btn-secondary" onClick={() => scaffold.retrySetup(runId).then(() => setS({ ...s, status: 'drafting', error: null }))}>Thử lại</button>}
+      <span><b>{tr('Đội AI:')}</b> {SETUP_STATUS[s.status] || s.status}{s.error ? ` — ${s.error}` : ''}</span>
+      {s.status === 'error' && <button type="button" className="btn btn-sm btn-secondary" onClick={() => scaffold.retrySetup(runId).then(() => setS({ ...s, status: 'drafting', error: null }))}>{tr('Thử lại')}</button>}
     </div>
   );
 }
@@ -98,27 +99,27 @@ function TokenForm({ provider, current, onSaved, onCancel }) {
     setBusy(false);
   };
   const help = provider === 'github'
-    ? 'Fine-grained token: quyền Administration (read & write) + Contents (read & write) trên các repo; hoặc classic token có quyền repo (và read:org để thấy tổ chức).'
-    : 'Personal/Group access token có quyền api và write_repository.';
+    ? tr('Fine-grained token: quyền Administration (read & write) + Contents (read & write) trên các repo; hoặc classic token có quyền repo (và read:org để thấy tổ chức).')
+    : tr('Personal/Group access token có quyền api và write_repository.');
   return (
     <form className="wz-token" onSubmit={save}>
       <div className="form-field">
-        <label className="form-label" htmlFor={`wz-tok-${provider}`}>Token {PROVIDER_LABEL[provider]} (dùng chung cho cả hệ thống)</label>
+        <label className="form-label" htmlFor={`wz-tok-${provider}`}>{tr('Token {0} (dùng chung cho cả hệ thống)', [PROVIDER_LABEL[provider]])}</label>
         <input id={`wz-tok-${provider}`} type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)}
-          placeholder={current?.configured ? `Để trống để giữ token ${current.tokenHint}` : ''} />
+          placeholder={current?.configured ? tr('Để trống để giữ token {0}', [current.tokenHint]) : ''} />
         <span className="faint">{help}</span>
       </div>
       {provider === 'gitlab' && (
         <div className="form-field">
-          <label className="form-label" htmlFor="wz-gl-url">Địa chỉ GitLab</label>
+          <label className="form-label" htmlFor="wz-gl-url">{tr('Địa chỉ GitLab')}</label>
           <input id="wz-gl-url" value={url} onChange={e => setUrl(e.target.value)} placeholder="https://gitlab.com" />
-          <span className="faint">Đổi nếu dùng GitLab tự host.</span>
+          <span className="faint">{tr('Đổi nếu dùng GitLab tự host.')}</span>
         </div>
       )}
       {err && <p className="m-err" role="alert">{err}</p>}
       <div className="wz-row">
-        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!token && !current?.configured)}>{busy ? 'Đang kiểm tra…' : 'Kiểm tra & lưu'}</button>
-        {onCancel && <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Huỷ</button>}
+        <button type="submit" className="btn btn-primary btn-sm" disabled={busy || (!token && !current?.configured)}>{busy ? tr('Đang kiểm tra…') : tr('Kiểm tra & lưu')}</button>
+        {onCancel && <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>{tr('Huỷ')}</button>}
       </div>
     </form>
   );
@@ -142,10 +143,10 @@ export function GitStep({ git, slug, providers, onChange, onProviders }) {
   return (
     <div className="wz-fields wz-git">
       <fieldset className="wz-grid">
-        <legend className="form-label">Nơi lưu repo</legend>
+        <legend className="form-label">{tr('Nơi lưu repo')}</legend>
         {['local', 'github', 'gitlab'].map(id => (
           <Choice key={id} name="git" value={id} current={p} title={PROVIDER_LABEL[id]}
-            desc={id === 'local' ? 'Chỉ git init trên máy chủ' : providers?.[id]?.configured ? `Đã kết nối: ${providers[id].login}` : 'Chưa kết nối — nhập token ở bước này'}
+            desc={id === 'local' ? tr('Chỉ git init trên máy chủ') : providers?.[id]?.configured ? tr('Đã kết nối: {0}', [providers[id].login]) : tr('Chưa kết nối — nhập token ở bước này')}
             onPick={v => onChange({ provider: v, owner: '', ownerLabel: '' })} />
         ))}
       </fieldset>
@@ -153,21 +154,20 @@ export function GitStep({ git, slug, providers, onChange, onProviders }) {
       {p !== 'local' && conn?.configured && !editing && (
         <>
           <div className="form-field">
-            <label className="form-label" htmlFor="wz-owner">{p === 'github' ? 'Tài khoản / tổ chức' : 'Group / namespace'}</label>
+            <label className="form-label" htmlFor="wz-owner">{p === 'github' ? tr('Tài khoản / tổ chức') : 'Group / namespace'}</label>
             {owners ? (
               <select id="wz-owner" value={git.owner} onChange={e => onChange({ owner: e.target.value, ownerLabel: owners.find(o => o.id === e.target.value)?.label })}>
                 {owners.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
-            ) : !err && <span className="faint">Đang tải danh sách…</span>}
+            ) : !err && <span className="faint">{tr('Đang tải danh sách…')}</span>}
             {err && <p className="m-err" role="alert">{err}</p>}
           </div>
           <fieldset className="wz-row wz-vis">
-            <legend className="form-label">Quyền xem</legend>
-            <label className="wz-check"><input type="radio" name="vis" checked={git.visibility !== 'public'} onChange={() => onChange({ visibility: 'private' })} /> Riêng tư</label>
-            <label className="wz-check"><input type="radio" name="vis" checked={git.visibility === 'public'} onChange={() => onChange({ visibility: 'public' })} /> Công khai</label>
+            <legend className="form-label">{tr('Quyền xem')}</legend>
+            <label className="wz-check"><input type="radio" name="vis" checked={git.visibility !== 'public'} onChange={() => onChange({ visibility: 'private' })} />{' '}{tr('Riêng tư')}</label>
+            <label className="wz-check"><input type="radio" name="vis" checked={git.visibility === 'public'} onChange={() => onChange({ visibility: 'public' })} />{' '}{tr('Công khai')}</label>
           </fieldset>
-          <p className="faint">Repo mới: <b>{(owners?.find(o => o.id === git.owner)?.label || '…').replace(/ \(cá nhân\)$/, '')}/{slug}</b>. Shipyard push nhánh main + development và thêm file CI {p === 'github' ? '(GitHub Actions)' : '(.gitlab-ci.yml)'}.
-            {' '}<button type="button" className="linklike" onClick={() => setEditing(true)}><KeyRound size={12} aria-hidden="true" /> Đổi token</button></p>
+          <p className="faint">{tr('Repo mới:')}{' '}<b>{(owners?.find(o => o.id === git.owner)?.label || '…').replace(/ \(cá nhân\)$/, '')}/{slug}</b>{tr('. Shipyard push nhánh main + development và thêm file CI {0}.', [p === 'github' ? '(GitHub Actions)' : '(.gitlab-ci.yml)'])}{' '}<button type="button" className="linklike" onClick={() => setEditing(true)}><KeyRound size={12} aria-hidden="true" />{' '}{tr('Đổi token')}</button></p>
         </>
       )}
     </div>
@@ -206,14 +206,12 @@ export function RoleSkillsConfigurator({ catalog, stackId, roleSkills, onChange 
       <div className="wz-skills-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Bot size={16} style={{ color: 'var(--accent-text)' }} />
-          <strong>Kỹ năng & Chỉ dẫn riêng cho từng vai trò AI (PM, BA, Arch, Design, Dev, Tester)</strong>
+          <strong>{tr('Kỹ năng & Chỉ dẫn riêng cho từng vai trò AI (PM, BA, Arch, Design, Dev, Tester)')}</strong>
         </div>
-        <span className="faint">
-          Chọn các Skill chuyên môn và nhập quy tắc tính năng bắt buộc mà mỗi AI Role phải đọc trước khi làm việc.
-        </span>
+        <span className="faint">{tr('Chọn các Skill chuyên môn và nhập quy tắc tính năng bắt buộc mà mỗi AI Role phải đọc trước khi làm việc.')}</span>
       </div>
 
-      <div className="wz-role-tabs" role="tablist" aria-label="Vai trò AI">
+      <div className="wz-role-tabs" role="tablist" aria-label={tr('Vai trò AI')}>
         {AI_ROLES_ORDER.map(r => {
           const cfg = roleSkills?.[r];
           const count = (cfg?.skills?.length || 0) + (cfg?.customRule?.trim() ? 1 : 0);
@@ -245,7 +243,7 @@ export function RoleSkillsConfigurator({ catalog, stackId, roleSkills, onChange 
 
         {availableSkills.length > 0 && (
           <div className="wz-skill-list">
-            <span className="form-label" style={{ fontSize: 12 }}>Skill chuyên môn tự động nạp cho {roleInfo.label}:</span>
+            <span className="form-label" style={{ fontSize: 12 }}>{tr('Skill chuyên môn tự động nạp cho {0}:', [roleInfo.label])}</span>
             <div className="wz-skill-grid">
               {availableSkills.map(sk => {
                 const checked = (curRoleCfg.skills || []).includes(sk.id);
@@ -267,9 +265,7 @@ export function RoleSkillsConfigurator({ catalog, stackId, roleSkills, onChange 
         )}
 
         <div className="form-field" style={{ marginTop: 6 }}>
-          <label className="form-label" htmlFor={`wz-rule-${activeRole}`}>
-            Chỉ dẫn / Tính năng bắt buộc người tạo dự án cài cho {roleInfo.label}:
-          </label>
+          <label className="form-label" htmlFor={`wz-rule-${activeRole}`}>{tr('Chỉ dẫn / Tính năng bắt buộc người tạo dự án cài cho {0}:', [roleInfo.label])}</label>
           <textarea
             id={`wz-rule-${activeRole}`}
             rows={3}
@@ -277,13 +273,11 @@ export function RoleSkillsConfigurator({ catalog, stackId, roleSkills, onChange 
             onChange={e => setCustomRule(e.target.value)}
             placeholder={
               activeRole === 'DEV'
-                ? 'Ví dụ: AI Dev cần đọc thêm: Mọi API trả về chuẩn ApiResponse<T>, bắt buộc dùng Constructor Injection, kiểm tra quyền @PreAuthorize và viết test cho mọi Service…'
-                : `Nhập yêu cầu tính năng hoặc chuẩn riêng mà ${roleInfo.label} bắt buộc phải đọc trước khi thực hiện…`
+                ? tr('Ví dụ: AI Dev cần đọc thêm: Mọi API trả về chuẩn ApiResponse<T>, bắt buộc dùng Constructor Injection, kiểm tra quyền @PreAuthorize và viết test cho mọi Service…')
+                : tr('Nhập yêu cầu tính năng hoặc chuẩn riêng mà {0} bắt buộc phải đọc trước khi thực hiện…', [roleInfo.label])
             }
           />
-          <span className="faint">
-            Sẽ được đóng gói vào <code>.shipyard/rules/{activeRole.toLowerCase()}.md</code> và <code>.claude/skills/</code> của dự án để {roleInfo.label} tự động tuân thủ.
-          </span>
+          <span className="faint">{tr('Sẽ được đóng gói vào')}{' '}<code>.shipyard/rules/{activeRole.toLowerCase()}.md</code>{' '}{tr('và')}{' '}<code>.claude/skills/</code>{' '}{tr('của dự án để {0} tự động tuân thủ.', [roleInfo.label])}</span>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 // Import an existing Git repo (server: services/scaffold/importer.js) + pure helpers for the form.
 import { authFetch } from './api.js';
+import { tr } from './i18n.js';
 
 async function call(method, url, body) {
   const r = await authFetch(url, {
@@ -21,24 +22,24 @@ export const importer = {
 };
 
 export const SOURCES = [
-  { id: 'url', label: 'URL Git (SSH key hoặc repo công khai của máy này)' },
-  { id: 'github', label: 'GitHub (token đã kết nối)' },
-  { id: 'gitlab', label: 'GitLab (token đã kết nối)' },
-  { id: 'local', label: 'Thư mục trên máy này' },
+  { id: 'url', label: tr('URL Git (SSH key hoặc repo công khai của máy này)') },
+  { id: 'github', label: tr('GitHub (token đã kết nối)') },
+  { id: 'gitlab', label: tr('GitLab (token đã kết nối)') },
+  { id: 'local', label: tr('Thư mục trên máy này') },
 ];
 export const DB_OPTIONS = [
-  { id: 'postgresql', label: 'PostgreSQL', desc: 'Mỗi lane một database riêng trên Postgres chung của Shipyard.' },
-  { id: 'sqlite', label: 'SQLite', desc: 'Mỗi lane một file data/app.db.' },
-  { id: 'external', label: 'Khác / tự cấu hình', desc: 'MySQL, MongoDB, dịch vụ ngoài… — tự khai báo kết nối ở biến môi trường.' },
-  { id: 'none', label: 'Không dùng', desc: '' },
+  { id: 'postgresql', label: 'PostgreSQL', desc: tr('Mỗi lane một database riêng trên Postgres chung của Shipyard.') },
+  { id: 'sqlite', label: 'SQLite', desc: tr('Mỗi lane một file data/app.db.') },
+  { id: 'external', label: tr('Khác / tự cấu hình'), desc: tr('MySQL, MongoDB, dịch vụ ngoài… — tự khai báo kết nối ở biến môi trường.') },
+  { id: 'none', label: tr('Không dùng'), desc: '' },
 ];
 /** Variables the lane provides; the person can use them in commands and values. */
 export const LANE_VARS = [
-  ['$PORT', 'cổng của ứng dụng này trên lane (backend = API_PORT, frontend = FE_PORT)'],
-  ['$API_URL', 'địa chỉ backend của lane, vd http://localhost:8102'],
-  ['$DB_NAME', 'tên database của lane'],
-  ['$DB_HOST $DB_PORT $DB_USER $DB_PASSWORD', 'kết nối Postgres (khi chọn PostgreSQL)'],
-  ['$DATABASE_URL', 'chuỗi kết nối đầy đủ (PostgreSQL / SQLite)'],
+  ['$PORT', tr('cổng của ứng dụng này trên lane (backend = API_PORT, frontend = FE_PORT)')],
+  ['$API_URL', tr('địa chỉ backend của lane, vd http://localhost:8102')],
+  ['$DB_NAME', tr('tên database của lane')],
+  ['$DB_HOST $DB_PORT $DB_USER $DB_PASSWORD', tr('kết nối Postgres (khi chọn PostgreSQL)')],
+  ['$DATABASE_URL', tr('chuỗi kết nối đầy đủ (PostgreSQL / SQLite)')],
 ];
 
 /**
@@ -91,42 +92,42 @@ export function toBody(f) {
 
 export const IMPORT_STEPS = [
   { id: 'repo', label: 'Kho Git' },
-  { id: 'apps', label: 'Ứng dụng' },
-  { id: 'docs', label: 'Tài liệu' },
-  { id: 'env', label: 'Database & môi trường' },
-  { id: 'workflow', label: 'Quy trình' },
-  { id: 'review', label: 'Xem lại' },
+  { id: 'apps', label: tr('Ứng dụng') },
+  { id: 'docs', label: tr('Tài liệu') },
+  { id: 'env', label: tr('Database & môi trường') },
+  { id: 'workflow', label: tr('Quy trình') },
+  { id: 'review', label: tr('Xem lại') },
 ];
 
 const SLUG_RE = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
 const appProblem = (a, label) => {
   if (!a.enabled) return '';
-  if (!a.tech.trim()) return `${label}: ghi công nghệ (vd Laravel 11 / PHP 8.3)`;
-  if (!a.run.trim()) return `${label}: nhập lệnh chạy`;
-  if (a.dir && (a.dir.startsWith('/') || a.dir.split('/').includes('..'))) return `${label}: thư mục là đường dẫn tương đối trong repo`;
-  if (a.healthPath && !a.healthPath.startsWith('/')) return `${label}: đường dẫn kiểm tra bắt đầu bằng /`;
+  if (!a.tech.trim()) return tr('{0}: ghi công nghệ (vd Laravel 11 / PHP 8.3)', [label]);
+  if (!a.run.trim()) return tr('{0}: nhập lệnh chạy', [label]);
+  if (a.dir && (a.dir.startsWith('/') || a.dir.split('/').includes('..'))) return tr('{0}: thư mục là đường dẫn tương đối trong repo', [label]);
+  if (a.healthPath && !a.healthPath.startsWith('/')) return tr('{0}: đường dẫn kiểm tra bắt đầu bằng /', [label]);
   return '';
 };
 /** What still blocks this step ('' = can go on). The server re-checks everything. */
 export function importStepProblem(step, f) {
   if (step === 'repo') {
-    if (!f.name.trim()) return 'Nhập tên dự án';
-    if (!SLUG_RE.test(f.slug)) return 'Slug: 3–40 ký tự chữ thường, số, gạch ngang';
-    if (!f.source.url.trim()) return 'Nhập URL repo hoặc thư mục';
-    if (!f.branch) return 'Chọn nhánh tích hợp (bấm "Đọc nhánh")';
+    if (!f.name.trim()) return tr('Nhập tên dự án');
+    if (!SLUG_RE.test(f.slug)) return tr('Slug: 3–40 ký tự chữ thường, số, gạch ngang');
+    if (!f.source.url.trim()) return tr('Nhập URL repo hoặc thư mục');
+    if (!f.branch) return tr('Chọn nhánh tích hợp (bấm "Đọc nhánh")');
   }
   if (step === 'apps') {
-    if (!f.backend.enabled && !f.frontend.enabled) return 'Bật ít nhất một ứng dụng';
+    if (!f.backend.enabled && !f.frontend.enabled) return tr('Bật ít nhất một ứng dụng');
     return appProblem(f.backend, 'Backend') || appProblem(f.frontend, 'Frontend');
   }
   if (step === 'docs') {
     const all = [f.docs.brief, f.docs.architecture, f.docs.design, f.docs.mockups, ...f.docs.other.split('\n')].map(x => x.trim()).filter(Boolean);
     const bad = all.find(p => p.startsWith('/') || p.split('/').includes('..') || /["'`$\\]/.test(p));
-    if (bad) return `"${bad}": đường dẫn tương đối trong repo, vd docs/yeu-cau.md`;
+    if (bad) return tr('"{0}": đường dẫn tương đối trong repo, vd docs/yeu-cau.md', [bad]);
   }
   if (step === 'env') {
     const bad = f.env.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#')).find(l => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(l));
-    if (bad) return `Biến môi trường "${bad.slice(0, 30)}": dạng TEN=gia_tri`;
+    if (bad) return tr('Biến môi trường "{0}": dạng TEN=gia_tri', [bad.slice(0, 30)]);
   }
   return '';
 }

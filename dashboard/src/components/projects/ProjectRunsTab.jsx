@@ -6,6 +6,7 @@ import StepModels from '../StepModels.jsx';
 import { platform } from '../../lib/platform.js';
 import { fetchProviders, saveFeatureModels } from '../../lib/api.js';
 import { STEP_LABEL, runProgress } from '../../lib/review.js';
+import { tr } from '../../lib/i18n.js';
 
 export default function ProjectRunsTab({ pid, onOpenRun }) {
   const [runs, setRuns] = useState([]);
@@ -67,10 +68,10 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
         });
       }
       await loadAll();
-      setMsg(`Đã lưu cấu hình model cho tính năng "${titleAlias || key}"`);
+      setMsg(tr('Đã lưu cấu hình model cho tính năng "{0}"', [titleAlias || key]));
       setTimeout(() => setMsg(''), 3000);
     } catch (e) {
-      setMsg(`Lỗi: ${e.message}`);
+      setMsg(tr('Lỗi: {0}', [e.message]));
     } finally {
       setSaving(false);
     }
@@ -90,7 +91,7 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
     }
   };
 
-  if (loading) return <p className="muted-empty">Đang tải danh sách tính năng…</p>;
+  if (loading) return <p className="muted-empty">{tr('Đang tải danh sách tính năng…')}</p>;
 
   return (
     <div className="pj-tab-stack">
@@ -104,12 +105,12 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
       <div className="pj-invite-bar">
         <div className="pj-invite-label">
           <Cpu size={16} style={{ color: 'var(--accent-text)' }} />
-          <span>Cấu hình trước Model cho tính năng mới:</span>
+          <span>{tr('Cấu hình trước Model cho tính năng mới:')}</span>
         </div>
         <input
           type="text"
-          aria-label="Tên tính năng hoặc spec slug cần cấu hình model"
-          placeholder="Nhập tên tính năng hoặc spec slug (vd: auth-sso)…"
+          aria-label={tr('Tên tính năng hoặc spec slug cần cấu hình model')}
+          placeholder={tr('Nhập tên tính năng hoặc spec slug (vd: auth-sso)…')}
           value={newKey}
           onChange={e => setNewKey(e.target.value)}
           className="pj-invite-input"
@@ -124,19 +125,17 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
             if (!k) return;
             openEditor(k, k);
             setNewKey('');
-          }}>
-          Chọn Model
-        </Button>
+          }}>{tr('Chọn Model')}</Button>
       </div>
 
       {editingKey && !runs.some(r => r.id === editingKey) && (
         <div className="card-panel" style={{ padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-            <strong style={{ fontSize: 13 }}>Cấu hình Model cho tính năng: <span className="mono">{editingKey}</span></strong>
+            <strong style={{ fontSize: 13 }}>{tr('Cấu hình Model cho tính năng:')}{' '}<span className="mono">{editingKey}</span></strong>
             <div style={{ display: 'flex', gap: 6 }}>
-              <Button size="sm" variant="ghost" onClick={() => setEditingKey(null)}>Đóng</Button>
+              <Button size="sm" variant="ghost" onClick={() => setEditingKey(null)}>{tr('Đóng')}</Button>
               <Button size="sm" variant="primary" icon={Save} disabled={saving} onClick={() => handleSave(editingKey, editingKey)}>
-                {saving ? 'Đang lưu…' : 'Lưu Model cho tính năng'}
+                {saving ? tr('Đang lưu…') : tr('Lưu Model cho tính năng')}
               </Button>
             </div>
           </div>
@@ -151,17 +150,15 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
           <div className="modern-empty-icon">
             <Layers size={22} />
           </div>
-          <div className="modern-empty-title">Chưa có tính năng nào chạy qua quy trình role.</div>
-          <div className="modern-empty-desc">
-            Khi một lane được gán tính năng và cấu hình PLATFORM_PROJECT_ID của dự án này, tiến trình sẽ hiển thị tại đây.
-          </div>
+          <div className="modern-empty-title">{tr('Chưa có tính năng nào chạy qua quy trình role.')}</div>
+          <div className="modern-empty-desc">{tr('Khi một lane được gán tính năng và cấu hình PLATFORM_PROJECT_ID của dự án này, tiến trình sẽ hiển thị tại đây.')}</div>
         </div>
       ) : (
         <div className="card-panel">
           <div className="card-header">
             <div className="card-header-title">
               <Layers size={17} style={{ color: 'var(--accent-text)' }} />
-              <span>Danh sách tính năng & cấu hình Model riêng</span>
+              <span>{tr('Danh sách tính năng & cấu hình Model riêng')}</span>
               <span className="bdg bdg-neutral">{runs.length}</span>
             </div>
           </div>
@@ -180,14 +177,14 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
                           <ArrowRight size={14} style={{ opacity: 0.6, flexShrink: 0 }} />
                         </button>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>Bước hiện tại:</span>
+                          <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{tr('Bước hiện tại:')}</span>
                           <Badge tone="accent">{STEP_LABEL[r.currentStep] || '—'}</Badge>
                           {runProg != null && (
-                            <span className="ov-prog" title={`Tiến độ quy trình ${runProg}%`}>
+                            <span className="ov-prog" title={tr('Tiến độ quy trình {0}%', [runProg])}>
                               <span className="ov-bar"><i style={{ width: `${runProg}%` }} /></span>{runProg}%
                             </span>
                           )}
-                          {customCfg && <Badge tone="ok">Đã gắn Model riêng</Badge>}
+                          {customCfg && <Badge tone="ok">{tr('Đã gắn Model riêng')}</Badge>}
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
@@ -196,7 +193,7 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
                           variant={isOpen ? 'primary' : 'secondary'}
                           icon={Cpu}
                           onClick={() => openEditor(r.id, r.title)}>
-                          {isOpen ? 'Đóng Model' : 'Model AI'}
+                          {isOpen ? tr('Đóng Model') : tr('Model AI')}
                         </Button>
                         <Badge tone={r.status === 'APPROVED' || r.status === 'DONE' ? 'ok' : 'neutral'}>
                           {r.status}
@@ -207,19 +204,15 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
                       <div style={{ padding: 14, borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--bg-subtle)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                           <div>
-                            <strong style={{ fontSize: 13 }}>Model AI riêng cho tính năng: {r.title}</strong>
-                            <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                              Ghi đè model của từng bước (PM, BA, Arch, Dev, Review, QC...) khi chạy tính năng này.
-                            </div>
+                            <strong style={{ fontSize: 13 }}>{tr('Model AI riêng cho tính năng: {0}', [r.title])}</strong>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{tr('Ghi đè model của từng bước (PM, BA, Arch, Dev, Review, QC...) khi chạy tính năng này.')}</div>
                           </div>
                           <div style={{ display: 'flex', gap: 6 }}>
                             {customCfg && (
-                              <Button size="sm" variant="ghost" icon={RotateCcw} disabled={saving} onClick={() => handleReset(r.id, r.title)}>
-                                Xoá cấu hình riêng
-                              </Button>
+                              <Button size="sm" variant="ghost" icon={RotateCcw} disabled={saving} onClick={() => handleReset(r.id, r.title)}>{tr('Xoá cấu hình riêng')}</Button>
                             )}
                             <Button size="sm" variant="primary" icon={Save} disabled={saving} onClick={() => handleSave(r.id, r.title)}>
-                              {saving ? 'Đang lưu…' : 'Lưu cấu hình'}
+                              {saving ? tr('Đang lưu…') : tr('Lưu cấu hình')}
                             </Button>
                           </div>
                         </div>

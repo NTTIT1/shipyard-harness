@@ -4,6 +4,7 @@ import {
   Layers
 } from 'lucide-react';
 import IconButton from './ui/IconButton.jsx';
+import { tr } from '../lib/i18n.js';
 
 export default function TopHeader({
   projects = [],
@@ -45,7 +46,7 @@ export default function TopHeader({
         <IconButton
           className="top-header-menu-btn"
           icon={MenuIcon}
-          label="Mở menu"
+          label={tr('Mở menu')}
           onClick={onOpenDrawer}
         />
 
@@ -57,17 +58,17 @@ export default function TopHeader({
             className="top-project-badge-btn"
             aria-expanded={openDropdown}
             aria-haspopup="listbox"
-            aria-label={`Dự án đang xem: ${currentProject ? currentProject.name : 'tất cả dự án'}. Đổi dự án`}
+            aria-label={tr('Dự án đang xem: {0}. Đổi dự án', [currentProject ? currentProject.name : tr('tất cả dự án')])}
             onClick={() => setOpenDropdown(!openDropdown)}>
             <FolderKanban size={15} className="top-project-icon" aria-hidden="true" />
-            <strong className="top-project-name">{currentProject ? currentProject.name : 'Tất cả dự án'}</strong>
+            <strong className="top-project-name">{currentProject ? currentProject.name : tr('Tất cả dự án')}</strong>
             {currentProject?.slug && <span className="top-project-slug">{currentProject.slug}</span>}
             <ChevronDown size={14} className={`top-project-chevron${openDropdown ? ' open' : ''}`} aria-hidden="true" />
           </button>
 
           {openDropdown && (
             <div className="top-project-dropdown" role="listbox">
-              <div className="top-dropdown-header">Xem dự án</div>
+              <div className="top-dropdown-header">{tr('Xem dự án')}</div>
               <button
                 type="button"
                 role="option"
@@ -81,8 +82,8 @@ export default function TopHeader({
                   <Layers size={14} />
                 </div>
                 <div className="top-dd-info">
-                  <span className="top-dd-name">Tất cả dự án</span>
-                  <span className="top-dd-desc">Mọi lane và chi phí, gom theo dự án</span>
+                  <span className="top-dd-name">{tr('Tất cả dự án')}</span>
+                  <span className="top-dd-desc">{tr('Mọi lane và chi phí, gom theo dự án')}</span>
                 </div>
                 {(!activeProjectId || activeProjectId === 'ALL') && (
                   <Check size={14} className="top-dd-check" />

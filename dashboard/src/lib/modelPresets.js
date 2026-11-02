@@ -1,3 +1,4 @@
+import { tr } from './i18n.js';
 // "Claude + Gemini" split, tuned for tokens: Claude Code does what breaks a feature when it is wrong
 // (driving the lane, writing code, architecture, browser QC, the final gate); Gemini Flash does the
 // writing and the second opinions (specs, business analysis, mockups, test plans, plan critique, code
@@ -15,20 +16,20 @@ export function geminiModel(info) {
 
 /** Which AI does each lane step, and why (shown on the dashboard). */
 export const SPLIT = {
-  main: ['claude', 'điều phối cả quy trình, git, gộp code, chạy app — dài, nhiều thao tác'],
-  dev: ['claude', 'viết code — quyết định app chạy được'],
-  pm: ['gemini', 'viết spec từ yêu cầu'],
-  ba: ['gemini', 'viết nghiệp vụ'],
-  arch: ['claude', 'kế hoạch kỹ thuật — sai từ đây là sai cả tính năng'],
-  design: ['gemini', 'mockup theo thiết kế đã duyệt'],
-  test: ['gemini', 'kế hoạch test'],
-  'plan-critic': ['gemini', 'phản biện plan của Claude — góc nhìn thứ hai'],
+  main: ['claude', tr('điều phối cả quy trình, git, gộp code, chạy app — dài, nhiều thao tác')],
+  dev: ['claude', tr('viết code — quyết định app chạy được')],
+  pm: ['gemini', tr('viết spec từ yêu cầu')],
+  ba: ['gemini', tr('viết nghiệp vụ')],
+  arch: ['claude', tr('kế hoạch kỹ thuật — sai từ đây là sai cả tính năng')],
+  design: ['gemini', tr('mockup theo thiết kế đã duyệt')],
+  test: ['gemini', tr('kế hoạch test')],
+  'plan-critic': ['gemini', tr('phản biện plan của Claude — góc nhìn thứ hai')],
   'impl-worker': ['claude', 'code song song'],
-  'code-review': ['gemini', 'review code của Claude — góc nhìn thứ hai'],
-  'qc-local': ['claude', 'điều khiển trình duyệt nhiều bước'],
-  'senior-gate': ['claude', 'quyết định cuối có cho gộp/mở PR'],
-  ticketer: ['gemini', 'viết ticket'],
-  'dev-qc': ['claude', 'QC trình duyệt trên môi trường test'],
+  'code-review': ['gemini', tr('review code của Claude — góc nhìn thứ hai')],
+  'qc-local': ['claude', tr('điều khiển trình duyệt nhiều bước')],
+  'senior-gate': ['claude', tr('quyết định cuối có cho gộp/mở PR')],
+  ticketer: ['gemini', tr('viết ticket')],
+  'dev-qc': ['claude', tr('QC trình duyệt trên môi trường test')],
 };
 
 /**

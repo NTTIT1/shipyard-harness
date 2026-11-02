@@ -6,6 +6,7 @@ import { fetchProviders, fetchSpecs, assignLane, saveLaneModelDefaults } from '.
 import { STEPS, STEP_LABEL } from '../lib/review.js';
 import { platform } from '../lib/platform.js';
 import { workflowModels } from '../lib/workflow.js';
+import { tr } from '../lib/i18n.js';
 
 const isFree = l => !l.session_running && ['idle', 'down', '', undefined].includes(l.status);
 
@@ -71,60 +72,58 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
   const hasLaneCustom = !!(info && lane != null && (info.lane_defaults || {})[String(lane)]);
 
   return (
-    <Modal wide title="Giao việc" onClose={onClose}
-      buttons={[{ label: 'Huỷ', fn: onClose, disabled: busy }, { label: busy ? 'Đang bắt đầu…' : 'Bắt đầu', icon: busy ? undefined : Play, cls: 'add', fn: submit, disabled: !canSubmit }]}>
-      {!free.length && initialLane == null ? <p className="m-text">Không có lane nào rảnh. Thêm lane hoặc chờ lane xong việc.</p> : (
+    <Modal wide title={tr('Giao việc')} onClose={onClose}
+      buttons={[{ label: tr('Huỷ'), fn: onClose, disabled: busy }, { label: busy ? tr('Đang bắt đầu…') : tr('Bắt đầu'), icon: busy ? undefined : Play, cls: 'add', fn: submit, disabled: !canSubmit }]}>
+      {!free.length && initialLane == null ? <p className="m-text">{tr('Không có lane nào rảnh. Thêm lane hoặc chờ lane xong việc.')}</p> : (
         <>
           <label className="m-l">Lane
             <select className="msel" value={lane ?? ''} onChange={e => setLane(parseInt(e.target.value, 10))}>
-              {free.map(l => <option key={l.lane} value={l.lane}>Lane {l.lane} (rảnh)</option>)}
+              {free.map(l => <option key={l.lane} value={l.lane}>{tr('Lane {0} (rảnh)', [l.lane])}</option>)}
             </select>
           </label>
-          <div className="m-l">Yêu cầu
-            <span className="seg">
-              <label className={mode === 'new' ? 'on' : ''}><input type="radio" name="assign-mode" checked={mode === 'new'} onChange={() => setMode('new')} /> Mô tả mới</label>
-              <label className={mode === 'spec' ? 'on' : ''}><input type="radio" name="assign-mode" checked={mode === 'spec'} disabled={!specs.length} onChange={() => setMode('spec')} /> Spec có sẵn</label>
+          <div className="m-l">{tr('Yêu cầu')}<span className="seg">
+              <label className={mode === 'new' ? 'on' : ''}><input type="radio" name="assign-mode" checked={mode === 'new'} onChange={() => setMode('new')} />{' '}{tr('Mô tả mới')}</label>
+              <label className={mode === 'spec' ? 'on' : ''}><input type="radio" name="assign-mode" checked={mode === 'spec'} disabled={!specs.length} onChange={() => setMode('spec')} />{' '}{tr('Spec có sẵn')}</label>
             </span>
           </div>
           {mode === 'new'
-            ? <textarea className="req" rows={5} value={text} onChange={e => setText(e.target.value)} aria-label="Mô tả tính năng"
-                placeholder="Mô tả tính năng cần làm: ai dùng, làm được gì, điều kiện xong…" />
-            : <select className="msel" aria-label="Spec có sẵn" value={spec} onChange={e => setSpec(e.target.value)}>
+            ? <textarea className="req" rows={5} value={text} onChange={e => setText(e.target.value)} aria-label={tr('Mô tả tính năng')}
+                placeholder={tr('Mô tả tính năng cần làm: ai dùng, làm được gì, điều kiện xong…')} />
+            : <select className="msel" aria-label={tr('Spec có sẵn')} value={spec} onChange={e => setSpec(e.target.value)}>
                 {specs.map(s => <option key={s} value={s}>{s}</option>)}
               </select>}
           {/* The common path is lane + request → Start; per-step AI and workflow are one level deeper. */}
           <details className="am-advanced">
             <summary>
-              <span className="am-adv-title">Tuỳ chỉnh AI & quy trình cho tính năng này</span>
+              <span className="am-adv-title">{tr('Tuỳ chỉnh AI & quy trình cho tính năng này')}</span>
               <span className="am-adv-sum">
-                {Object.keys(projModels).length ? `model theo quy trình dự án (${Object.keys(projModels).length} bước) · ` : ''}
-                {hasLaneCustom ? `cấu hình riêng Lane ${lane}` : 'mặc định chung'}
-                {' · '}{Object.values(gates).filter(Boolean).length ? `${Object.values(gates).filter(Boolean).length} bước đổi quy trình` : 'quy trình theo dự án'}
+                {Object.keys(projModels).length ? tr('model theo quy trình dự án ({0} bước) · ', [Object.keys(projModels).length]) : ''}
+                {hasLaneCustom ? tr('cấu hình riêng Lane {0}', [lane]) : tr('mặc định chung')}
+                {' · '}{Object.values(gates).filter(Boolean).length ? tr('{0} bước đổi quy trình', [Object.values(gates).filter(Boolean).length]) : tr('quy trình theo dự án')}
               </span>
             </summary>
             <div className="am-adv-body">
               <div className="am-adv-row">
-                <span className="m-l" style={{ margin: 0 }}>AI từng bước</span>
+                <span className="m-l" style={{ margin: 0 }}>{tr('AI từng bước')}</span>
                 <label className="am-check">
-                  <input type="checkbox" checked={saveAsLaneDef} onChange={e => setSaveAsLaneDef(e.target.checked)} />
-                  Lưu làm mặc định riêng cho Lane {lane}
+                  <input type="checkbox" checked={saveAsLaneDef} onChange={e => setSaveAsLaneDef(e.target.checked)} />{tr('Lưu làm mặc định riêng cho Lane {0}', [lane])}
                 </label>
               </div>
               {info && models && <StepModels info={info} value={models} onChange={setModels} />}
-              <div className="m-l" style={{ marginTop: 14 }}>Quy trình</div>
+              <div className="m-l" style={{ marginTop: 14 }}>{tr('Quy trình')}</div>
               <div className="gate-grid">
                 {STEPS.map(s => (
                   <label key={s}>{STEP_LABEL[s]}
                     <select className="msel" value={gates[s] || ''} onChange={e => setGates(g => ({ ...g, [s]: e.target.value }))}>
-                      <option value="">Theo dự án</option>
-                      <option value="REQUIRED">Cần người duyệt</option>
-                      <option value="AUTO">Tự duyệt</option>
-                      {s !== 'DEV' && <option value="SKIP">Bỏ bước</option>}
+                      <option value="">{tr('Theo dự án')}</option>
+                      <option value="REQUIRED">{tr('Cần người duyệt')}</option>
+                      <option value="AUTO">{tr('Tự duyệt')}</option>
+                      {s !== 'DEV' && <option value="SKIP">{tr('Bỏ bước')}</option>}
                     </select>
                   </label>
                 ))}
               </div>
-              <p className="m-hint">“Theo dự án” dùng quy trình ở <b>Quy trình &amp; duyệt</b>. Code chỉ bắt đầu khi mọi bước trước đã qua.</p>
+              <p className="m-hint">{tr('“Theo dự án” dùng quy trình ở')}{' '}<b>{tr('Quy trình & duyệt')}</b>{tr('. Code chỉ bắt đầu khi mọi bước trước đã qua.')}</p>
             </div>
           </details>
         </>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import Button from './Button.jsx';
+import { tr } from '../../lib/i18n.js';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -61,7 +62,7 @@ export default class ErrorBoundary extends React.Component {
               fontWeight: 650,
               color: 'var(--text, #0f172a)',
             }}>
-              {this.props.title || 'Đã xảy ra lỗi khi hiển thị giao diện'}
+              {this.props.title || tr('Đã xảy ra lỗi khi hiển thị giao diện')}
             </h2>
             <p style={{
               margin: 0,
@@ -69,7 +70,7 @@ export default class ErrorBoundary extends React.Component {
               color: 'var(--text-muted, #64748b)',
               lineHeight: 1.5,
             }}>
-              {this.state.error?.message || 'Có lỗi không mong muốn đã xảy ra. Hãy bấm thử lại.'}
+              {this.state.error?.message || tr('Có lỗi không mong muốn đã xảy ra. Hãy bấm thử lại.')}
             </p>
           </div>
 
@@ -77,9 +78,7 @@ export default class ErrorBoundary extends React.Component {
             size="sm"
             variant="primary"
             icon={RotateCcw}
-            onClick={this.handleReset}>
-            Thử lại
-          </Button>
+            onClick={this.handleReset}>{tr('Thử lại')}</Button>
         </div>
       );
     }

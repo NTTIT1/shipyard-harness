@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Save, Cpu, RotateCcw } from 'lucide-react';
+import { ChevronDown, Save, Cpu, RotateCcw } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import Badge from '../ui/Badge.jsx';
 import StepModels from '../StepModels.jsx';
@@ -8,10 +8,11 @@ import {
   saveLaneModelDefaults, saveFeatureModels, saveLaneLimit
 } from '../../lib/api.js';
 import { PHASE_LABEL, PHASE_ORDER, ROLE_LABEL, EFFORT_LABEL, fmtVnd, fmtTokens, fmtUsd, sumTokens, ratioTone } from '../../lib/costs.js';
+import { tr, locale } from '../../lib/i18n.js';
 
 export const HUMAN_PHASES = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
-export const PLAN_LABEL = { five_hour: 'Hạn mức 5 giờ', seven_day: 'Hạn mức 7 ngày', seven_day_opus: '7 ngày (Opus)', seven_day_sonnet: '7 ngày (Sonnet)' };
-export const fmtTime = iso => (iso ? new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '');
+export const PLAN_LABEL = { five_hour: tr('Hạn mức 5 giờ'), seven_day: tr('Hạn mức 7 ngày'), seven_day_opus: tr('7 ngày (Opus)'), seven_day_sonnet: tr('7 ngày (Sonnet)') };
+export const fmtTime = iso => (iso ? new Date(iso).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '');
 export const pctTone = p => (p >= 90 ? 'danger' : p >= 70 ? 'warn' : 'ok');
 
 export function Tile({ label, value, sub, tone, pct }) {
@@ -34,11 +35,11 @@ export function Tile({ label, value, sub, tone, pct }) {
 
 export function DayBars({ days }) {
   const [tip, setTip] = useState(null);
-  if (!days.length) return <p className="muted-empty">Chưa có dữ liệu trong tháng này.</p>;
+  if (!days.length) return <p className="muted-empty">{tr('Chưa có dữ liệu trong tháng này.')}</p>;
   const max = Math.max(...days.map(d => d.vnd), 1);
   return (
-    <figure className="ct-chart" aria-label="Chi phí theo ngày">
-      <figcaption className="ct-chart-title">Chi phí phân bổ theo ngày <span className="faint">· cao nhất {fmtVnd(max)}</span></figcaption>
+    <figure className="ct-chart" aria-label={tr('Chi phí theo ngày')}>
+      <figcaption className="ct-chart-title">{tr('Chi phí phân bổ theo ngày')}{' '}<span className="faint">{tr('· cao nhất {0}', [fmtVnd(max)])}</span></figcaption>
       <div className="ct-bars" onMouseLeave={() => setTip(null)}>
         {days.map((d, i) => (
           <button key={d.day} type="button" className="ct-col" aria-label={`${d.day}: ${fmtVnd(d.vnd)}, ${fmtTokens(sumTokens(d.tokens))} token`}
@@ -49,7 +50,7 @@ export function DayBars({ days }) {
         {tip && (
           <div className={`ct-tip${tip.i > days.length / 2 ? ' left' : ''}`} role="status"
             style={tip.i > days.length / 2 ? { right: `${((days.length - tip.i) / days.length) * 100}%` } : { left: `${((tip.i + 1) / days.length) * 100}%` }}>
-            <b>{tip.day}</b><span>{fmtVnd(tip.vnd)}</span><span>{fmtUsd(tip.usd)} quy đổi API</span><span>{fmtTokens(sumTokens(tip.tokens))} token</span>
+            <b>{tip.day}</b><span>{fmtVnd(tip.vnd)}</span><span>{tr('{0} quy đổi API', [fmtUsd(tip.usd)])}</span><span>{fmtTokens(sumTokens(tip.tokens))} token</span>
           </div>
         )}
       </div>
@@ -67,7 +68,12 @@ export const Meter = ({ value, max, tone }) => (
   </span>
 );
 
-export function FeatureRow({ f, settings, provInfo, onSaved }) {
+/** Share bar for a row: how this row compares with the biggest one in the list. */
+const RankBar = ({ value, max }) => (
+  <span className="ct-rank" aria-hidden="true"><span style={{ width: `${max ? Math.max(2, Math.min(100, (value / max) * 100)) : 0}%` }} /></span>
+);
+
+export function FeatureItem({ f, maxVnd, settings, provInfo, onSaved }) {
   const [open, setOpen] = useState(false);
   const [editModels, setEditModels] = useState(false);
   const [hours, setHours] = useState(f.hours);
@@ -85,99 +91,117 @@ export function FeatureRow({ f, settings, provInfo, onSaved }) {
 
   const tone = ratioTone(f.ratio);
   const save = async () => {
-    try { await saveFeatureHours(f.key, hours); setMsg('Đã lưu'); onSaved(); } catch (e) { setMsg(e.message); }
+    try { await saveFeatureHours(f.key, hours); setMsg(tr('Đã lưu giờ ước tính.')); onSaved(); } catch (e) { setMsg(tr('Lỗi: {0}', [e.message])); }
   };
   const saveModels = async () => {
     try {
       const { impl_agents, effort, gates: _gates, ...stepModels } = fModels;
       await saveFeatureModels({ key: f.key, models: stepModels, effort, impl_agents, lane: f.lane });
-      setMMsg('Đã lưu cấu hình model cho tính năng này.');
+      setMMsg(tr('Đã lưu model cho tính năng này.'));
       onSaved();
     } catch (e) {
-      setMMsg(`Lỗi: ${e.message}`);
+      setMMsg(tr('Lỗi: {0}', [e.message]));
     }
   };
   const phases = PHASE_ORDER.filter(p => f.phases[p]);
   const maxPhase = Math.max(...phases.map(p => f.phases[p].vnd), 1);
   const hasCustomFeatModel = !!(provInfo && (provInfo.feature_models || {})[f.key]);
+  const panelId = `ct-feat-${f.key.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
 
   return (
-    <>
-      <tr className="ct-feat">
-        <td>
-          <button className="linklike ct-expand" aria-expanded={open} onClick={() => setOpen(o => !o)}>
-            {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />} {f.title || f.key}
-          </button>
-          <div className="faint" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-            <span>Lane {f.lane}{f.runId ? ` · ${f.runId}` : ''}</span>
-            {f.sharePct != null && <Badge tone="neutral">{f.sharePct}% tháng</Badge>}
-            {hasCustomFeatModel && <Badge tone="accent">Model riêng</Badge>}
-          </div>
-        </td>
-        <td className="num">{fmtTokens(sumTokens(f.tokens))}</td>
-        <td className="num">{fmtUsd(f.usd)}</td>
-        <td className="num"><b>{fmtVnd(f.vnd)}</b><div className="faint">≈ {f.aiHours.toFixed(1)} giờ công dev</div></td>
-        <td className="num">{fmtVnd(f.humanVnd)}</td>
-        <td><Badge tone={tone}>{f.ratio == null ? '—' : `${Math.round(f.ratio * 100)}%`}</Badge></td>
-      </tr>
+    <li className={`ct-item${open ? ' open' : ''}`}>
+      <button type="button" className="ct-row ct-row-feat" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(o => !o)}>
+        <span className="ct-cell-main">
+          <span className="ct-title">{f.title || f.key}</span>
+          <span className="ct-meta">
+            <span>Lane {f.lane}</span>
+            {f.sharePct != null && <span>{tr('{0}% chi phí tháng', [f.sharePct])}</span>}
+            {hasCustomFeatModel && <Badge tone="accent">{tr('Model riêng')}</Badge>}
+          </span>
+          <RankBar value={f.vnd} max={maxVnd} />
+        </span>
+        <span className="ct-cell-num">
+          <span className="ct-num-strong">{fmtVnd(f.vnd)}</span>
+          <span className="ct-num-sub">{fmtUsd(f.usd)} · {fmtTokens(sumTokens(f.tokens))} token</span>
+        </span>
+        <span className="ct-cell-num ct-cell-ratio">
+          <span className={`ct-num-strong tone-${tone}`}>{f.ratio == null ? '—' : `${Math.round(f.ratio * 100)}%`}</span>
+          <span className="ct-num-sub">{tr('so với {0}', [fmtVnd(f.humanVnd)])}</span>
+        </span>
+        <ChevronDown size={16} className="ct-chev" aria-hidden="true" />
+      </button>
       {open && (
-        <tr className="ct-detail"><td colSpan={6}>
-          <table className="grid ct-sub">
-            <thead><tr><th>Bước</th><th>Bước con · effort</th><th className="num">Token</th><th className="num">Quy đổi API</th><th className="num">Chi phí AI</th><th /></tr></thead>
-            <tbody>
+        <div className="ct-panel" id={panelId}>
+          <section className="ct-sec" aria-label={tr('Chi phí theo bước')}>
+            <h3 className="ct-sec-title">{tr('Chi phí theo bước')}{f.runId && <span className="ct-run mono">{f.runId}</span>}</h3>
+            <ul className="ct-phases">
               {phases.map(p => (
-                <tr key={p}>
-                  <td>{PHASE_LABEL[p]}</td>
-                  <td className="ct-steps">{Object.entries(f.phases[p].steps).map(([s, v]) => (
-                    <span key={s}>{s}{v.efforts.length ? ` · ${v.efforts.map(e => EFFORT_LABEL[e] || e).join('/')}` : ''}: {fmtVnd(v.vnd)}</span>
-                  ))}</td>
-                  <td className="num">{fmtTokens(sumTokens(f.phases[p].tokens))}</td>
-                  <td className="num">{fmtUsd(f.phases[p].usd)}</td>
-                  <td className="num">{fmtVnd(f.phases[p].vnd)}</td>
-                  <td className="ct-meter-cell"><Meter value={f.phases[p].vnd} max={maxPhase} /></td>
-                </tr>
+                <li key={p} className="ct-phase">
+                  <span className="ct-phase-name">{PHASE_LABEL[p]}</span>
+                  <RankBar value={f.phases[p].vnd} max={maxPhase} />
+                  <span className="ct-phase-num">{fmtVnd(f.phases[p].vnd)}</span>
+                  <span className="ct-phase-sub">{fmtUsd(f.phases[p].usd)} · {fmtTokens(sumTokens(f.phases[p].tokens))}</span>
+                  <span className="ct-steps">{Object.entries(f.phases[p].steps).map(([st, v]) => (
+                    <span key={st} className="ct-step">{st}{v.efforts.length ? ` · ${v.efforts.map(e => EFFORT_LABEL[e] || e).join('/')}` : ''} <b>{fmtVnd(v.vnd)}</b></span>
+                  ))}</span>
+                </li>
               ))}
-            </tbody>
-          </table>
-          <div className="ct-hours">
-            <strong>Giờ người làm ước tính cho tính năng này</strong>
+            </ul>
+            <p className="ct-note">{tr('≈ {0} giờ công lập trình viên quy đổi.', [f.aiHours.toFixed(1)])}</p>
+          </section>
+
+          <section className="ct-sec" aria-label={tr('Giờ người làm ước tính')}>
+            <h3 className="ct-sec-title">{tr('Nếu người làm')}{' '}<span className="ct-sec-aside">{fmtVnd(f.humanVnd)}</span></h3>
             <div className="ct-hours-grid">
               {HUMAN_PHASES.map(p => (
-                <label key={p}>{PHASE_LABEL[p]}
-                  <input type="number" min="0" step="0.5" value={hours[p] ?? ''} placeholder={String(settings.hours[p] ?? 0)}
-                    onChange={e => setHours(h => ({ ...h, [p]: e.target.value }))} />
+                <label key={p} className="ct-field">{PHASE_LABEL[p]}
+                  <span className="ct-input-unit">
+                    <input type="number" min="0" step="0.5" value={hours[p] ?? ''} placeholder={String(settings.hours[p] ?? 0)}
+                      onChange={e => setHours(h => ({ ...h, [p]: e.target.value }))} />
+                    <span>{tr('giờ')}</span>
+                  </span>
                 </label>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Button size="sm" icon={Save} onClick={save}>Lưu giờ ước tính</Button>
+            <div className="ct-actions">
+              <Button size="sm" icon={Save} onClick={save}>{tr('Lưu giờ ước tính')}</Button>
               {provInfo && (
-                <Button size="sm" variant="secondary" icon={Cpu} onClick={() => setEditModels(v => !v)}>
-                  {editModels ? 'Ẩn cấu hình model tính năng' : 'Cấu hình Model cho tính năng này'}
+                <Button size="sm" variant="ghost" icon={Cpu} onClick={() => setEditModels(v => !v)} aria-expanded={editModels}>
+                  {editModels ? tr('Ẩn model của tính năng') : tr('Đổi model cho tính năng này')}
                 </Button>
               )}
-              {msg && <span className="faint"> {msg}</span>}
+              {msg && <span className="ct-msg" role="status">{msg}</span>}
             </div>
-          </div>
+          </section>
+
           {editModels && provInfo && fModels && (
-            <div style={{ marginTop: 12, padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--panel)' }}>
-              <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>
-                Model AI riêng cho tính năng: {f.title || f.key} (Lane {f.lane})
-              </div>
+            <section className="ct-sec" aria-label={tr('Model AI của tính năng')}>
+              <h3 className="ct-sec-title">{tr('Model AI riêng cho tính năng này')}</h3>
               <StepModels info={provInfo} value={fModels} onChange={setFModels} />
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
-                <Button size="sm" variant="primary" icon={Save} onClick={saveModels}>Lưu model tính năng</Button>
-                {mMsg && <span className="faint">{mMsg}</span>}
+              <div className="ct-actions">
+                <Button size="sm" variant="primary" icon={Save} onClick={saveModels}>{tr('Lưu model tính năng')}</Button>
+                {mMsg && <span className="ct-msg" role="status">{mMsg}</span>}
               </div>
-            </div>
+            </section>
           )}
-        </td></tr>
+        </div>
       )}
-    </>
+    </li>
   );
 }
 
-export function LaneConfigRow({ laneObj, provInfo, onSaved }) {
+/** A quota bar with its reading: "36,6% · $3,66 / $100". */
+export const Quota = ({ pct, used, limit }) => {
+  const tone = pctTone(pct || 0);
+  return (
+    <span className="ct-quota">
+      <span className="ct-quota-read"><b className={`tone-${tone}`}>{pct ?? 0}%</b><span>{used} / {limit}</span></span>
+      <Meter value={Math.min(100, pct || 0)} max={100} tone={tone} />
+    </span>
+  );
+};
+
+export function LaneItem({ laneObj, provInfo, onSaved }) {
   const [open, setOpen] = useState(false);
   const [laneDef, setLaneDef] = useState(null);
   const [lim, setLim] = useState({ usd: laneObj.limitUsd ?? 100, tokens: laneObj.limitTokens ?? 10000000 });
@@ -198,93 +222,114 @@ export function LaneConfigRow({ laneObj, provInfo, onSaved }) {
     try {
       await saveLaneLimit(n, { usd: Number(lim.usd), tokens: Number(lim.tokens) });
       if (laneDef) await saveLaneModelDefaults(n, laneDef);
-      setMsg(`Đã lưu cấu hình & hạn mức cho Lane ${n}`);
+      setMsg(tr('Đã lưu model và hạn mức Lane {0}.', [n]));
       onSaved();
     } catch (e) {
-      setMsg(`Lỗi: ${e.message}`);
+      setMsg(tr('Lỗi: {0}', [e.message]));
     }
   };
 
   const resetLane = async () => {
     try {
       await saveLaneModelDefaults(n, { reset: true });
-      setMsg(`Đã đặt lại model Lane ${n} về mặc định chung`);
+      setMsg(tr('Lane {0} đã dùng lại model mặc định chung.', [n]));
       onSaved();
     } catch (e) {
-      setMsg(`Lỗi: ${e.message}`);
+      setMsg(tr('Lỗi: {0}', [e.message]));
     }
   };
 
   const mainModel = ((provInfo?.lane_defaults || {})[String(n)] || provInfo?.defaults || {}).main || 'claude:claude-opus-5-5';
-  const qTone = pctTone(laneObj.quotaPct || 0);
+  const idle = !sumTokens(laneObj.tokens);
+  const panelId = `ct-lane-${n}`;
 
   return (
-    <>
-      <tr>
-        <td>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <strong>Lane {n}</strong>
-            {laneObj.progress != null && <Badge tone="ok">Tiến độ {laneObj.progress}%</Badge>}
-          </div>
-          {laneObj.feature_title && <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>{laneObj.feature_title}</div>}
-          <div className="faint" style={{ marginTop: 2 }}>
-            <Badge tone={hasCustom ? 'accent' : 'neutral'}>
-              {hasCustom ? 'Model riêng' : 'Mặc định chung'}
-            </Badge>
-            {' '}<span className="mono" style={{ fontSize: 11.5 }}>{mainModel.replace(/^claude:/, '')}</span>
-          </div>
-        </td>
-        <td className="num">{fmtTokens(sumTokens(laneObj.tokens))}</td>
-        <td className="num">{fmtUsd(laneObj.usd)}</td>
-        <td className="num">{fmtVnd(laneObj.vnd)}</td>
-        <td><Badge tone="neutral">{laneObj.sharePct ?? 0}%</Badge></td>
-        <td style={{ minWidth: 180 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 3 }}>
-            <Badge tone={qTone}>{laneObj.quotaPct ?? 0}% hạn mức</Badge>
-            <span className="faint" style={{ fontSize: 11 }}>{fmtUsd(laneObj.usd)} / {fmtUsd(laneObj.limitUsd ?? 100)}</span>
-          </div>
-          <Meter value={laneObj.quotaPct || 0} max={100} tone={qTone} />
-        </td>
-        <td style={{ textAlign: 'right' }}>
-          <Button size="sm" variant="secondary" icon={Cpu} onClick={() => setOpen(o => !o)}>
-            {open ? 'Đóng' : 'Chỉnh Model & Hạn mức'}
-          </Button>
-        </td>
-      </tr>
+    <li className={`ct-item${open ? ' open' : ''}${idle ? ' idle' : ''}`}>
+      <button type="button" className="ct-row ct-row-lane" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(o => !o)}>
+        <span className="ct-cell-main">
+          <span className="ct-title">Lane {n}{laneObj.progress != null && <span className="ct-progress">{tr('tiến độ {0}%', [laneObj.progress])}</span>}</span>
+          <span className="ct-meta">
+            {laneObj.feature_title ? <span className="ct-ellipsis">{laneObj.feature_title}</span> : <span>{tr('Chưa có việc trong tháng')}</span>}
+          </span>
+          <span className="ct-meta">
+            <span className="mono">{mainModel.replace(/^claude:/, '')}</span>
+            <span>{hasCustom ? tr('model riêng') : tr('mặc định chung')}</span>
+          </span>
+        </span>
+        <span className="ct-cell-num">
+          <span className="ct-num-strong">{fmtVnd(laneObj.vnd)}</span>
+          <span className="ct-num-sub">{tr('{0} token · {1}% tháng', [fmtTokens(sumTokens(laneObj.tokens)), laneObj.sharePct ?? 0])}</span>
+        </span>
+        <span className="ct-cell-quota">
+          <Quota pct={laneObj.quotaPct} used={fmtUsd(laneObj.usd)} limit={fmtUsd(laneObj.limitUsd ?? 100)} />
+        </span>
+        <ChevronDown size={16} className="ct-chev" aria-hidden="true" />
+      </button>
       {open && (
-        <tr className="ct-detail">
-          <td colSpan={7}>
-            <div style={{ display: 'grid', gap: 12, padding: 8 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-                <label className="ct-field">
-                  Hạn mức ngân sách Lane {n} (USD)
-                  <input type="number" min="0" value={lim.usd} onChange={e => setLim({ ...lim, usd: e.target.value })} />
-                </label>
-                <label className="ct-field">
-                  Hạn mức Token tháng Lane {n}
-                  <input type="number" min="0" step="100000" value={lim.tokens} onChange={e => setLim({ ...lim, tokens: e.target.value })} />
-                </label>
-              </div>
-              {provInfo && laneDef && (
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>
-                    Cấu hình Model AI riêng cho từng bước trên Lane {n}
-                  </div>
-                  <StepModels info={provInfo} value={laneDef} onChange={setLaneDef} />
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Button size="sm" variant="primary" icon={Save} onClick={saveAll}>Lưu cấu hình & hạn mức Lane {n}</Button>
-                {hasCustom && (
-                  <Button size="sm" variant="ghost" icon={RotateCcw} onClick={resetLane}>Đặt lại theo mặc định chung</Button>
-                )}
-                {msg && <span className="faint">{msg}</span>}
-              </div>
+        <div className="ct-panel" id={panelId}>
+          <section className="ct-sec" aria-label={tr('Hạn mức Lane {0}', [n])}>
+            <h3 className="ct-sec-title">{tr('Hạn mức tháng')}</h3>
+            <div className="ct-hours-grid">
+              <label className="ct-field">{tr('Ngân sách')}<span className="ct-input-unit"><input type="number" min="0" value={lim.usd} onChange={e => setLim({ ...lim, usd: e.target.value })} /><span>USD</span></span>
+              </label>
+              <label className="ct-field">Token
+                <span className="ct-input-unit"><input type="number" min="0" step="100000" value={lim.tokens} onChange={e => setLim({ ...lim, tokens: e.target.value })} /><span>token</span></span>
+              </label>
             </div>
-          </td>
-        </tr>
+          </section>
+          {provInfo && laneDef && (
+            <section className="ct-sec" aria-label={`Model AI Lane ${n}`}>
+              <h3 className="ct-sec-title">{tr('Model AI cho từng bước')}</h3>
+              <StepModels info={provInfo} value={laneDef} onChange={setLaneDef} />
+            </section>
+          )}
+          <div className="ct-actions">
+            <Button size="sm" variant="primary" icon={Save} onClick={saveAll}>{tr('Lưu Lane {0}', [n])}</Button>
+            {hasCustom && (
+              <Button size="sm" variant="ghost" icon={RotateCcw} onClick={resetLane}>{tr('Dùng lại mặc định chung')}</Button>
+            )}
+            {msg && <span className="ct-msg" role="status">{msg}</span>}
+          </div>
+        </div>
       )}
-    </>
+    </li>
+  );
+}
+
+export function ModelItem({ m, limit, onLimit }) {
+  return (
+    <li className="ct-item">
+      <div className="ct-row ct-row-model">
+        <span className="ct-cell-main">
+          <span className="ct-title mono">{m.model}</span>
+          <span className="ct-meta ct-tokens">
+            <span>{tr('vào')}{' '}<b>{fmtTokens(m.tokens.in)}</b></span>
+            <span>ra <b>{fmtTokens(m.tokens.out)}</b></span>
+            <span>{tr('đọc cache')}{' '}<b>{fmtTokens(m.tokens.cacheRead)}</b></span>
+            <span>ghi cache <b>{fmtTokens(m.tokens.cacheWrite)}</b></span>
+          </span>
+        </span>
+        <span className="ct-cell-num">
+          <span className="ct-num-strong">{fmtUsd(m.usd)}</span>
+          <span className="ct-num-sub">{tr('{0}% tháng', [m.sharePct ?? 0])}</span>
+        </span>
+        <span className="ct-cell-quota">
+          <Quota pct={m.quotaPct} used={`${m.usdPct ?? 0}% $`} limit={`${m.tokenPct ?? 0}% token`} />
+        </span>
+        <span className="ct-cell-limits">
+          <label className="ct-input-unit" title={tr('Hạn mức USD mỗi tháng')}>
+            <input type="number" min="0" placeholder={String(m.limitUsd)} aria-label={tr('Hạn mức USD cho {0}', [m.model])}
+              value={limit.usd ?? ''} onChange={e => onLimit({ ...limit, usd: e.target.value })} />
+            <span>USD</span>
+          </label>
+          <label className="ct-input-unit" title={tr('Hạn mức token mỗi tháng')}>
+            <input type="number" min="0" step="100000" placeholder={fmtTokens(m.limitTokens)} aria-label={tr('Hạn mức token cho {0}', [m.model])}
+              value={limit.tokens ?? ''} onChange={e => onLimit({ ...limit, tokens: e.target.value })} />
+            <span>token</span>
+          </label>
+        </span>
+      </div>
+    </li>
   );
 }
 
@@ -292,35 +337,47 @@ export function CostSettingsForm({ settings, onSaved }) {
   const [s, setS] = useState(settings);
   const [msg, setMsg] = useState({ err: '', ok: '' });
   useEffect(() => setS(settings), [settings]);
+  const dirty = JSON.stringify(s) !== JSON.stringify(settings);
   const save = async e => {
     e.preventDefault();
-    try { await saveCostSettings(s); setMsg({ err: '', ok: 'Đã lưu cài đặt.' }); onSaved(); } catch (e2) { setMsg({ err: e2.message, ok: '' }); }
+    try { await saveCostSettings(s); setMsg({ err: '', ok: tr('Đã lưu cài đặt.') }); onSaved(); } catch (e2) { setMsg({ err: e2.message, ok: '' }); }
   };
-  const field = (label, value, onChange, hint) => (
-    <label className="ct-field">{label}<input type="number" min="0" value={value ?? ''} onChange={e => onChange(e.target.value)} />{hint && <span className="faint">{hint}</span>}</label>
+  const field = (label, value, onChange, unit, hint) => (
+    <label className="ct-field">{label}
+      <span className="ct-input-unit"><input type="number" min="0" value={value ?? ''} onChange={e => onChange(e.target.value)} />{unit && <span>{unit}</span>}</span>
+      {hint && <span className="ct-hint">{hint}</span>}
+    </label>
+  );
+  const group = (title, desc, children) => (
+    <section className="ct-set">
+      <div className="ct-set-head"><h3>{title}</h3><p>{desc}</p></div>
+      <div className="ct-set-fields">{children}</div>
+    </section>
   );
   return (
     <form className="ct-settings" onSubmit={save}>
-      <fieldset><legend>Gói Claude & Tỷ giá</legend>
-        {field('Phí gói mỗi tháng (VND)', s.planFeeVnd, v => setS({ ...s, planFeeVnd: v }), 'Chia cho từng tính năng theo tỷ lệ token. Để 0 = tính theo giá API.')}
-        {field('Tỷ giá USD → VND', s.usdToVnd, v => setS({ ...s, usdToVnd: v }))}
-      </fieldset>
-      <fieldset><legend>Hạn mức sử dụng (để hiển thị % đã dùng ngay trên màn Chi phí)</legend>
-        {field('Hạn mức ngân sách tháng (USD)', s.monthlyBudgetUsd ?? 100, v => setS({ ...s, monthlyBudgetUsd: v }), 'Dùng để tính % ngân sách tháng & % hạn mức từng model')}
-        {field('Hạn mức Token mỗi tháng', s.monthlyTokenLimit ?? 10000000, v => setS({ ...s, monthlyTokenLimit: v }), 'Dùng để tính % token đã dùng')}
-        {field('Hạn mức cửa sổ 5 giờ (USD)', s.fiveHourUsdLimit ?? 15, v => setS({ ...s, fiveHourUsdLimit: v }), 'Ước tính % hạn mức 5 giờ')}
-        {field('Hạn mức cửa sổ 7 ngày (USD)', s.sevenDayUsdLimit ?? 60, v => setS({ ...s, sevenDayUsdLimit: v }), 'Ước tính % hạn mức 7 ngày')}
-      </fieldset>
-      <fieldset><legend>Lương mỗi giờ (VND)</legend>
-        {Object.keys(s.rates).map(r => <React.Fragment key={r}>{field(ROLE_LABEL[r] || r, s.rates[r], v => setS({ ...s, rates: { ...s.rates, [r]: v } }))}</React.Fragment>)}
-      </fieldset>
-      <fieldset><legend>Giờ người làm mặc định cho 1 tính năng</legend>
-        {HUMAN_PHASES.map(p => <React.Fragment key={p}>{field(PHASE_LABEL[p], s.hours[p], v => setS({ ...s, hours: { ...s.hours, [p]: v } }))}</React.Fragment>)}
-      </fieldset>
-      {msg.err && <p className="m-err" role="alert">{msg.err}</p>}
-      {msg.ok && <p className="rv-sub" role="status">{msg.ok}</p>}
-      <Button type="submit" variant="primary" icon={Save}>Lưu cài đặt</Button>
-      <p className="rv-sub">Các con số mặc định chỉ là ví dụ — hãy sửa theo lương và hạn mức gói thật của bạn.</p>
+      {group(tr('Gói Claude & tỷ giá'), tr('Phí gói được chia cho từng tính năng theo tỷ lệ token. Để 0 thì tính theo giá API niêm yết.'), <>
+        {field(tr('Phí gói mỗi tháng'), s.planFeeVnd, v => setS({ ...s, planFeeVnd: v }), 'VND')}
+        {field(tr('Tỷ giá USD → VND'), s.usdToVnd, v => setS({ ...s, usdToVnd: v }), 'VND')}
+      </>)}
+      {group(tr('Hạn mức sử dụng'), tr('Dùng để tính % đã dùng trên màn Chi phí: tháng, từng model, cửa sổ 5 giờ và 7 ngày.'), <>
+        {field(tr('Ngân sách tháng'), s.monthlyBudgetUsd ?? 100, v => setS({ ...s, monthlyBudgetUsd: v }), 'USD')}
+        {field(tr('Token mỗi tháng'), s.monthlyTokenLimit ?? 10000000, v => setS({ ...s, monthlyTokenLimit: v }), 'token')}
+        {field(tr('Cửa sổ 5 giờ'), s.fiveHourUsdLimit ?? 15, v => setS({ ...s, fiveHourUsdLimit: v }), 'USD')}
+        {field(tr('Cửa sổ 7 ngày'), s.sevenDayUsdLimit ?? 60, v => setS({ ...s, sevenDayUsdLimit: v }), 'USD')}
+      </>)}
+      {group(tr('Lương mỗi giờ'), tr('Giá một giờ của từng vai trò, để so chi phí AI với chi phí người làm.'), <>
+        {Object.keys(s.rates).map(r => <React.Fragment key={r}>{field(ROLE_LABEL[r] || r, s.rates[r], v => setS({ ...s, rates: { ...s.rates, [r]: v } }), 'VND')}</React.Fragment>)}
+      </>)}
+      {group(tr('Giờ người làm cho 1 tính năng'), tr('Mặc định cho mọi tính năng; sửa riêng từng tính năng ở tab Tính năng.'), <>
+        {HUMAN_PHASES.map(p => <React.Fragment key={p}>{field(PHASE_LABEL[p], s.hours[p], v => setS({ ...s, hours: { ...s.hours, [p]: v } }), tr('giờ'))}</React.Fragment>)}
+      </>)}
+      <div className="ct-save-bar">
+        <Button type="submit" variant="primary" icon={Save} disabled={!dirty}>{tr('Lưu cài đặt')}</Button>
+        {msg.err && <span className="m-err" role="alert">{msg.err}</span>}
+        {!msg.err && (dirty ? <span className="ct-msg">{tr('Có thay đổi chưa lưu')}</span> : msg.ok && <span className="ct-msg" role="status">{msg.ok}</span>)}
+        <span className="ct-hint ct-save-note">{tr('Số mặc định chỉ là ví dụ: hãy sửa theo lương và gói thật của bạn.')}</span>
+      </div>
     </form>
   );
 }

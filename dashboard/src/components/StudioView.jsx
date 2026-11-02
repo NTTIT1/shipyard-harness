@@ -1,28 +1,32 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Plus, MessageSquare, Loader2, Trash2, Check, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight } from 'lucide-react';
+import { Plus, MessageSquare, Loader2, Trash2, Check, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, ArrowLeft } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import ErrorBoundary from './ui/ErrorBoundary.jsx';
 import Chat from './studio/Chat.jsx';
 import DocPanel from './studio/DocPanel.jsx';
 import NewIdea from './studio/NewIdea.jsx';
-import { studio, isLive, projectIdOf } from '../lib/studio.js';
+import { studio, isLive, projectIdOf, isDraft } from '../lib/studio.js';
 import '../styles/wizard.css';
 import '../styles/studio.css';
+import { tr } from '../lib/i18n.js';
 
-export default function StudioView({ onOpenProject, onProjectCreated }) {
+// The creation chat opened from "Tạo dự án"; the list keeps drafts (chats whose project is not created yet).
+// onBack: opened from the project list — the list lives there, so this screen shows only the chat and a way back.
+export default function StudioView({ onOpenProject, onProjectCreated, onOpenChat, sessionId = null, onSession, onBack }) {
   const [list, setList] = useState([]);
   const [current, setCurrent] = useState(null);
   const [err, setErr] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const refreshList = useCallback(() => studio.list().then(setList, e => setErr(e.message)), []);
+  const refreshList = useCallback(() => studio.list().then(l => setList(l.filter(isDraft)), e => setErr(e.message)), []);
   useEffect(() => { refreshList(); }, [refreshList]);
 
-  const open = useCallback(id => studio.get(id).then(setCurrent, e => setErr(e.message)), []);
+  const open = useCallback(id => studio.get(id).then(s => { setCurrent(s); onSession?.(s.id); }, e => { setErr(e.message); onSession?.(null); }), [onSession]);
+  useEffect(() => { if (sessionId) open(sessionId); }, [sessionId]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const deleteIdea = useCallback(async (id, title, e) => {
     if (e) e.stopPropagation();
-    if (!window.confirm(`Xoá ý tưởng "${title || 'này'}"? Toàn bộ tài liệu nháp và lịch sử trao đổi sẽ bị xoá.`)) return;
+    if (!window.confirm(tr('Xoá ý tưởng "{0}"? Toàn bộ tài liệu nháp và lịch sử trao đổi sẽ bị xoá.', [title || tr('này')]))) return;
     try {
       setErr('');
       await studio.remove(id);
@@ -63,23 +67,21 @@ export default function StudioView({ onOpenProject, onProjectCreated }) {
   };
 
   return (
-    <div className={`st${sidebarOpen ? '' : ' sidebar-collapsed'}`}>
+    <div className={`st${onBack ? ' st-solo' : sidebarOpen ? '' : ' sidebar-collapsed'}`}>
       {/* Collapsible Left Idea List */}
-      <aside className="st-list" aria-label="Danh sách ý tưởng">
+      {!onBack && <aside className="st-list" aria-label={tr('Danh sách ý tưởng')}>
         <div className="st-list-head">
           <Button
             size="sm"
             variant="primary"
             icon={Plus}
-            onClick={() => setCurrent(null)}>
-            Ý tưởng mới
-          </Button>
+            onClick={() => { setCurrent(null); onSession?.(null); }}>{tr('Ý tưởng mới')}</Button>
           <button
             type="button"
             className="st-sidebar-toggle-btn"
             onClick={() => setSidebarOpen(false)}
-            title="Thu gọn danh sách ý tưởng"
-            aria-label="Thu gọn danh sách ý tưởng">
+            title={tr('Thu gọn danh sách ý tưởng')}
+            aria-label={tr('Thu gọn danh sách ý tưởng')}>
             <PanelLeftClose size={14} />
           </button>
         </div>
@@ -88,7 +90,7 @@ export default function StudioView({ onOpenProject, onProjectCreated }) {
 
         <div className="st-list-scroll">
           {(!list || list.length === 0) ? (
-            <div className="st-list-empty">Chưa có ý tưởng nào. Bấm "Ý tưởng mới" để bắt đầu.</div>
+            <div className="st-list-empty">{tr('Chưa có ý tưởng nào. Bấm "Ý tưởng mới" để bắt đầu.')}</div>
           ) : (
             <ul className="st-list-items">
               {list.map(x => (
@@ -104,8 +106,8 @@ export default function StudioView({ onOpenProject, onProjectCreated }) {
                   <button
                     type="button"
                     className="st-item-del-btn"
-                    title={`Xoá ý tưởng "${x.title}"`}
-                    aria-label={`Xoá ý tưởng "${x.title}"`}
+                    title={tr('Xoá ý tưởng "{0}"', [x.title])}
+                    aria-label={tr('Xoá ý tưởng "{0}"', [x.title])}
                     onClick={e => deleteIdea(x.id, x.title, e)}>
                     <Trash2 size={12} />
                   </button>
@@ -114,39 +116,52 @@ export default function StudioView({ onOpenProject, onProjectCreated }) {
             </ul>
           )}
         </div>
-      </aside>
+      </aside>}
 
       {/* Main Studio Work Area */}
       <section className="st-main">
-        {!sidebarOpen && (
+        {onBack && (
+          <button type="button" className="st-open-sidebar-pill" onClick={onBack}>
+            <ArrowLeft size={13} aria-hidden="true" />
+            <span>{tr('Dự án')}</span>
+          </button>
+        )}
+        {!sidebarOpen && !onBack && (
           <button
             type="button"
             className="st-open-sidebar-pill"
             onClick={() => setSidebarOpen(true)}
-            title="Mở danh sách ý tưởng">
+            title={tr('Mở danh sách ý tưởng')}>
             <PanelLeft size={13} />
-            <span>Ý tưởng ({list?.length || 0})</span>
+            <span>{tr('Ý tưởng ({0})', [list?.length || 0])}</span>
           </button>
         )}
 
         {current ? (
-          <ErrorBoundary title="Không thể hiển thị cuộc trò chuyện ý tưởng này">
+          <ErrorBoundary title={tr('Không thể hiển thị cuộc trò chuyện ý tưởng này')}>
             <Session
               s={current}
               act={act}
               onOpenProject={onOpenProject}
-              onDeleted={() => { setCurrent(null); refreshList(); }}
+              onOpenChat={onOpenChat}
+              onDeleted={() => { setCurrent(null); onSession?.(null); refreshList(); onBack?.(); }}
             />
           </ErrorBoundary>
         ) : (
-          <NewIdea onStart={act(text => studio.start(text))} />
+          onBack && sessionId ? (
+            <div className="modern-empty-state" style={{ minHeight: 280 }}>
+              <div className="modern-empty-title">{sessionId ? tr('Đang mở…') : tr('Chưa chọn dự án đang tạo')}</div>
+              <Button variant="secondary" icon={ArrowLeft} onClick={onBack}>{tr('Về danh sách dự án')}</Button>
+            </div>
+          ) : <NewIdea onStart={act(async text => { const s = await studio.start(text); onSession?.(s.id); return s; })} />
         )}
       </section>
     </div>
   );
 }
 
-function Session({ s, act, onOpenProject, onDeleted }) {
+/** One chat (a creation chat or a project's feature thread): the steps, their documents and the chat with the role. */
+export function Session({ s, act, onOpenProject, onOpenChat, onDeleted, readOnly = false }) {
   const [tab, setTab] = useState(s?.stage || 'pm');
   const [chatOpen, setChatOpen] = useState(true);
 
@@ -156,19 +171,20 @@ function Session({ s, act, onOpenProject, onDeleted }) {
 
   const stages = Array.isArray(s?.stages) ? s.stages : [];
   const stageIdx = stages.findIndex(x => x.id === s?.stage);
-  const chatStage = ['pm', 'system', 'ui'].includes(s?.stage) || (s?.stage === 'create' && !s?.project);
-  const currentRole = stages[stageIdx]?.role || 'AI Assistant';
+  const chatStage = !readOnly && (['pm', 'system', 'ui'].includes(s?.stage) || (s?.stage === 'create' && !s?.project));
+  const showChat = chatStage || (readOnly && s?.messages?.length > 0);
+  const currentRole = tr(stages[stageIdx]?.role || 'AI Assistant');
 
   return (
     <div className="st-session">
       {/* Unified Apple-Style Session Header & Interactive Stepper */}
       <header className="st-head">
         <div className="st-head-left">
-          <h1 className="st-title" title={s?.title}>{s?.title || 'Cuộc trò chuyện ý tưởng'}</h1>
+          <h1 className="st-title" title={s?.title}>{s?.title || tr('Cuộc trò chuyện ý tưởng')}</h1>
         </div>
 
         {/* Single unified interactive process stepper */}
-        <nav className="st-stepper" aria-label="Quy trình hiện thực ý tưởng">
+        <nav className="st-stepper" aria-label={tr('Quy trình hiện thực ý tưởng')}>
           {stages.map((x, i) => {
             const isDone = i < stageIdx;
             const isCurrent = x.id === s?.stage;
@@ -182,66 +198,68 @@ function Session({ s, act, onOpenProject, onDeleted }) {
                 disabled={!reachable}
                 className={`st-step-tab${isSelected ? ' is-selected' : ''}${isCurrent ? ' is-current' : ''}${isDone ? ' is-done' : ''}`}
                 onClick={() => reachable && setTab(x.id)}
-                title={reachable ? `Xem tài liệu bước: ${x.label}` : 'Bước chưa tới'}>
+                title={reachable ? tr('Xem tài liệu bước: {0}', [tr(x.label)]) : tr('Bước chưa tới')}>
                 <span className="st-step-badge">
                   {isDone ? <Check size={11} strokeWidth={2.5} aria-hidden="true" /> : i + 1}
                 </span>
-                <span className="st-step-label">{x.label}</span>
-                {isCurrent && <span className="st-step-active-dot" title="Đang thực hiện" />}
+                <span className="st-step-label">{tr(x.label)}</span>
+                {isCurrent && <span className="st-step-active-dot" title={tr('Đang thực hiện')} />}
               </button>
             );
           })}
         </nav>
 
         <div className="st-head-right">
-          {chatStage && (
+          {showChat && (
             <button
               type="button"
               className={`st-chat-toggle-btn${chatOpen ? ' active' : ''}`}
               onClick={() => setChatOpen(!chatOpen)}
-              title={chatOpen ? 'Thu gọn khung chat để mở rộng toàn màn hình giao diện' : 'Mở khung chat trao đổi với AI'}>
+              title={chatOpen ? tr('Thu gọn khung chat để mở rộng toàn màn hình giao diện') : tr('Mở khung chat trao đổi với AI')}>
               {chatOpen ? <PanelRightClose size={13} /> : <PanelRight size={13} />}
-              <span>{chatOpen ? 'Thu gọn Chat' : 'Mở Chat'}</span>
+              <span>{chatOpen ? tr('Thu gọn Chat') : tr('Mở Chat')}</span>
             </button>
           )}
 
-          <button
+          {!readOnly && onDeleted && <button
             type="button"
             className="st-delete-btn"
-            title="Xoá cuộc trò chuyện ý tưởng này"
+            title={tr('Xoá cuộc trò chuyện ý tưởng này')}
             onClick={act(async () => {
               const confirmMsg = s?.project
-                ? `Xoá ý tưởng "${s?.title}" khỏi Studio? (Dự án đã tạo vẫn được giữ nguyên trong hệ thống)`
-                : `Xoá cuộc trò chuyện "${s?.title}"? Mọi tài liệu nháp sẽ bị xoá.`;
+                ? tr('Xoá ý tưởng "{0}" khỏi Studio? (Dự án đã tạo vẫn được giữ nguyên trong hệ thống)', [s?.title])
+                : tr('Xoá cuộc trò chuyện "{0}"? Mọi tài liệu nháp sẽ bị xoá.', [s?.title]);
               if (!window.confirm(confirmMsg)) return null;
               await studio.remove(s.id);
               onDeleted();
               return null;
             })}>
             <Trash2 size={13} />
-            <span>Xoá</span>
-          </button>
+            <span>{tr('Xoá')}</span>
+          </button>}
         </div>
       </header>
 
       {/* Golden Ratio Work Layout: 70% Canvas Workspace + 30% Assistant Inspector */}
-      <div className={`st-body${chatOpen && chatStage ? ' with-chat' : ' full-canvas'}`}>
+      <div className={`st-body${chatOpen && showChat ? ' with-chat' : ' full-canvas'}`}>
         <main className="st-canvas-pane">
-          <ErrorBoundary title="Không thể hiển thị tài liệu bước này">
+          <ErrorBoundary title={tr('Không thể hiển thị tài liệu bước này')}>
             <DocPanel
               s={s}
               tab={tab}
               act={act}
               onOpenProject={onOpenProject}
+              onOpenChat={onOpenChat}
+              readOnly={readOnly}
               chatOpen={chatOpen}
               onToggleChat={() => setChatOpen(true)}
             />
           </ErrorBoundary>
         </main>
 
-        {chatOpen && chatStage && (
-          <aside className="st-aside-pane" aria-label="Khung trò chuyện với AI">
-            <ErrorBoundary title="Không thể hiển thị khung chat">
+        {chatOpen && showChat && (
+          <aside className="st-aside-pane" aria-label={tr('Khung trò chuyện với AI')}>
+            <ErrorBoundary title={tr('Không thể hiển thị khung chat')}>
               <Chat s={s} act={act} enabled={chatStage} role={currentRole} />
             </ErrorBoundary>
           </aside>

@@ -1365,3 +1365,20 @@
   background: none; color: var(--text-muted); cursor: pointer; }
 .st-queued-x:hover { background: var(--panel-hover); color: var(--text); }
 @media (max-width: 640px) { .st-queue > label, .st-queue > .btn { flex: 1 1 100%; } .st-queue .msel { width: 100%; } }
+
+/* Project chat: thread status chips, the feature queue, the read-only note */
+.pc-title { font-weight: 600; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0 }
+.pc-chip { margin-left: auto; flex: none; font-size: 11px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-muted); background: var(--panel) }
+.pc-chip.pc-waiting { color: var(--warn-text); border-color: currentColor }
+.pc-chip.pc-building { color: var(--accent-text); border-color: var(--accent) }
+.pc-chip.pc-done { color: var(--ok-text, var(--accent-text)); background: var(--accent-soft); border-color: transparent }
+.pc-chip.pc-dropped { text-decoration: line-through }
+.pc-queue { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px }
+.pc-queue-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px }
+.pc-queue-list li { display: flex; align-items: center; gap: 4px }
+.pc-queue-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.pc-queue-actions { display: inline-flex; flex: none }
+.pc-readonly { padding: 8px 16px }
+
+/* Opened from the project list: no list column — the chat takes the whole width (a 0px first column would swallow it). */
+.st.st-solo { grid-template-columns: minmax(0, 1fr); gap: 0 }

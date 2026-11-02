@@ -8,20 +8,22 @@ import Build from './Build.jsx';
 import { APPROVE_LABEL, studio } from '../../lib/studio.js';
 import { STEP_LABEL, ROLE_LABEL, defaultApproverRole } from '../../lib/review.js';
 import { configSummary, modelLabel } from '../../lib/workflow.js';
+import { tr } from '../../lib/i18n.js';
 
-export default function DocPanel({ s, tab, act, onOpenProject, chatOpen = true, onToggleChat }) {
+// readOnly: a project member who is not an admin reads the chat but cannot approve or reopen.
+export default function DocPanel({ s, tab, act, onOpenProject, onOpenChat, chatOpen = true, onToggleChat, readOnly = false }) {
   const docs = s?.docs || {};
   return (
     <div className="st-doc">
       {/* Document & Workspace Body */}
       <div className="st-doc-body">
         {tab === 'pm' && (
-          <DocStage s={s} stage="pm" act={act} chatOpen={chatOpen} onToggleChat={onToggleChat} empty="AI PM sẽ viết bản mô tả yêu cầu sản phẩm sau khi trao đổi thông tin qua chat.">
+          <DocStage s={s} stage="pm" act={act} readOnly={readOnly} chatOpen={chatOpen} onToggleChat={onToggleChat} empty={tr('AI PM sẽ viết bản mô tả yêu cầu sản phẩm sau khi trao đổi thông tin qua chat.')}>
             {docs.brief && <Markdown text={docs.brief} />}
           </DocStage>
         )}
         {tab === 'system' && (
-          <DocStage s={s} stage="system" act={act} chatOpen={chatOpen} onToggleChat={onToggleChat} empty="AI kiến trúc sư đang chuẩn bị đề xuất công nghệ và kiến trúc hệ thống.">
+          <DocStage s={s} stage="system" act={act} readOnly={readOnly} chatOpen={chatOpen} onToggleChat={onToggleChat} empty={tr('AI kiến trúc sư đang chuẩn bị đề xuất công nghệ và kiến trúc hệ thống.')}>
             {docs.advice && <AdviceCard advice={docs.advice} />}
             {docs.adviceError && <p className="m-err">{docs.adviceError}</p>}
             {docs.workflow && <WorkflowSummary workflow={docs.workflow} error={docs.workflowError} />}
@@ -29,15 +31,21 @@ export default function DocPanel({ s, tab, act, onOpenProject, chatOpen = true, 
           </DocStage>
         )}
         {tab === 'ui' && (
-          <DocStage s={s} stage="ui" act={act} chatOpen={chatOpen} onToggleChat={onToggleChat} empty={s?.skippedUi ? 'Đã bỏ qua thiết kế giao diện.' : 'AI thiết kế đang vẽ các màn hình mẫu.'}>
+          <DocStage s={s} stage="ui" act={act} readOnly={readOnly} chatOpen={chatOpen} onToggleChat={onToggleChat} empty={s?.skippedUi ? tr('Đã bỏ qua thiết kế giao diện.') : tr('AI thiết kế đang vẽ các màn hình mẫu.')}>
             <UiStageView docs={docs} />
           </DocStage>
         )}
         {/* CreateProject renders its scrolling form and its bottom bar (same layout as DocStage). */}
         {tab === 'create' && <CreateProject s={s} act={act} />}
+        {tab === 'queued' && (
+          <div className="st-doc-content">
+            <p className="st-ok"><Check size={14} aria-hidden="true" />{' '}{tr('Tính năng đã được duyệt, đã ghi vào tài liệu dự án và nằm trong hàng chờ: lane nào của dự án rảnh trước sẽ nhận (bỏ qua PM/BA/Thiết kế vì đã duyệt ở đây).')}</p>
+            {docs.brief && <Markdown text={docs.brief} />}
+          </div>
+        )}
         {tab === 'build' && (
           <div className="st-doc-content st-build-scroll">
-            <Build s={s} act={act} onOpenProject={onOpenProject} />
+            <Build s={s} act={act} onOpenProject={onOpenProject} onOpenChat={onOpenChat} />
           </div>
         )}
       </div>
@@ -57,20 +65,20 @@ function UiStageView({ docs }) {
     <div className="st-ui-stage">
       {hasMockups && hasDesign && (
         <div className="st-ui-mode-bar">
-          <div className="st-ui-segmented" role="tablist" aria-label="Chế độ xem giao diện">
+          <div className="st-ui-segmented" role="tablist" aria-label={tr('Chế độ xem giao diện')}>
             <button
               type="button"
               className={`st-ui-seg-btn${viewMode === 'mockups' ? ' active' : ''}`}
               onClick={() => setViewMode('mockups')}>
               <Monitor size={13} aria-hidden="true" />
-              <span>Màn hình mẫu ({docs.mockups.length})</span>
+              <span>{tr('Màn hình mẫu ({0})', [docs.mockups.length])}</span>
             </button>
             <button
               type="button"
               className={`st-ui-seg-btn${viewMode === 'spec' ? ' active' : ''}`}
               onClick={() => setViewMode('spec')}>
               <FileText size={13} aria-hidden="true" />
-              <span>Đặc tả thiết kế (design.md)</span>
+              <span>{tr('Đặc tả thiết kế (design.md)')}</span>
             </button>
           </div>
         </div>
@@ -87,12 +95,12 @@ function UiStageView({ docs }) {
   );
 }
 
-function DocStage({ s, stage, act, empty, children, chatOpen = true, onToggleChat }) {
+function DocStage({ s, stage, act, empty, children, chatOpen = true, onToggleChat, readOnly = false }) {
   const docs = s?.docs || {};
   const has = stage === 'pm'
     ? !!docs.brief
     : stage === 'system'
-      ? !!(docs.advice && docs.architecture)
+      ? !!((docs.advice || s?.kind === 'feature') && docs.architecture)
       : !!(docs.design || (Array.isArray(docs.mockups) && docs.mockups.length > 0));
   const content = React.Children.toArray(children).filter(Boolean);
   const isCurrent = s?.stage === stage;
@@ -104,9 +112,7 @@ function DocStage({ s, stage, act, empty, children, chatOpen = true, onToggleCha
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '12px', padding: '12px 0' }}>
             <p className="muted-empty" style={{ margin: 0 }}>{empty}</p>
             {!chatOpen && onToggleChat && (
-              <Button size="sm" variant="secondary" onClick={onToggleChat}>
-                Mở khung Chat với AI
-              </Button>
+              <Button size="sm" variant="secondary" onClick={onToggleChat}>{tr('Mở khung Chat với AI')}</Button>
             )}
           </div>
         )}
@@ -114,44 +120,40 @@ function DocStage({ s, stage, act, empty, children, chatOpen = true, onToggleCha
 
       {/* Unified Apple-Style Sticky Approval Footer */}
       <div className="st-approve-bar">
-        {isCurrent && (
+        {isCurrent && !readOnly && (
           <div className="st-approve-actions">
             <Button
               variant="primary"
               icon={Check}
               disabled={!has || s?.busy}
               onClick={act(() => studio.approve(s.id, stage))}>
-              {APPROVE_LABEL[stage] || 'Duyệt bước này'}
+              {APPROVE_LABEL[stage] || tr('Duyệt bước này')}
             </Button>
             {stage === 'ui' && (
               <Button
                 variant="secondary"
                 icon={SkipForward}
                 disabled={s?.busy}
-                onClick={act(() => studio.skipUi(s.id))}>
-                Bỏ qua giao diện
-              </Button>
+                onClick={act(() => studio.skipUi(s.id))}>{tr('Bỏ qua giao diện')}</Button>
             )}
             <span className="st-approve-hint">
-              {has ? 'Muốn chỉnh sửa gì, bạn có thể nhắn trong khung chat bên phải.' : 'Đang chờ AI chuẩn bị bản nháp…'}
+              {has ? tr('Muốn chỉnh sửa gì, bạn có thể nhắn trong khung chat bên phải.') : tr('Đang chờ AI chuẩn bị bản nháp…')}
             </span>
           </div>
         )}
 
-        {!isCurrent && s?.approved?.[stage] && !s?.project && (
+        {!isCurrent && s?.approved?.[stage] && !s?.project && !readOnly && s?.stage !== 'queued' && (
           <div className="st-approve-approved">
-            <span className="st-ok"><Check size={14} aria-hidden="true" /> Đã duyệt bản {stage.toUpperCase()}</span>
+            <span className="st-ok"><Check size={14} aria-hidden="true" />{' '}{tr('Đã duyệt bản {0}', [stage.toUpperCase()])}</span>
             <Button
               size="sm"
               variant="ghost"
               icon={RotateCcw}
               disabled={s?.busy}
               onClick={act(() => {
-                if (!window.confirm('Mở lại bước này? Các bước sau sẽ cần được duyệt lại.')) return null;
+                if (!window.confirm(tr('Mở lại bước này? Các bước sau sẽ cần được duyệt lại.'))) return null;
                 return studio.reopen(s.id, stage);
-              })}>
-              Sửa lại bước này
-            </Button>
+              })}>{tr('Sửa lại bước này')}</Button>
           </div>
         )}
       </div>
@@ -164,8 +166,8 @@ function WorkflowSummary({ workflow = [], error }) {
   const list = Array.isArray(workflow) ? workflow : [];
   const running = list.filter(w => w?.mode !== 'SKIP');
   return (
-    <section className="st-wf-sum" aria-label="Quy trình làm tính năng đề xuất">
-      <h3>Quy trình làm tính năng</h3>
+    <section className="st-wf-sum" aria-label={tr('Quy trình làm tính năng đề xuất')}>
+      <h3>{tr('Quy trình làm tính năng')}</h3>
       <ol>
         {running.map(w => {
           const sum = configSummary(w?.config);
@@ -173,13 +175,13 @@ function WorkflowSummary({ workflow = [], error }) {
           return (
             <li key={w?.step}>
               <b>{STEP_LABEL[w?.step] || w?.step}</b>
-              <span>{modelLabel(w?.config)} · {w?.mode === 'AUTO' ? 'tự qua khi xanh' : `${ROLE_LABEL[role] || role} duyệt`}{sum ? ` · ${sum}` : ''}</span>
+              <span>{modelLabel(w?.config)} · {w?.mode === 'AUTO' ? tr('tự qua khi xanh') : tr('{0} duyệt', [ROLE_LABEL[role] || role])}{sum ? ` · ${sum}` : ''}</span>
             </li>
           );
         })}
       </ol>
       {error && <p className="m-err">{error}</p>}
-      <p className="faint">Nhắn AI để đổi (model, giới hạn phút, ai duyệt, bỏ bước…); bước Tạo dự án cho sửa từng ô.</p>
+      <p className="faint">{tr('Nhắn AI để đổi (model, giới hạn phút, ai duyệt, bỏ bước…); bước Tạo dự án cho sửa từng ô.')}</p>
     </section>
   );
 }

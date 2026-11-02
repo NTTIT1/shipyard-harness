@@ -3,16 +3,18 @@ import { Search, EyeOff, Eye, Brain, AlertCircle, ChevronRight } from 'lucide-re
 import Badge from './ui/Badge.jsx';
 import IconButton from './ui/IconButton.jsx';
 import { platform } from '../lib/platform.js';
-import { memoryFeature, memoryLabel, memoryPreview } from '../lib/memory.js';
+import { memoryLabel, memoryPreview, memoryGroups } from '../lib/memory.js';
+import Markdown from './Markdown.jsx';
 import { fmtWhen } from '../lib/format.js';
+import { tr } from '../lib/i18n.js';
 
 const KINDS = ['ARTIFACT', 'DECISION', 'FEEDBACK', 'HUMAN_EDIT', 'FEATURE_SUMMARY'];
 const KIND_LABEL = {
-  ARTIFACT: 'Tài liệu đã duyệt',
-  DECISION: 'Quyết định',
-  FEEDBACK: 'Góp ý',
-  HUMAN_EDIT: 'Bản sửa tay',
-  FEATURE_SUMMARY: 'Tóm tắt tính năng',
+  ARTIFACT: tr('Tài liệu đã duyệt'),
+  DECISION: tr('Quyết định'),
+  FEEDBACK: tr('Góp ý'),
+  HUMAN_EDIT: tr('Bản sửa tay'),
+  FEATURE_SUMMARY: tr('Tóm tắt tính năng'),
 };
 const KIND_TONE = { ARTIFACT: 'ok', FEEDBACK: 'warn', HUMAN_EDIT: 'accent', DECISION: 'info', FEATURE_SUMMARY: 'neutral' };
 
@@ -49,21 +51,8 @@ export default function MemoryPanel({ projectId, canManage }) {
     return c;
   }, [items]);
 
-  // Newest feature first; inside a feature, the order the work happened.
-  const groups = useMemo(() => {
-    const byRun = new Map();
-    for (const it of (items || []).filter(i => !kind || i.kind === kind)) {
-      const key = it.runId || '—';
-      if (!byRun.has(key)) byRun.set(key, { key, name: '', latest: '', items: [] });
-      const g = byRun.get(key);
-      g.items.push(it);
-      g.name ||= memoryFeature(it);
-      if (String(it.createdAt) > g.latest) g.latest = String(it.createdAt);
-    }
-    const out = [...byRun.values()];
-    for (const g of out) g.items.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
-    return out.sort((a, b) => b.latest.localeCompare(a.latest));
-  }, [items, kind]);
+  // What the project chat approved at creation first; then newest feature first.
+  const groups = useMemo(() => memoryGroups(items, kind), [items, kind]);
 
   const total = items?.length || 0;
 
@@ -72,11 +61,10 @@ export default function MemoryPanel({ projectId, canManage }) {
       <form className="mem-toolbar" role="search" onSubmit={e => { e.preventDefault(); load(); }}>
         <div className="search-input-wrap mem-search">
           <Search size={15} aria-hidden="true" />
-          <input aria-label="Tìm trong bộ nhớ" placeholder="Tìm trong bộ nhớ dự án (Enter)…" value={q} onChange={e => setQ(e.target.value)} />
+          <input aria-label={tr('Tìm trong bộ nhớ')} placeholder={tr('Tìm trong bộ nhớ dự án (Enter)…')} value={q} onChange={e => setQ(e.target.value)} />
         </div>
-        <div className="mem-kinds" role="group" aria-label="Lọc theo loại">
-          <button type="button" className={`mem-kind${!kind ? ' on' : ''}`} aria-pressed={!kind} onClick={() => setKind('')}>
-            Tất cả <span className="mem-kind-n">{total}</span>
+        <div className="mem-kinds" role="group" aria-label={tr('Lọc theo loại')}>
+          <button type="button" className={`mem-kind${!kind ? ' on' : ''}`} aria-pressed={!kind} onClick={() => setKind('')}>{tr('Tất cả')}{' '}<span className="mem-kind-n">{total}</span>
           </button>
           {KINDS.filter(k => counts[k]).map(k => (
             <button key={k} type="button" className={`mem-kind${kind === k ? ' on' : ''}`} aria-pressed={kind === k} onClick={() => setKind(kind === k ? '' : k)}>
@@ -93,28 +81,30 @@ export default function MemoryPanel({ projectId, canManage }) {
         </div>
       )}
 
-      {items === null && !err && <p className="muted-empty">Đang tải bộ nhớ…</p>}
+      {items === null && !err && <p className="muted-empty">{tr('Đang tải bộ nhớ…')}</p>}
 
       {items && total === 0 && !err && (
         <div className="modern-empty-state">
           <div className="modern-empty-icon"><Brain size={22} aria-hidden="true" /></div>
-          <div className="modern-empty-title">{q ? `Không có mục nào khớp “${q}”` : 'Bộ nhớ dự án còn trống'}</div>
+          <div className="modern-empty-title">{q ? tr('Không có mục nào khớp “{0}”', [q]) : tr('Bộ nhớ dự án còn trống')}</div>
           <div className="modern-empty-desc">
-            {q ? 'Thử từ khoá khác, hoặc xoá ô tìm kiếm rồi bấm Enter.'
-              : 'Mỗi khi một bước được duyệt, tài liệu, quyết định, góp ý và bản sửa tay của người duyệt được lưu ở đây. AI đọc lại chúng khi làm các tính năng sau.'}
+            {q ? tr('Thử từ khoá khác, hoặc xoá ô tìm kiếm rồi bấm Enter.')
+              : tr('Mỗi khi một bước được duyệt, tài liệu, quyết định, góp ý và bản sửa tay của người duyệt được lưu ở đây. AI đọc lại chúng khi làm các tính năng sau.')}
           </div>
         </div>
       )}
 
       {groups.map(g => (
-        <section key={g.key} className="mem-group" aria-label={g.name || 'Khác'}>
+        <section key={g.key} className="mem-group" aria-label={g.name || tr('Khác')}>
           <h3 className="mem-group-title">
-            <span>{g.name || 'Khác'}</span>
+            <span>{g.name || tr('Khác')}</span>
+            {g.pinned && <Badge tone="accent">{tr('Tài liệu gốc của dự án')}</Badge>}
             <span className="mem-group-n">{g.items.length}</span>
           </h3>
           <ul className="mem-rows">
             {g.items.map(it => {
-              const isOpen = open.has(it.id);
+              // The creation documents are open from the start: they are what people come here to read.
+              const isOpen = open.has(it.id) !== (g.pinned && it.kind === 'ARTIFACT');
               return (
                 <li key={it.id} className={`mem-row${it.disabled ? ' off' : ''}${isOpen ? ' open' : ''}`}>
                   <div className="mem-row-head">
@@ -123,14 +113,16 @@ export default function MemoryPanel({ projectId, canManage }) {
                       <Badge tone={KIND_TONE[it.kind] || 'info'}>{KIND_LABEL[it.kind] || it.kind}</Badge>
                       <span className="mem-row-label">{memoryLabel(it)}</span>
                       {!isOpen && <span className="mem-row-preview">{memoryPreview(it.content)}</span>}
-                      <span className="mem-row-when">{it.disabled ? 'AI không dùng' : fmtWhen(it.createdAt)}</span>
+                      <span className="mem-row-when">{it.disabled ? tr('AI không dùng') : fmtWhen(it.createdAt)}</span>
                     </button>
                     {canManage && (
                       <IconButton icon={it.disabled ? Eye : EyeOff}
-                        label={it.disabled ? 'Bật lại cho AI dùng' : 'Tắt: AI không dùng mục này'} onClick={() => toggleDisabled(it)} />
+                        label={it.disabled ? tr('Bật lại cho AI dùng') : tr('Tắt: AI không dùng mục này')} onClick={() => toggleDisabled(it)} />
                     )}
                   </div>
-                  {isOpen && <pre className="mem-text" id={`mem-${it.id}`}>{it.content}</pre>}
+                  {isOpen && (it.kind === 'ARTIFACT' && /\.md$/.test(it.title || '') || it.kind === 'DECISION'
+                    ? <div className="mem-text mem-md" id={`mem-${it.id}`}><Markdown text={it.content || ''} /></div>
+                    : <pre className="mem-text" id={`mem-${it.id}`}>{it.content}</pre>)}
                 </li>
               );
             })}

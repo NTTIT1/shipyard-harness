@@ -4,6 +4,7 @@ import Button from './ui/Button.jsx';
 import { useChat } from '../hooks/useChat.js';
 import StepModels from './StepModels.jsx';
 import { sendChat, answerChat, fetchProviders, saveLaneModels } from '../lib/api.js';
+import { tr } from '../lib/i18n.js';
 
 // Shown when the lane is blocked (typically a step failed on its provider): edit the
 // feature's step models, save, and tell the session to continue.
@@ -27,7 +28,7 @@ function ChangeModels({ lane, onDone }) {
   return (
     <div className="chat-approve" style={{ display: 'block' }}>
       <StepModels info={info} value={value} onChange={setValue} />
-      <Button variant="primary" onClick={save}>Lưu và tiếp tục</Button>
+      <Button variant="primary" onClick={save}>{tr('Lưu và tiếp tục')}</Button>
       {error && <p className="m-err">{error}</p>}
     </div>
   );
@@ -62,11 +63,11 @@ function QuestionForm({ ev, onAnswer }) {
               {' '}{o.label}{o.description ? <span className="qq-d"> — {o.description}</span> : null}
             </label>
           ))}
-          <input className="qq-x" placeholder="Khác…" value={other[q.question] || ''}
+          <input className="qq-x" placeholder={tr('Khác…')} value={other[q.question] || ''}
             onChange={e => setOther(s => ({ ...s, [q.question]: e.target.value }))} />
         </div>
       ))}
-      <Button variant="primary" disabled={!complete} onClick={submit}>Gửi câu trả lời</Button>
+      <Button variant="primary" disabled={!complete} onClick={submit}>{tr('Gửi câu trả lời')}</Button>
     </div>
   );
 }
@@ -75,19 +76,19 @@ function Event({ ev, pendingId, onAnswer }) {
   if (ev.kind === 'assistant') return <div className="ev ev-a">{ev.text}</div>;
   if (ev.kind === 'user') return <div className="ev ev-u">{ev.text}</div>;
   if (ev.kind === 'tool') return <div className="ev ev-t"><Settings size={12} strokeWidth={1.75} aria-hidden="true" /> {ev.name} <span className="ev-s">{ev.summary}</span></div>;
-  if (ev.kind === 'system' || ev.kind === 'ended') return <div className="ev ev-sys">{ev.kind === 'ended' ? 'phiên đã dừng' : ev.text}</div>;
+  if (ev.kind === 'system' || ev.kind === 'ended') return <div className="ev ev-sys">{ev.kind === 'ended' ? tr('phiên đã dừng') : ev.text}</div>;
   if (ev.kind === 'result') return null;
-  if (ev.kind === 'answered') return <div className="ev ev-sys">↳ đã trả lời: {ev.text}</div>;
+  if (ev.kind === 'answered') return <div className="ev ev-sys">{tr('↳ đã trả lời: {0}', [ev.text])}</div>;
   if (ev.kind === 'question') {
     return ev.id === pendingId
-      ? <div className="ev ev-q"><CircleHelp size={14} strokeWidth={1.75} aria-hidden="true" /> Agent hỏi:<QuestionForm ev={ev} onAnswer={onAnswer} /></div>
+      ? <div className="ev ev-q"><CircleHelp size={14} strokeWidth={1.75} aria-hidden="true" />{' '}{tr('Agent hỏi:')}<QuestionForm ev={ev} onAnswer={onAnswer} /></div>
       : <div className="ev ev-sys"><CircleHelp size={12} strokeWidth={1.75} aria-hidden="true" /> {ev.questions.map(q => q.question).join(' · ')}</div>;
   }
   if (ev.kind === 'permission') {
     return ev.id === pendingId
-      ? <div className="ev ev-q"><ShieldQuestion size={14} strokeWidth={1.75} aria-hidden="true" /> Agent xin chạy <b>{ev.tool}</b>: <span className="ev-s">{ev.summary}</span>
-          <div className="ev-btns"><Button variant="primary" size="sm" onClick={() => onAnswer({ allow: true })}>Cho phép</Button>
-          <Button variant="danger" size="sm" onClick={() => onAnswer({ allow: false })}>Từ chối</Button></div></div>
+      ? <div className="ev ev-q"><ShieldQuestion size={14} strokeWidth={1.75} aria-hidden="true" />{' '}{tr('Agent xin chạy')}{' '}<b>{ev.tool}</b>: <span className="ev-s">{ev.summary}</span>
+          <div className="ev-btns"><Button variant="primary" size="sm" onClick={() => onAnswer({ allow: true })}>{tr('Cho phép')}</Button>
+          <Button variant="danger" size="sm" onClick={() => onAnswer({ allow: false })}>{tr('Từ chối')}</Button></div></div>
       : <div className="ev ev-sys"><ShieldQuestion size={12} strokeWidth={1.75} aria-hidden="true" /> {ev.tool}</div>;
   }
   return null;
@@ -111,7 +112,7 @@ export default function ChatPanel({ lane }) {
   const blocked = lane.status === 'blocked' && status.session_running;
 
   if (!events.length && !status.session_running && !status.session_resumable) {
-    return <p className="muted-empty">Chưa có phiên chat cho lane này — bấm “Giao việc” để bắt đầu.</p>;
+    return <p className="muted-empty">{tr('Chưa có phiên chat cho lane này — bấm “Giao việc” để bắt đầu.')}</p>;
   }
 
   return (
@@ -120,23 +121,22 @@ export default function ChatPanel({ lane }) {
         {events.map((ev, i) => <Event key={`${i}-${ev.seq}`} ev={ev} pendingId={pendingId} onAnswer={answer} />)}
       </div>
       {awaitingSpec && (
-        <div className="chat-approve">
-          Spec/plan/tasks đã sẵn sàng{lane.spec_dir ? <> — <a href={`/spec/${n}/${lane.spec_dir}/spec.md`} target="_blank" rel="noreferrer">spec</a> · <a href={`/spec/${n}/${lane.spec_dir}/plan.md`} target="_blank" rel="noreferrer">plan</a> · <a href={`/spec/${n}/${lane.spec_dir}/tasks.md`} target="_blank" rel="noreferrer">tasks</a></> : null}
-          {' '}<Button variant="primary" size="sm" icon={Check} onClick={() => send('ok')}>Duyệt</Button>
-          <span className="hint">hoặc gõ yêu cầu sửa bên dưới</span>
+        <div className="chat-approve">{tr('Spec/plan/tasks đã sẵn sàng')}{lane.spec_dir ? <> — <a href={`/spec/${n}/${lane.spec_dir}/spec.md`} target="_blank" rel="noreferrer">spec</a> · <a href={`/spec/${n}/${lane.spec_dir}/plan.md`} target="_blank" rel="noreferrer">plan</a> · <a href={`/spec/${n}/${lane.spec_dir}/tasks.md`} target="_blank" rel="noreferrer">tasks</a></> : null}
+          {' '}<Button variant="primary" size="sm" icon={Check} onClick={() => send('ok')}>{tr('Duyệt')}</Button>
+          <span className="hint">{tr('hoặc gõ yêu cầu sửa bên dưới')}</span>
         </div>
       )}
       {blocked && !changing && (
         <div className="chat-approve">
-          <OctagonX size={14} strokeWidth={1.75} aria-hidden="true" /> {lane.notes || 'lane bị chặn'} <Button size="sm" onClick={() => setChanging(true)}>Đổi model bước này</Button>
+          <OctagonX size={14} strokeWidth={1.75} aria-hidden="true" /> {lane.notes || tr('lane bị chặn')} <Button size="sm" onClick={() => setChanging(true)}>{tr('Đổi model bước này')}</Button>
         </div>
       )}
       {blocked && changing && <ChangeModels lane={lane} onDone={() => setChanging(false)} />}
       {status.session_running && (
         <div className="chat-input">
-          <textarea rows={2} value={text} placeholder="Nhắn cho lane…" onChange={e => setText(e.target.value)}
+          <textarea rows={2} value={text} placeholder={tr('Nhắn cho lane…')} onChange={e => setText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && text.trim()) { e.preventDefault(); send(text.trim()); } }} />
-          <Button variant="primary" icon={Send} disabled={!text.trim()} onClick={() => send(text.trim())}>Gửi</Button>
+          <Button variant="primary" icon={Send} disabled={!text.trim()} onClick={() => send(text.trim())}>{tr('Gửi')}</Button>
         </div>
       )}
       {error && <p className="m-err">{error}</p>}

@@ -21,18 +21,125 @@
   border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: 0 2px 8px rgba(0,0,0,.12); pointer-events: none }
 .ct-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-faint) }
 .ct-table .num, .ct-sub .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
-.ct-expand { display: inline-flex; align-items: center; gap: 4px; text-align: left }
-.ct-detail > td { background: var(--bg-subtle) }
-.ct-steps { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--text-muted) }
-.ct-meter-cell { width: 120px }
 .ct-meter { display: block; height: 6px; border-radius: 3px; background: var(--border) }
 .ct-meter > span { display: block; height: 100%; border-radius: 3px; background: var(--accent) }
-.ct-hours { display: grid; gap: 8px; margin-top: 10px }
-.ct-hours-grid { display: flex; flex-wrap: wrap; gap: 8px }
-.ct-hours-grid label, .ct-field { display: grid; gap: 3px; font-size: 12px; color: var(--text-muted) }
-.ct-hours-grid input, .ct-field input { width: 120px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font: inherit }
-.ct-settings { display: grid; gap: 14px; max-width: 720px }
-.ct-settings fieldset { display: flex; flex-wrap: wrap; gap: 10px 16px; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px 14px }
-.ct-settings legend { font-weight: 600; font-size: 13px; padding: 0 4px }
-.ct-field input { width: 160px }
-@media (max-width: 600px) { .ct-meter-cell { display: none } .ct-tile-value { font-size: 17px } }
+
+/* Features / lanes / models: one list of rows (not a wide table) so it reads on a phone too. Each row is
+   a button that opens its detail in place; the head row shares the row's grid so columns line up. */
+.ct-listview { display: grid; gap: 10px; min-width: 0 }
+.ct-intro { margin: 0; font-size: 13px; color: var(--text-muted); max-width: 75ch }
+.ct-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px }
+.ct-search { flex: 1 1 240px; display: flex; align-items: center; gap: 7px; padding: 0 10px; min-width: 0; color: var(--text-faint);
+  background: var(--bg-subtle); border: 1px solid var(--border-strong); border-radius: var(--radius-sm) }
+.ct-search:focus-within { border-color: var(--accent) }
+.ct-search input { flex: 1; min-width: 0; padding: 7px 0; border: 0; background: none; color: var(--text); font: inherit; font-size: 13px; outline: none }
+.ct-search input::placeholder { color: var(--text-faint) }
+.ct-total { margin-left: auto; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap }
+.ct-total b { color: var(--text); font-weight: 600 }
+
+.ct-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: hidden }
+.ct-item + .ct-item { border-top: 1px solid var(--border) }
+.ct-row, .ct-list-head { display: grid; grid-template-columns: minmax(0, 1fr) 180px 150px 16px; align-items: center; gap: 16px; padding: 12px 16px }
+.ct-row-lane, .ct-list-head-lane { grid-template-columns: minmax(0, 1fr) 190px 230px 16px }
+.ct-row-model, .ct-list-head-model { grid-template-columns: minmax(0, 1fr) 110px 210px 220px }
+.ct-list-head { padding-top: 0; padding-bottom: 0; font-size: 12px; color: var(--text-faint) }
+.ct-list-head > span:nth-child(n+2) { text-align: right }
+.ct-list-head-lane > span:nth-child(3), .ct-list-head-model > span:nth-child(n+3) { text-align: left }
+button.ct-row { width: 100%; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: background-color 150ms var(--ease, ease-out) }
+button.ct-row:hover { background: var(--panel-hover) }
+button.ct-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px }
+.ct-item.open > .ct-row { background: var(--panel-hover) }
+.ct-item.idle .ct-title, .ct-item.idle .ct-num-strong { color: var(--text-muted) }
+.ct-chev { color: var(--text-faint); transition: transform 200ms var(--ease, ease-out) }
+.ct-item.open .ct-chev { transform: rotate(180deg) }
+
+.ct-cell-main { display: grid; gap: 4px; min-width: 0 }
+.ct-title { display: flex; align-items: baseline; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.35;
+  overflow-wrap: anywhere }
+.ct-title.mono { font-size: 13px; font-weight: 500 }
+.ct-progress { font-size: 12px; font-weight: 500; color: var(--ok-text); font-variant-numeric: tabular-nums }
+.ct-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; font-size: 12px; color: var(--text-muted); min-width: 0 }
+.ct-meta .mono { font-size: 11.5px }
+.ct-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100% }
+.ct-tokens b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums }
+.ct-rank { display: block; height: 3px; max-width: 320px; margin-top: 2px; border-radius: 2px; background: var(--border) }
+.ct-rank > span { display: block; height: 100%; border-radius: 2px; background: var(--accent) }
+.ct-cell-num { display: grid; gap: 2px; justify-items: end; text-align: right; font-variant-numeric: tabular-nums; min-width: 0 }
+.ct-num-strong { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap }
+.ct-num-sub { font-size: 12px; color: var(--text-faint); white-space: nowrap }
+.tone-ok { color: var(--ok-text) } .tone-warn { color: var(--warn-text) } .tone-danger { color: var(--danger-text) }
+.ct-num-strong.tone-neutral { color: var(--text-faint) }
+.ct-quota { display: grid; gap: 5px; min-width: 0 }
+.ct-quota-read { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; color: var(--text-faint);
+  font-variant-numeric: tabular-nums; white-space: nowrap }
+.ct-quota-read b { font-size: 13px; font-weight: 600 }
+.ct-cell-limits { display: flex; gap: 6px; justify-content: flex-end }
+
+/* An input with its unit inside the same box. */
+.ct-input-unit { display: inline-flex; align-items: center; min-width: 0; background: var(--bg); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); transition: border-color 150ms var(--ease, ease-out) }
+.ct-input-unit:focus-within { border-color: var(--accent) }
+.ct-input-unit input { width: 100%; min-width: 0; padding: 6px 4px 6px 9px; border: 0; background: none; color: var(--text); font: inherit;
+  font-size: 13px; font-variant-numeric: tabular-nums; outline: none }
+.ct-input-unit input::placeholder { color: var(--text-faint) }
+.ct-input-unit > span { padding: 0 9px 0 2px; font-size: 12px; color: var(--text-faint); white-space: nowrap }
+.ct-cell-limits .ct-input-unit { width: 104px }
+
+/* Detail opened under a row. */
+.ct-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 16px 16px 18px; background: var(--bg-subtle); border-top: 1px solid var(--border) }
+.ct-sec { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0 }
+.ct-sec-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0; font-size: 13px; font-weight: 600; color: var(--text) }
+.ct-sec-aside { font-weight: 500; color: var(--text-muted); font-variant-numeric: tabular-nums }
+.ct-run { font-size: 11.5px; font-weight: 400; color: var(--text-faint) }
+.ct-phases { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px }
+.ct-phase { display: grid; grid-template-columns: 96px minmax(80px, 1fr) auto; grid-template-areas: "name bar num" ". steps sub"; align-items: center; gap: 4px 12px }
+.ct-phase-name { grid-area: name; font-size: 13px; color: var(--text) }
+.ct-phase .ct-rank { grid-area: bar; height: 6px; max-width: none; margin: 0; border-radius: 3px }
+.ct-phase .ct-rank > span { border-radius: 3px }
+.ct-phase-num { grid-area: num; font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.ct-phase-sub { grid-area: sub; font-size: 12px; color: var(--text-faint); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums }
+.ct-steps { grid-area: steps; display: flex; flex-wrap: wrap; gap: 4px 6px; min-width: 0 }
+.ct-step { padding: 1px 7px; font-size: 11.5px; color: var(--text-muted); border: 1px solid var(--border); border-radius: 999px; background: var(--panel) }
+.ct-step b { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums }
+.ct-note { margin: 0; font-size: 12px; color: var(--text-faint) }
+.ct-hours-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px 12px; max-width: 760px }
+.ct-field { display: grid; gap: 5px; align-content: start; font-size: 12px; color: var(--text-muted); min-width: 0 }
+.ct-hint { font-size: 12px; color: var(--text-faint); line-height: 1.45 }
+.ct-actions, .ct-save-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px }
+.ct-msg { font-size: 12.5px; color: var(--text-muted) }
+.ct-empty { display: grid; justify-items: start; gap: 8px; padding: 20px 16px; border: 1px dashed var(--border-strong); border-radius: var(--radius);
+  font-size: 13px; color: var(--text-muted) }
+.ct-empty p { margin: 0 }
+
+/* Settings: a label column that says what a group is for, then its fields in an even grid. */
+.ct-settings { display: grid; max-width: 980px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel) }
+.ct-set { display: grid; grid-template-columns: minmax(180px, 260px) minmax(0, 1fr); gap: 16px 32px; padding: 18px 20px }
+.ct-set + .ct-set { border-top: 1px solid var(--border) }
+.ct-set-head h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--text) }
+.ct-set-head p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted) }
+.ct-set-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px 14px; align-content: start }
+.ct-settings .ct-save-bar { padding: 14px 20px; border-top: 1px solid var(--border); background: var(--bg-subtle);
+  border-radius: 0 0 var(--radius) var(--radius); position: sticky; bottom: 0 }
+.ct-save-note { margin-left: auto }
+
+@media (max-width: 720px) {
+  .ct-tile-value { font-size: 17px }
+  .ct-list-head { display: none }
+  .ct-row, .ct-row-lane, .ct-row-model { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; padding: 12px 14px }
+  .ct-row .ct-cell-main { grid-column: 1 / -1 }
+  .ct-row .ct-chev { grid-column: 2; grid-row: 1; align-self: start; justify-self: end }
+  button.ct-row .ct-cell-main { grid-column: 1 }
+  .ct-row .ct-cell-num { justify-items: start; text-align: left }
+  .ct-cell-quota, .ct-cell-limits { grid-column: 1 / -1 }
+  .ct-cell-limits { justify-content: flex-start }
+  .ct-cell-limits .ct-input-unit { flex: 1 }
+  .ct-total { margin-left: 0; width: 100% }
+  .ct-phase { grid-template-columns: 80px minmax(0, 1fr) auto; grid-template-areas: "name bar num" "steps steps sub" }
+  .ct-set { grid-template-columns: 1fr; gap: 12px; padding: 16px }
+  .ct-save-note { margin-left: 0 }
+  /* The shared step-model picker: its selects share the row instead of running off the screen. */
+  .ct-panel .steps-grid { grid-template-columns: minmax(0, 1fr) }
+  .ct-panel .step-row { min-width: 0 }
+  .ct-panel .step-row .msel { flex: 1 1 140px; min-width: 0; max-width: 100% }
+}

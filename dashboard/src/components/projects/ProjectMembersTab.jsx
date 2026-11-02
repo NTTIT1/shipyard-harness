@@ -5,6 +5,7 @@ import Badge from '../ui/Badge.jsx';
 import { platform } from '../../lib/platform.js';
 import { ROLE_LABEL, isMember } from '../../lib/review.js';
 import { avatarColor, initials } from '../../lib/avatar.js';
+import { tr } from '../../lib/i18n.js';
 
 const ROLES = ['OWNER', 'MAINTAINER', 'PM', 'BA', 'TECH_LEAD', 'DESIGNER', 'DEVELOPER', 'TESTER', 'VIEWER'];
 
@@ -48,7 +49,7 @@ export default function ProjectMembersTab({ pid, canManage }) {
     try {
       const u = await platform.lookupUser(email.trim());
       if (isMember(rows, u.id)) {
-        setErr(`${email.trim()} đã là thành viên — bấm "Sửa vai trò" tại dòng của họ để cấp thêm quyền.`);
+        setErr(tr('{0} đã là thành viên — bấm "Sửa vai trò" tại dòng của họ để cấp thêm quyền.', [email.trim()]));
         return;
       }
       await platform.setMemberRoles(pid, u.id, ['VIEWER']);
@@ -56,7 +57,7 @@ export default function ProjectMembersTab({ pid, canManage }) {
       await load();
     } catch (e2) {
       setErr(e2.status === 404
-        ? `Không tìm thấy người dùng ${email.trim()} — quản trị viên cần tạo tài khoản ở mục Người dùng trước.`
+        ? tr('Không tìm thấy người dùng {0} — quản trị viên cần tạo tài khoản ở mục Người dùng trước.', [email.trim()])
         : e2.message);
     }
   };
@@ -74,7 +75,7 @@ export default function ProjectMembersTab({ pid, canManage }) {
       <div className="card-panel pj-apple-card">
         <div className="card-header pj-apple-card-head">
           <div className="card-header-title">
-            <span>Thành viên dự án</span>
+            <span>{tr('Thành viên dự án')}</span>
             <span className="bdg bdg-neutral">{rows.length}</span>
           </div>
 
@@ -83,24 +84,20 @@ export default function ProjectMembersTab({ pid, canManage }) {
               <input
                 type="email"
                 required
-                aria-label="Email thành viên mới"
-                placeholder="Thêm bằng email (vd: dev@cong-ty.vn)…"
+                aria-label={tr('Email thành viên mới')}
+                placeholder={tr('Thêm bằng email (vd: dev@cong-ty.vn)…')}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="pj-inline-invite-input"
               />
-              <Button type="submit" size="sm" variant="primary" icon={UserPlus}>
-                Thêm
-              </Button>
+              <Button type="submit" size="sm" variant="primary" icon={UserPlus}>{tr('Thêm')}</Button>
             </form>
           )}
         </div>
 
         <div className="pj-member-list">
           {rows.length === 0 ? (
-            <div className="pj-empty-row">
-              Chưa có thành viên nào trong dự án này.
-            </div>
+            <div className="pj-empty-row">{tr('Chưa có thành viên nào trong dự án này.')}</div>
           ) : (
             rows.map(r => {
               const u = users[r.userId];
@@ -139,15 +136,15 @@ export default function ProjectMembersTab({ pid, canManage }) {
                             className={`pj-role-edit-toggle${isEditing ? ' active' : ''}`}
                             onClick={() => setEditingUserId(isEditing ? null : r.userId)}>
                             {isEditing ? <Check size={12} /> : <SlidersHorizontal size={12} />}
-                            <span>{isEditing ? 'Xong' : 'Vai trò'}</span>
+                            <span>{isEditing ? 'Xong' : tr('Vai trò')}</span>
                           </button>
                           <Button
                             size="sm"
                             variant="ghost"
                             icon={Trash2}
-                            aria-label="Xoá thành viên"
-                            title="Xoá thành viên khỏi dự án"
-                            onClick={() => window.confirm(`Xoá thành viên ${name} khỏi dự án?`)
+                            aria-label={tr('Xoá thành viên')}
+                            title={tr('Xoá thành viên khỏi dự án')}
+                            onClick={() => window.confirm(tr('Xoá thành viên {0} khỏi dự án?', [name]))
                               && platform.removeMember(pid, r.userId).then(load, e => setErr(e.message))}
                           />
                         </div>
@@ -157,7 +154,7 @@ export default function ProjectMembersTab({ pid, canManage }) {
 
                   {canManage && isEditing && (
                     <div className="pj-role-drawer">
-                      <span className="pj-role-drawer-label">Bật / tắt vai trò cho {name}:</span>
+                      <span className="pj-role-drawer-label">{tr('Bật / tắt vai trò cho {0}:', [name])}</span>
                       <div className="role-chips-group">
                         {ROLES.map(role => {
                           const active = r.roles.includes(role);
@@ -188,9 +185,7 @@ export default function ProjectMembersTab({ pid, canManage }) {
           )}
         </div>
 
-        <div className="pj-card-footnote">
-          Một thành viên có thể giữ nhiều vai trò (PM, BA, Developer, Tester…). Các bước chưa có người phụ trách riêng sẽ do <b>Owner</b> duyệt thay.
-        </div>
+        <div className="pj-card-footnote">{tr('Một thành viên có thể giữ nhiều vai trò (PM, BA, Developer, Tester…). Các bước chưa có người phụ trách riêng sẽ do')}{' '}<b>Owner</b>{' '}{tr('duyệt thay.')}</div>
       </div>
     </div>
   );

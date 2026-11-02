@@ -114,3 +114,30 @@ describe('stageLabel for role steps', () => {
     expect(stageLabel('review-design')).toBe('Chờ duyệt Thiết kế UI');
   });
 });
+
+describe('lanes of the open project', () => {
+  it('a lane shows only under its own project (or under all projects)', async () => {
+    const { laneInScope } = await import('../src/lib/laneview.js');
+    const hrm = { lane: 1, run_project_id: 'proj_hrm' };
+    expect(laneInScope(hrm, 'proj_hoc')).toBe(false);
+    expect(laneInScope(hrm, 'proj_hrm')).toBe(true);
+    expect(laneInScope(hrm, 'ALL')).toBe(true);
+    expect(laneInScope(undefined, 'ALL')).toBe(false);
+  });
+});
+
+describe('project progress', () => {
+  it('counts the roadmap: built features, plus how far the lanes building one are', async () => {
+    const { projectProgress } = await import('../src/lib/laneview.js');
+    const list = [
+      { title: 'A', status: 'done' }, { title: 'B', status: 'done' },
+      { title: 'C', status: 'building', lane: 2 }, { title: 'D', status: 'waiting', position: 1 },
+      { title: 'E', status: 'planned' }, { title: 'F', status: 'dropped' },
+    ];
+    const lanes = [{ lane: 2, progress: 50 }];
+    expect(projectProgress(list, lanes)).toEqual({ total: 5, done: 2, building: 1, waiting: 1, planned: 1, dropped: 1, percent: 50 });
+    // (2 + 0.5) / 5 = 50%
+    expect(projectProgress([], lanes)).toBe(null);
+    expect(projectProgress([{ title: 'A', status: 'dropped' }], [])).toBe(null);
+  });
+});

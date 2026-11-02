@@ -6,12 +6,13 @@ import { platform } from '../../lib/platform.js';
 import { fetchProviders } from '../../lib/api.js';
 import WorkflowCanvas from './WorkflowCanvas.jsx';
 import WorkflowStepInspector from './WorkflowStepInspector.jsx';
+import { tr } from '../../lib/i18n.js';
 
 const sameShape = (a, b) => a.length === b.length && a.every((x, i) => x.step === b[i].step && x.mode === b[i].mode);
 const VIEWS = [
-  { id: 'canvas', label: 'Sơ đồ', icon: LayoutGrid },
-  { id: 'table', label: 'Bảng chi tiết', icon: Table2 },
-  { id: 'phases', label: '6 giai đoạn', icon: ListOrdered },
+  { id: 'canvas', label: tr('Sơ đồ'), icon: LayoutGrid },
+  { id: 'table', label: tr('Bảng chi tiết'), icon: Table2 },
+  { id: 'phases', label: tr('6 giai đoạn'), icon: ListOrdered },
 ];
 const pruneEmpty = (c = {}) => Object.fromEntries(Object.entries(c).filter(([, v]) => v !== '' && v != null && !(Array.isArray(v) && !v.length)));
 
@@ -51,7 +52,7 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
   const applySuggested = () => {
     const sug = suggestedConfigs(info);
     onChange(value.map(w => ({ ...w, config: { ...sug[w.step], ...pruneEmpty(w.config) } })));
-    setNotice('Đã điền gợi ý vào các ô còn trống: model mạnh cho phân tích và kiến trúc, model rẻ nhất cho kiểm thử, giới hạn phút, file cần đọc. Ô bạn đã đặt giữ nguyên.');
+    setNotice(tr('Đã điền gợi ý vào các ô còn trống: model mạnh cho phân tích và kiến trúc, model rẻ nhất cho kiểm thử, giới hạn phút, file cần đọc. Ô bạn đã đặt giữ nguyên.'));
   };
 
   const running = value.filter(w => w.mode !== 'SKIP');
@@ -62,19 +63,18 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
     <div className="wfe">
       <div className="wfe-bar">
         {presets && !disabled && (
-          <div className="wf-presets" role="group" aria-label="Mẫu quy trình">
-            <span className="wf-presets-label">Mẫu nhanh</span>
+          <div className="wf-presets" role="group" aria-label={tr('Mẫu quy trình')}>
+            <span className="wf-presets-label">{tr('Mẫu nhanh')}</span>
             {WORKFLOW_PRESETS.map(p => (
               <button key={p.id} type="button" title={p.desc} className={`wf-preset${sameShape(value, p.steps) ? ' on' : ''}`} onClick={() => applyPreset(p)}>
                 {p.label}
               </button>
             ))}
             <button type="button" className="wf-preset wfe-suggest" disabled={!info} onClick={applySuggested}>
-              <Wand2 size={13} aria-hidden="true" /> Gợi ý model & giới hạn
-            </button>
+              <Wand2 size={13} aria-hidden="true" />{' '}{tr('Gợi ý model & giới hạn')}</button>
           </div>
         )}
-        <div className="wfe-views" role="tablist" aria-label="Cách xem quy trình">
+        <div className="wfe-views" role="tablist" aria-label={tr('Cách xem quy trình')}>
           {VIEWS.map(v => (
             <button key={v.id} type="button" role="tab" aria-selected={view === v.id} className={`wfe-view${view === v.id ? ' on' : ''}`} onClick={() => setView(v.id)}>
               <v.icon size={13} aria-hidden="true" /> {v.label}
@@ -104,7 +104,7 @@ function DetailTable({ value, onOpen }) {
     <div className="wfe-table-wrap">
       <table className="wfe-table">
         <thead>
-          <tr><th scope="col">#</th><th scope="col">Bước</th><th scope="col">Lane làm gì</th><th scope="col">Model</th><th scope="col">Duyệt</th><th scope="col">Giới hạn</th></tr>
+          <tr><th scope="col">#</th><th scope="col">{tr('Bước')}</th><th scope="col">{tr('Lane làm gì')}</th><th scope="col">Model</th><th scope="col">{tr('Duyệt')}</th><th scope="col">{tr('Giới hạn')}</th></tr>
         </thead>
         <tbody>
           {value.map(w => {
@@ -114,10 +114,10 @@ function DetailTable({ value, onOpen }) {
               <tr key={w.step} className={skip ? 'skip' : ''}>
                 <td className="num">{skip ? '—' : ++n}</td>
                 <td><button type="button" className="linklike" onClick={() => onOpen(w.step)}>{STEP_LABEL[w.step]}</button></td>
-                <td>{skip ? 'Bỏ qua' : <ul className="wfe-work">{PHASE_WORK[w.step].map(([who, what]) => <li key={who}><b>{who}</b> — {what}</li>)}</ul>}</td>
+                <td>{skip ? tr('Bỏ qua') : <ul className="wfe-work">{PHASE_WORK[w.step].map(([who, what]) => <li key={who}><b>{who}</b> — {what}</li>)}</ul>}</td>
                 <td>{skip ? '' : modelLabel(w.config)}</td>
-                <td>{skip ? '' : w.mode === 'AUTO' ? 'Tự duyệt khi xanh' : (ROLE_LABEL[role] || role)}</td>
-                <td>{skip ? '' : configSummary(w.config) || 'Không đặt'}</td>
+                <td>{skip ? '' : w.mode === 'AUTO' ? tr('Tự duyệt khi xanh') : (ROLE_LABEL[role] || role)}</td>
+                <td>{skip ? '' : configSummary(w.config) || tr('Không đặt')}</td>
               </tr>
             );
           })}
@@ -163,13 +163,13 @@ function PhaseList({ value, onChange, disabled }) {
             style={dragging ? { transform: `translateY(${drag.dy - (idx - drag.base) * drag.h}px)` } : undefined}>
             <div className="gate-card-left">
               {movable && !disabled ? (
-                <button type="button" className="wf-grip" data-grip={w.step} aria-label={`Kéo để đổi thứ tự bước ${STEP_LABEL[w.step]} (hoặc phím ↑ ↓)`}
+                <button type="button" className="wf-grip" data-grip={w.step} aria-label={tr('Kéo để đổi thứ tự bước {0} (hoặc phím ↑ ↓)', [STEP_LABEL[w.step]])}
                   onPointerDown={e => onPointerDown(e, w.step, idx)} onPointerMove={onPointerMove} onPointerUp={() => setDrag(null)}
                   onPointerCancel={() => setDrag(null)} onKeyDown={e => onKeyDown(e, w.step, idx)}>
                   <GripVertical size={16} aria-hidden="true" />
                 </button>
               ) : (
-                <span className="wf-grip wf-locked" title="Code và Test luôn ở cuối quy trình"><Lock size={14} aria-hidden="true" /></span>
+                <span className="wf-grip wf-locked" title={tr('Code và Test luôn ở cuối quy trình')}><Lock size={14} aria-hidden="true" /></span>
               )}
               <div className="gate-step-index">{idx + 1}</div>
               <div className="gate-card-texts">
@@ -178,7 +178,7 @@ function PhaseList({ value, onChange, disabled }) {
               </div>
             </div>
             <div className="gate-card-right">
-              <div className="wf-mode" role="radiogroup" aria-label={`Chế độ bước ${STEP_LABEL[w.step]}`}>
+              <div className="wf-mode" role="radiogroup" aria-label={tr('Chế độ bước {0}', [STEP_LABEL[w.step]])}>
                 {GATE_MODES.filter(g => !(w.step === 'DEV' && g.id === 'SKIP')).map(g => (
                   <label key={g.id} className={w.mode === g.id ? 'on' : ''}>
                     <input type="radio" name={`wf-${w.step}`} checked={w.mode === g.id} disabled={disabled}

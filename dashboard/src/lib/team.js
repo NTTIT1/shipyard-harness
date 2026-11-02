@@ -1,4 +1,5 @@
 import { authFetch } from './api.js';
+import { tr } from './i18n.js';
 
 // "Đội AI" tab client (server: dashboard/server/routes/team.js) + pure helpers for the editor.
 async function call(method, url, body) {
@@ -62,7 +63,7 @@ export function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result).split(',')[1] || '');
-    r.onerror = () => reject(new Error(`Không đọc được ${file.name}`));
+    r.onerror = () => reject(new Error(tr('Không đọc được {0}', [file.name])));
     r.readAsDataURL(file);
   });
 }

@@ -1,28 +1,30 @@
-import React, { useCallback, useEffect, useState, useMemo, lazy, Suspense } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
-  Plus, Copy, Check, FolderKanban,
+  Copy, Check, FolderKanban,
   GitBranch, ExternalLink, AlertCircle,
   Wand2
 } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
-import Tabs from './ui/Tabs.jsx';
-import MemoryPanel from './MemoryPanel.jsx';
+import ProjectMemoryView from './ProjectMemoryView.jsx';
 import TeamPanel from './TeamPanel.jsx';
 import DeleteProjectButton from './DeleteProjectButton.jsx';
 import ProjectMembersTab from './projects/ProjectMembersTab.jsx';
 import ProjectGatesTab from './projects/ProjectGatesTab.jsx';
 import ProjectRunsTab from './projects/ProjectRunsTab.jsx';
-import LinkRepoModal from './projects/LinkRepoModal.jsx';
 import BlueprintStatus from './projects/BlueprintStatus.jsx';
 import { scaffold } from '../lib/scaffold.js';
 import { platform } from '../lib/platform.js';
 import { ROLE_LABEL } from '../lib/review.js';
 import { useWorkflowLanes } from '../hooks/useRunViews.js';
 import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
+import { tr } from '../lib/i18n.js';
 
-const NewProjectWizard = lazy(() => import('./NewProjectWizard.jsx'));
-const ImportRepoWizard = lazy(() => import('./projects/ImportRepoWizard.jsx'));
+
+const SECTION_LABEL = {
+  members: tr('Tổng quan & thành viên'), gates: tr('Quy trình & duyệt'), runs: tr('Tính năng & model AI'),
+  memory: tr('Bộ nhớ dự án'), team: tr('Kỹ năng AI & khung'),
+};
 
 export default function ProjectsView({
   user,
@@ -32,6 +34,7 @@ export default function ProjectsView({
   onOpenRun,
   subTab,
   onTabChange,
+  onCreateProject,
 }) {
   const [projects, setProjects] = useState([]);
   const [localSel, setLocalSel] = useState(null);
@@ -40,9 +43,6 @@ export default function ProjectsView({
   const setTab = onTabChange || setLocalTab;
   const [err, setErr] = useState('');
   const [copiedType, setCopiedType] = useState('');
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [wizard, setWizard] = useState(false);
-  const [importing, setImporting] = useState(false);
 
   const sel = activeProjectId && projects.some(p => p.id === activeProjectId)
     ? activeProjectId
@@ -142,177 +142,134 @@ export default function ProjectsView({
 
       {project ? (
         <div className="pj-detail-stack">
-          {/* Unified Apple-Style Project Header (Identity + Actions + Compact Telemetry Strip) */}
-          <div className="pj-apple-header">
-            <div className="pj-apple-head-main">
-              <div className="pj-hero-identity">
-                <div className="pj-avatar-badge">
-                  <FolderKanban size={19} />
+          {/* The sidebar picks the section: the overview carries the project header, metrics and
+              blueprint; every other section shows only its own content. */}
+          {tab === 'members' ? (<>
+            {/* Unified Apple-Style Project Header (Identity + Actions + Compact Telemetry Strip) */}
+            <div className="pj-apple-header">
+              <div className="pj-apple-head-main">
+                <div className="pj-hero-identity">
+                  <div className="pj-avatar-badge">
+                    <FolderKanban size={19} />
+                  </div>
+                  <div className="pj-hero-names">
+                    <div className="pj-hero-title">
+                      <h1 id="pj-title">{project.name}</h1>
+                      <span className="pj-hero-slug">{project.slug}</span>
+                      {roles.map(r => (
+                        <Badge key={r} tone={r === 'OWNER' ? 'accent' : 'neutral'}>
+                          {ROLE_LABEL[r] || r}
+                        </Badge>
+                      ))}
+                    </div>
+                    <div className="pj-hero-meta-row">
+                      {project.repoUrl ? (
+                        <a
+                          href={project.repoUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="pj-repo-link">
+                          <GitBranch size={12} />
+                          <span>{project.repoUrl}</span>
+                          <ExternalLink size={11} style={{ opacity: 0.65 }} />
+                        </a>
+                      ) : (
+                        <span className="pj-meta-muted">{tr('Cấu hình quyền hạn, cổng duyệt và kỹ năng AI của dự án')}</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div className="pj-hero-names">
-                  <div className="pj-hero-title">
-                    <h1 id="pj-title">{project.name}</h1>
-                    <span className="pj-hero-slug">{project.slug}</span>
-                    {roles.map(r => (
-                      <Badge key={r} tone={r === 'OWNER' ? 'accent' : 'neutral'}>
-                        {ROLE_LABEL[r] || r}
-                      </Badge>
-                    ))}
-                  </div>
-                  <div className="pj-hero-meta-row">
-                    {project.repoUrl ? (
-                      <a
-                        href={project.repoUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="pj-repo-link">
-                        <GitBranch size={12} />
-                        <span>{project.repoUrl}</span>
-                        <ExternalLink size={11} style={{ opacity: 0.65 }} />
-                      </a>
-                    ) : (
-                      <span className="pj-meta-muted">Cấu hình quyền hạn, cổng duyệt và kỹ năng AI của dự án</span>
-                    )}
-                  </div>
+
+                <div className="pj-hero-actions">
+                  {canScaffold && onCreateProject && (
+                    <Button variant="secondary" size="sm" icon={Wand2} onClick={onCreateProject}>{tr('Tạo dự án')}</Button>
+                  )}
+                  {roles.includes('OWNER') && (
+                    <DeleteProjectButton
+                      project={project}
+                      onDeleted={() => { selectProject(null); load(); }}
+                    />
+                  )}
                 </div>
               </div>
 
-              <div className="pj-hero-actions">
-                <Button variant="ghost" size="sm" icon={Plus} onClick={() => setShowLinkModal(true)}>
-                  Liên kết kho
-                </Button>
-                {canScaffold && (
-                  <Button variant="secondary" size="sm" icon={Wand2} onClick={() => setWizard(true)}>
-                    Tạo dự án mới
-                  </Button>
-                )}
-                {roles.includes('OWNER') && (
-                  <DeleteProjectButton
-                    project={project}
-                    onDeleted={() => { selectProject(null); load(); }}
-                  />
-                )}
+              {/* Restrained Apple Hairline Telemetry Strip */}
+              <div className="pj-apple-metrics-bar">
+                <div className="pj-apple-metric">
+                  <span className="pj-apple-metric-label">{tr('Tiến độ')}</span>
+                  <div className="pj-apple-metric-val-row">
+                    <strong className="pj-apple-metric-val">
+                      {currentMetrics.avgProg != null ? `${currentMetrics.avgProg}%` : '—'}
+                    </strong>
+                    <div className="pj-apple-mini-bar" aria-hidden="true">
+                      <i style={{ width: `${Math.max(0, Math.min(100, Number(currentMetrics.avgProg) || 0))}%` }} />
+                    </div>
+                    <span className="pj-apple-metric-sub">
+                      {currentMetrics.activeCount > 0
+                        ? tr('{0} lane đang chạy', [currentMetrics.activeCount])
+                        : tr('Chưa có lane chạy')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pj-apple-metric">
+                  <span className="pj-apple-metric-label">{tr('Chi phí')}</span>
+                  <div className="pj-apple-metric-val-row">
+                    <strong className="pj-apple-metric-val">{fmtVnd(currentMetrics.costVnd)}</strong>
+                    <span className="pj-apple-metric-sub">
+                      {fmtUsd(currentMetrics.costUsd)}
+                      {currentMetrics.tokens > 0 ? ` · ${fmtTokens(currentMetrics.tokens)} tok` : ''}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pj-apple-metric pj-apple-metric-env">
+                  <span className="pj-apple-metric-label">{tr('Mã kết nối Lane')}</span>
+                  <div className="pj-apple-metric-val-row">
+                    <code className="pj-apple-code mono" title={`PLATFORM_PROJECT_ID="${project.id}"`}>
+                      {project.id}
+                    </code>
+                    <button
+                      type="button"
+                      className="pj-copy-pill"
+                      onClick={copyEnvVar}>
+                      {copiedType === 'env' ? <Check size={12} /> : <Copy size={12} />}
+                      <span>{copiedType === 'env' ? tr('Đã chép biến') : tr('Chép biến')}</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Restrained Apple Hairline Telemetry Strip */}
-            <div className="pj-apple-metrics-bar">
-              <div className="pj-apple-metric">
-                <span className="pj-apple-metric-label">Tiến độ</span>
-                <div className="pj-apple-metric-val-row">
-                  <strong className="pj-apple-metric-val">
-                    {currentMetrics.avgProg != null ? `${currentMetrics.avgProg}%` : '—'}
-                  </strong>
-                  <div className="pj-apple-mini-bar" aria-hidden="true">
-                    <i style={{ width: `${Math.max(0, Math.min(100, Number(currentMetrics.avgProg) || 0))}%` }} />
-                  </div>
-                  <span className="pj-apple-metric-sub">
-                    {currentMetrics.activeCount > 0
-                      ? `${currentMetrics.activeCount} lane đang chạy`
-                      : 'Chưa có lane chạy'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pj-apple-metric">
-                <span className="pj-apple-metric-label">Chi phí</span>
-                <div className="pj-apple-metric-val-row">
-                  <strong className="pj-apple-metric-val">{fmtVnd(currentMetrics.costVnd)}</strong>
-                  <span className="pj-apple-metric-sub">
-                    {fmtUsd(currentMetrics.costUsd)}
-                    {currentMetrics.tokens > 0 ? ` · ${fmtTokens(currentMetrics.tokens)} tok` : ''}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pj-apple-metric pj-apple-metric-env">
-                <span className="pj-apple-metric-label">Mã kết nối Lane</span>
-                <div className="pj-apple-metric-val-row">
-                  <code className="pj-apple-code mono" title={`PLATFORM_PROJECT_ID="${project.id}"`}>
-                    {project.id}
-                  </code>
-                  <button
-                    type="button"
-                    className="pj-copy-pill"
-                    onClick={copyEnvVar}>
-                    {copiedType === 'env' ? <Check size={12} /> : <Copy size={12} />}
-                    <span>{copiedType === 'env' ? 'Đã chép biến' : 'Chép biến'}</span>
-                  </button>
-                </div>
-              </div>
+            <ProjectBlueprint key={`bp-${project.id}`} pid={project.id} onOpenRun={onOpenRun} />
+          </>) : (
+            <div className="pj-section-head">
+              <h1 id="pj-title">{SECTION_LABEL[tab] || tr('Dự án')}</h1>
+              <span className="pj-meta-muted">{project.name}</span>
             </div>
-          </div>
-
-          <ProjectBlueprint key={`bp-${project.id}`} pid={project.id} onOpenRun={onOpenRun} />
-
-          {/* Sub-navigation Tabs */}
-          <Tabs
-            value={tab}
-            onChange={setTab}
-            items={[
-              { id: 'members', label: 'Thành viên' },
-              { id: 'gates', label: 'Quy trình & duyệt' },
-              { id: 'runs', label: 'Tính năng & model AI' },
-              { id: 'memory', label: 'Bộ nhớ dự án' },
-              { id: 'team', label: 'Kỹ năng AI & khung' }
-            ]}
-          />
+          )}
 
           {tab === 'members' && <ProjectMembersTab key={project.id} pid={project.id} canManage={canManage} />}
           {tab === 'gates' && <ProjectGatesTab key={project.id} pid={project.id} canManage={canManage} />}
           {tab === 'team' && <TeamPanel key={project.id} pid={project.id} onOpenRun={onOpenRun} />}
           {tab === 'runs' && <ProjectRunsTab key={project.id} pid={project.id} onOpenRun={onOpenRun} />}
-          {tab === 'memory' && <MemoryPanel key={project.id} projectId={project.id} canManage={canManage} />}
+          {tab === 'memory' && <ProjectMemoryView key={project.id} projectId={project.id} canManage={canManage} />}
         </div>
       ) : (
         <div className="modern-empty-state" style={{ minHeight: 280 }}>
           <div className="modern-empty-icon">
             <FolderKanban size={24} />
           </div>
-          <div id="pj-title" className="modern-empty-title">Chưa có dự án nào được chọn</div>
-          <div className="modern-empty-desc">
-            Hãy tạo dự án mới từ khung hoặc liên kết kho mã nguồn đã có để bắt đầu điều phối các lane.
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <Button variant="secondary" icon={Plus} onClick={() => setShowLinkModal(true)}>
-              Liên kết kho đã có
-            </Button>
-            {canScaffold && (
-              <Button variant="primary" icon={Wand2} onClick={() => setWizard(true)}>
-                Tạo dự án từ khung
-              </Button>
-            )}
-          </div>
+          <div id="pj-title" className="modern-empty-title">{tr('Chưa có dự án nào được chọn')}</div>
+          <div className="modern-empty-desc">{tr('Tạo dự án từ ý tưởng, từ khung hoặc từ git có sẵn — mỗi dự án có một ô chat chung với các AI.')}</div>
+          {canScaffold && onCreateProject && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <Button variant="primary" icon={Wand2} onClick={onCreateProject}>{tr('Tạo dự án')}</Button>
+            </div>
+          )}
         </div>
       )}
 
-      {showLinkModal && (
-        <LinkRepoModal
-          canScaffold={canScaffold}
-          onClose={() => setShowLinkModal(false)}
-          onOpenWizard={() => setWizard(true)}
-          onOpenImport={() => setImporting(true)}
-          onCreated={async id => { await load(); if (id) selectProject(id); }}
-        />
-      )}
-
-      {importing && (
-        <Suspense fallback={null}>
-          <ImportRepoWizard
-            onClose={() => setImporting(false)}
-            onCreated={async id => { await load(); if (id) selectProject(id); }}
-          />
-        </Suspense>
-      )}
-
-      {wizard && (
-        <Suspense fallback={null}>
-          <NewProjectWizard
-            onClose={() => setWizard(false)}
-            onCreated={async id => { await load(); if (id) selectProject(id); }}
-          />
-        </Suspense>
-      )}
     </section>
   );
 }

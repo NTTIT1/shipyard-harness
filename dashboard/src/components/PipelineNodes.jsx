@@ -2,12 +2,13 @@ import React from 'react';
 import { Check, TriangleAlert } from 'lucide-react';
 import { NODES, MAINY, FIXN, BLKN, TKT, BLKY } from '../lib/constants.js';
 import { phaseIdx } from '../lib/constants.js';
+import { tr } from '../lib/i18n.js';
 
 function evidence(l) {
   const gd = (l.gate_decision || '').toUpperCase();
   return {
-    8: l.pr_url ? '' : 'passed but no pr_url recorded — verify the PR exists',
-    7: gd === 'GO' ? '' : 'passed but no GO recorded — verify the senior gate ran',
+    8: l.pr_url ? '' : tr('Đã qua nhưng chưa ghi nhận link PR — kiểm tra PR có tồn tại'),
+    7: gd === 'GO' ? '' : tr('Đã qua nhưng chưa ghi nhận GO — kiểm tra bước duyệt cuối đã chạy'),
   };
 }
 
@@ -47,13 +48,13 @@ export default function PipelineNodes({ lane, config }) {
 
     // dev-QC node (11, post-merge) — independent coloring
     if (i === 11 && !integrations.dev_qc) {
-      cls = 'na'; tip = 'dev-QC integration off for this profile';
+      cls = 'na'; tip = tr('Dự án này chưa bật QC trên dev');
     } else if (i === 11 && (isDone || cur >= 10)) {
       const q = lane.qc_dev || '';
       if (q === 'passed') { cls = 'done'; tip = ''; }
-      else if (q === 'failed') { cls = 'cur bad'; tip = 'dev-QC FAILED'; }
-      else if (q === 'running') { cls = 'cur'; tip = 'dev-QC running in background'; }
-      else if (cls === 'done') { cls = 'done evwarn'; tip = 'passed without dev-QC evidence'; }
+      else if (q === 'failed') { cls = 'cur bad'; tip = tr('QC trên dev KHÔNG ĐẠT'); }
+      else if (q === 'running') { cls = 'cur'; tip = tr('Đang QC trên dev (chạy nền)'); }
+      else if (cls === 'done') { cls = 'done evwarn'; tip = tr('Đã qua nhưng chưa có bằng chứng QC trên dev'); }
     }
 
     return <Node key={`n${i}`} name={name} icon={icon} x={x} y={MAINY} cls={cls} tip={tip} />;
@@ -62,7 +63,7 @@ export default function PipelineNodes({ lane, config }) {
   // self-resolve badges
   const badges = (
     <g>
-      <title>preflight collision / base-sync conflict → resolved in place on the branch</title>
+      <title>{tr('Xung đột khi kiểm tra trước / khi đồng bộ nhánh gốc → tự giải quyết ngay trên nhánh')}</title>
       <text x="382" y={MAINY - 14} textAnchor="middle" fontSize="12" style={{ fill: 'var(--warn)' }}>{'↻'}</text>
     </g>
   );
@@ -75,19 +76,19 @@ export default function PipelineNodes({ lane, config }) {
   const blkNode = (
     <>
       <Node name={BLKN[0]} icon={BLKN[1]} x={BLKN[2]} y={BLKN[3]}
-        cls={gateBlk ? 'cur warn' : ''} tip="blocked at the senior gate — escalated for your decision (a NO-GO just re-enters the loop; there's no automatic cap)" />
+        cls={gateBlk ? 'cur warn' : ''} tip={tr('Bị chặn ở bước duyệt cuối — chuyển lên chờ bạn quyết (NO-GO chỉ quay lại vòng sửa, không có giới hạn tự động)')} />
       <text className={`n-label ${gateBlk ? 'cur' : ''}`} x="867" y={BLKY + 4} textAnchor="start">
-        {'blocked — needs you'}
+        {tr('bị chặn — cần bạn')}
       </text>
     </>
   );
 
   // ticket node
   let tcls = '', ttip = '';
-  if (!integrations.tracker) { tcls = 'na'; ttip = 'tracker integration off'; }
+  if (!integrations.tracker) { tcls = 'na'; ttip = tr('Dự án này chưa bật tracker'); }
   else if (isDone || cur >= 9) {
     if (lane.ticket_url) { tcls = 'done'; }
-    else { tcls = 'done evwarn'; ttip = 'no ticket_url recorded yet'; }
+    else { tcls = 'done evwarn'; ttip = tr('Chưa ghi nhận link ticket'); }
   }
   const tktNode = <Node name={TKT[0]} icon={TKT[1]} x={TKT[2]} y={TKT[3]} cls={tcls} tip={ttip} />;
 

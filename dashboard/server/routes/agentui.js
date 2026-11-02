@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { spawnSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import { BIN, HARNESS_ROOT } from '../services/config.js';
+import { BIN, HARNESS_ROOT, LANES_ROOT, laneBinding } from '../services/config.js';
 import { normalizePipeline } from '../../src/lib/pipeline.js';
 import { lanesPayload } from '../services/state.js';
 import { runAction } from '../services/actions.js';
@@ -12,6 +12,8 @@ import { gatewayStatus, ensureGateway, restartGateway, restartGatewayInBackgroun
 import * as S from '../services/sessions.js';
 import { assignLane } from '../services/assign.js';
 import { readQueue, writeQueue, startQueueTicker } from '../services/lanequeue.js';
+import { queuedProjects, startProjectQueueTicker } from '../services/projectqueue.js';
+import * as projectDocs from '../services/projectdocs.js';
 import { normalizeEfforts, aggregate, readAllUsage, readSettings, writeSettings, readPlan } from '../services/usage.js';
 
 const router = Router();
@@ -135,13 +137,27 @@ router.put(`${lanePath}/queue`, wrap(async req => writeQueue(num(req), (req.body
 
 /** Started by the server: hands each lane its next queued feature when it is done. */
 export function startLaneQueues() {
-  return startQueueTicker({
+  // Features approved in a project's chat go to the first free lane of that project (its own queue first).
+  const stopProjects = startProjectQueueTicker({
+    projects: queuedProjects,
+    lanes: async () => (await lanesPayload()).lanes.map(l => ({ ...l, ...S.brief(l.lane) })),
+    isRunning: S.isRunning,
+    stopSession: S.stopSession,
+    state: (n, args) => stateSh(n, args),
+    assign: (n, body) => assignLane(n, body, assignDeps(n, 'project-queue')),
+    laneDir: n => path.join(process.env.LANES_ROOT || LANES_ROOT, `lane${n}`),
+    profileDir: n => (laneBinding(n)?.profile ? path.join(HARNESS_ROOT, 'profiles', laneBinding(n).profile) : null),
+    laneQueue: readQueue,
+    docs: projectDocs,
+  });
+  const stopLanes = startQueueTicker({
     lanes: async () => (await lanesPayload()).lanes.map(l => ({ ...l, ...S.brief(l.lane) })),
     isRunning: S.isRunning,
     stopSession: S.stopSession,
     state: (n, args) => stateSh(n, args),
     assign: (n, body) => assignLane(n, body, assignDeps(n, 'queue')),
   });
+  return () => { stopProjects(); stopLanes(); };
 }
 router.get(`${lanePath}/specs`, wrap(async req => ({ specs: listSpecs(num(req)) })));
 // Change the in-flight feature's step models (e.g. after a step failed on a provider, or from Lane/Feature config).

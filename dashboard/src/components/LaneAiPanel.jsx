@@ -9,6 +9,7 @@ import {
   saveFeatureModels, saveLaneLimit, sendChat
 } from '../lib/api.js';
 import { fmtVnd, fmtTokens, fmtUsd, sumTokens } from '../lib/costs.js';
+import { tr } from '../lib/i18n.js';
 
 function pctTone(pct) {
   if (pct >= 90) return 'danger';
@@ -91,7 +92,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
     setBusy(true); setMsg({ ok: '', err: '' });
     try {
       await saveLaneModelDefaults(n, laneDef);
-      setMsg({ ok: `Đã lưu cấu hình model riêng cho Lane ${n}.`, err: '' });
+      setMsg({ ok: tr('Đã lưu cấu hình model riêng cho Lane {0}.', [n]), err: '' });
       await load();
       onUpdated?.();
     } catch (e) {
@@ -105,7 +106,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
     setBusy(true); setMsg({ ok: '', err: '' });
     try {
       await saveLaneModelDefaults(n, { reset: true });
-      setMsg({ ok: `Lane ${n} đã quay về dùng model mặc định chung.`, err: '' });
+      setMsg({ ok: tr('Lane {0} đã quay về dùng model mặc định chung.', [n]), err: '' });
       await load();
       onUpdated?.();
     } catch (e) {
@@ -127,7 +128,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
       if (resumeBlocked) {
         await sendChat(n, 'continue — models for the failed step were changed on the dashboard; re-run that step');
       }
-      setMsg({ ok: `Đã lưu cấu hình model cho tính năng "${featKey}".`, err: '' });
+      setMsg({ ok: tr('Đã lưu cấu hình model cho tính năng "{0}".', [featKey]), err: '' });
       await load();
       onUpdated?.();
     } catch (e) {
@@ -142,7 +143,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
     setBusy(true); setMsg({ ok: '', err: '' });
     try {
       await saveLaneLimit(n, { usd: Number(limitForm.usd), tokens: Number(limitForm.tokens) });
-      setMsg({ ok: `Đã lưu hạn mức sử dụng cho Lane ${n}.`, err: '' });
+      setMsg({ ok: tr('Đã lưu hạn mức sử dụng cho Lane {0}.', [n]), err: '' });
       await load();
     } catch (e2) {
       setMsg({ ok: '', err: e2.message });
@@ -152,14 +153,14 @@ export default function LaneAiPanel({ lane, onUpdated }) {
   };
 
   if (!info || !usage) {
-    return msg.err ? <p className="m-err">{msg.err}</p> : <p className="muted-empty">Đang tải cấu hình AI & chi phí của Lane {n}…</p>;
+    return msg.err ? <p className="m-err">{msg.err}</p> : <p className="muted-empty">{tr('Đang tải cấu hình AI & chi phí của Lane {0}…', [n])}</p>;
   }
 
   const lu = usage.lane || { usd: 0, vnd: 0, tokens: {}, quotaPct: 0, sharePct: 0, usdPct: 0, tokenPct: 0, limitUsd: 100, limitTokens: 10000000 };
   const q5h = usage.plan?.five_hour?.utilization ?? usage.quotas?.five_hour?.pct ?? 0;
   const q7d = usage.plan?.seven_day?.utilization ?? usage.quotas?.seven_day?.pct ?? 0;
   const featureOptions = [
-    { key: currentFeatKey, label: lane.feature_title ? `Hiện tại: ${lane.feature_title}` : `Tính năng hiện tại trên Lane ${n}` },
+    { key: currentFeatKey, label: lane.feature_title ? tr('Hiện tại: {0}', [lane.feature_title]) : tr('Tính năng hiện tại trên Lane {0}', [n]) },
     ...(usage.features || []).filter(f => f.key !== currentFeatKey).map(f => ({ key: f.key, label: `${f.title || f.key}` })),
   ];
 
@@ -185,7 +186,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
           <div className="stat-info u-w100">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
               <span className="stat-val">{lu.quotaPct}%</span>
-              <Badge tone={pctTone(lu.quotaPct)}>Hạn mức Lane {n}</Badge>
+              <Badge tone={pctTone(lu.quotaPct)}>{tr('Hạn mức Lane {0}', [n])}</Badge>
             </div>
             <QuotaBar pct={lu.quotaPct} tone={pctTone(lu.quotaPct)} />
             <span className="stat-label u-mt4">
@@ -198,9 +199,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
           <div className="stat-icon accent"><Coins size={18} /></div>
           <div className="stat-info">
             <span className="stat-val">{fmtVnd(lu.vnd)}</span>
-            <span className="stat-label">
-              Chi phí Lane {n} ({fmtUsd(lu.usd)} API · chiếm <b>{lu.sharePct}%</b> tổng hệ thống)
-            </span>
+            <span className="stat-label">{tr('Chi phí Lane {0} ({1} API · chiếm', [n, fmtUsd(lu.usd)])}{' '}<b>{lu.sharePct}%</b>{' '}{tr('tổng hệ thống)')}</span>
           </div>
         </div>
 
@@ -208,8 +207,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
           <div className="stat-icon info"><Cpu size={18} /></div>
           <div className="stat-info">
             <span className="stat-val">{fmtTokens(sumTokens(lu.tokens))} token</span>
-            <span className="stat-label">
-              Vào {fmtTokens(lu.tokens?.in)} · Ra {fmtTokens(lu.tokens?.out)} · Cache {fmtTokens((lu.tokens?.cacheRead || 0) + (lu.tokens?.cacheWrite || 0))}
+            <span className="stat-label">{tr('Vào {0} · Ra {1} · Cache {2}', [fmtTokens(lu.tokens?.in), fmtTokens(lu.tokens?.out), fmtTokens((lu.tokens?.cacheRead || 0) + (lu.tokens?.cacheWrite || 0))])}
             </span>
           </div>
         </div>
@@ -218,11 +216,11 @@ export default function LaneAiPanel({ lane, onUpdated }) {
           <div className={`stat-icon ${pctTone(Math.max(q5h, q7d))}`}><Sparkles size={18} /></div>
           <div className="stat-info u-w100">
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 600 }}>
-              <span>5 giờ: {Math.round(q5h)}%</span>
-              <span>7 ngày: {Math.round(q7d)}%</span>
+              <span>{tr('5 giờ: {0}%', [Math.round(q5h)])}</span>
+              <span>{tr('7 ngày: {0}%', [Math.round(q7d)])}</span>
             </div>
             <QuotaBar pct={Math.max(q5h, q7d)} tone={pctTone(Math.max(q5h, q7d))} />
-            <span className="stat-label u-mt4">% Hạn mức phiên Claude toàn cục</span>
+            <span className="stat-label u-mt4">{tr('% Hạn mức phiên Claude toàn cục')}</span>
           </div>
         </div>
       </div>
@@ -232,51 +230,51 @@ export default function LaneAiPanel({ lane, onUpdated }) {
         <div className="card-header">
           <div className="card-header-title">
             <Gauge size={16} className="ic-accent" />
-            <span>Hạn mức sử dụng riêng của Lane {n} (Tháng {usage.month})</span>
+            <span>{tr('Hạn mức sử dụng riêng của Lane {0} (Tháng {1})', [n, usage.month])}</span>
           </div>
         </div>
         <div className="card-body">
           <form onSubmit={saveLimit} style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <div className="form-field" style={{ minWidth: 180 }}>
-              <label className="form-label">Hạn mức ngân sách Lane {n} (USD)</label>
+              <label className="form-label">{tr('Hạn mức ngân sách Lane {0} (USD)', [n])}</label>
               <input
                 type="number"
                 min="0"
                 step="1"
-                aria-label={`Hạn mức USD Lane ${n}`}
+                aria-label={tr('Hạn mức USD Lane {0}', [n])}
                 value={limitForm.usd}
                 onChange={e => setLimitForm({ ...limitForm, usd: e.target.value })}
               />
             </div>
             <div className="form-field" style={{ minWidth: 200 }}>
-              <label className="form-label">Hạn mức Token tháng của Lane {n}</label>
+              <label className="form-label">{tr('Hạn mức Token tháng của Lane {0}', [n])}</label>
               <input
                 type="number"
                 min="0"
                 step="100000"
-                aria-label={`Hạn mức Token Lane ${n}`}
+                aria-label={tr('Hạn mức Token Lane {0}', [n])}
                 value={limitForm.tokens}
                 onChange={e => setLimitForm({ ...limitForm, tokens: e.target.value })}
               />
             </div>
-            <Button type="submit" variant="secondary" icon={Save} disabled={busy}>Lưu hạn mức Lane {n}</Button>
+            <Button type="submit" variant="secondary" icon={Save} disabled={busy}>{tr('Lưu hạn mức Lane {0}', [n])}</Button>
           </form>
 
           {/* Per-Model usage on this lane */}
           {usage.byModel && usage.byModel.length > 0 && (
             <div className="u-mt14">
-              <div className="form-label u-mb6">Mức sử dụng theo từng Model trên Lane {n}:</div>
+              <div className="form-label u-mb6">{tr('Mức sử dụng theo từng Model trên Lane {0}:', [n])}</div>
               <div className="modern-table-wrap">
                 <table className="grid modern-table">
                   <thead>
                     <tr>
                       <th>Model</th>
-                      <th className="num">Token vào</th>
-                      <th className="num">Token ra</th>
+                      <th className="num">{tr('Token vào')}</th>
+                      <th className="num">{tr('Token ra')}</th>
                       <th className="num">Cache</th>
-                      <th className="num">Chi phí API</th>
-                      <th>% trên Lane {n}</th>
-                      <th>% Hạn mức Model</th>
+                      <th className="num">{tr('Chi phí API')}</th>
+                      <th>{tr('% trên Lane {0}', [n])}</th>
+                      <th>{tr('% Hạn mức Model')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -309,9 +307,9 @@ export default function LaneAiPanel({ lane, onUpdated }) {
         <div className="card-header">
           <div className="card-header-title">
             <Cpu size={17} className="ic-accent" />
-            <span>Cấu hình Model AI & Effort — Lane {n}</span>
+            <span>{tr('Cấu hình Model AI & Effort — Lane {0}', [n])}</span>
             <Badge tone={hasCustomLane ? 'accent' : 'neutral'}>
-              {hasCustomLane ? `Đang dùng cấu hình riêng Lane ${n}` : 'Đang kế thừa mặc định chung'}
+              {hasCustomLane ? tr('Đang dùng cấu hình riêng Lane {0}', [n]) : tr('Đang kế thừa mặc định chung')}
             </Badge>
           </div>
         </div>
@@ -320,25 +318,20 @@ export default function LaneAiPanel({ lane, onUpdated }) {
             value={mode}
             onChange={setMode}
             items={[
-              { id: 'lane-default', label: `Model mặc định riêng của Lane ${n}` },
-              { id: 'feature', label: 'Model theo từng Tính năng trên Lane' },
+              { id: 'lane-default', label: tr('Model mặc định riêng của Lane {0}', [n]) },
+              { id: 'feature', label: tr('Model theo từng Tính năng trên Lane') },
             ]}
           />
 
           {mode === 'lane-default' && laneDef && (
             <div className="stack-12">
-              <p className="rv-sub u-m0">
-                Thiết lập bộ Model AI & mức Effort riêng cho <b>Lane {n}</b>. Mỗi bước (PM, BA, Kiến trúc, Thiết kế, Code, Kiểm thử…) trên Lane {n} có thể chạy một model khác hẳn các lane khác.
-              </p>
+              <p className="rv-sub u-m0">{tr('Thiết lập bộ Model AI & mức Effort riêng cho')}{' '}<b>Lane {n}</b>{tr('. Mỗi bước (PM, BA, Kiến trúc, Thiết kế, Code, Kiểm thử…) trên Lane {0} có thể chạy một model khác hẳn các lane khác.', [n])}</p>
               <StepModels info={info} value={laneDef} onChange={setLaneDef} />
               <div className="row-wrap-8 u-mt4">
-                <Button variant="primary" icon={Save} disabled={busy} onClick={saveLaneDefault}>
-                  Lưu cấu hình riêng cho Lane {n}
+                <Button variant="primary" icon={Save} disabled={busy} onClick={saveLaneDefault}>{tr('Lưu cấu hình riêng cho Lane {0}', [n])}
                 </Button>
                 {hasCustomLane && (
-                  <Button variant="ghost" icon={RotateCcw} disabled={busy} onClick={resetLaneDefault}>
-                    Đặt lại theo mặc định chung
-                  </Button>
+                  <Button variant="ghost" icon={RotateCcw} disabled={busy} onClick={resetLaneDefault}>{tr('Đặt lại theo mặc định chung')}</Button>
                 )}
               </div>
             </div>
@@ -348,10 +341,10 @@ export default function LaneAiPanel({ lane, onUpdated }) {
             <div className="stack-12">
               <div className="row-10">
                 <Layers size={16} className="ic-accent" />
-                <span style={{ fontSize: 13, fontWeight: 600 }}>Chọn tính năng cần cấu hình model:</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{tr('Chọn tính năng cần cấu hình model:')}</span>
                 <select
                   className="role-select-box"
-                  aria-label="Chọn tính năng cấu hình model"
+                  aria-label={tr('Chọn tính năng cấu hình model')}
                   value={featKey}
                   onChange={e => handleSelectFeature(e.target.value)}
                   style={{ minWidth: 260 }}>
@@ -360,18 +353,12 @@ export default function LaneAiPanel({ lane, onUpdated }) {
                   ))}
                 </select>
               </div>
-              <p className="rv-sub u-m0">
-                Cấu hình model bên dưới chỉ áp dụng riêng cho tính năng đã chọn (ưu tiên cao hơn cấu hình của Lane {n} và mặc định chung).
-              </p>
+              <p className="rv-sub u-m0">{tr('Cấu hình model bên dưới chỉ áp dụng riêng cho tính năng đã chọn (ưu tiên cao hơn cấu hình của Lane {0} và mặc định chung).', [n])}</p>
               <StepModels info={info} value={featModels} onChange={setFeatModels} />
               <div className="row-wrap-8 u-mt4">
-                <Button variant="primary" icon={Save} disabled={busy} onClick={() => saveForFeature(false)}>
-                  Lưu model cho tính năng này
-                </Button>
+                <Button variant="primary" icon={Save} disabled={busy} onClick={() => saveForFeature(false)}>{tr('Lưu model cho tính năng này')}</Button>
                 {lane.status === 'blocked' && featKey === currentFeatKey && (
-                  <Button variant="secondary" disabled={busy} onClick={() => saveForFeature(true)}>
-                    Lưu & tiếp tục chạy bước đang dừng
-                  </Button>
+                  <Button variant="secondary" disabled={busy} onClick={() => saveForFeature(true)}>{tr('Lưu & tiếp tục chạy bước đang dừng')}</Button>
                 )}
               </div>
             </div>

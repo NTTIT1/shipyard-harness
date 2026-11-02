@@ -11,6 +11,7 @@ import Menu from './ui/Menu.jsx';
 import { primaryActions, laneStatus } from '../lib/laneview.js';
 import { prNum } from '../lib/format.js';
 import { stopSession, resumeSession } from '../lib/api.js';
+import { tr } from '../lib/i18n.js';
 
 
 export default function LaneHeader({ lane, projectName, archived, onBackToBoard, onAction, onCreds, onAssign, onTab, onReview, onDocs }) {
@@ -20,20 +21,20 @@ export default function LaneHeader({ lane, projectName, archived, onBackToBoard,
   const acts = primaryActions(lane, { archived });
   const n = lane.lane;
   const BTN = {
-    approve: <Button key="approve" variant="primary" icon={Check} onClick={() => onTab('chat')}>Duyệt spec</Button>,
-    stop: <Button key="stop" icon={Square} onClick={run(() => stopSession(n))}>Dừng</Button>,
-    resume: <Button key="resume" variant="primary" icon={Play} onClick={run(() => resumeSession(n))}>Tiếp tục</Button>,
-    assign: <Button key="assign" variant="primary" icon={Plus} onClick={() => onAssign(n)}>Giao việc</Button>,
+    approve: <Button key="approve" variant="primary" icon={Check} onClick={() => onTab('chat')}>{tr('Duyệt spec')}</Button>,
+    stop: <Button key="stop" icon={Square} onClick={run(() => stopSession(n))}>{tr('Dừng')}</Button>,
+    resume: <Button key="resume" variant="primary" icon={Play} onClick={run(() => resumeSession(n))}>{tr('Tiếp tục')}</Button>,
+    assign: <Button key="assign" variant="primary" icon={Plus} onClick={() => onAssign(n)}>{tr('Giao việc')}</Button>,
   };
   const menu = [
-    { label: 'Quy trình của lane', icon: GitMerge, onSelect: () => setPipeline(true) },
-    { label: 'Bật stack (up)', icon: Power, onSelect: () => onAction(n, 'up') },
-    { label: 'Tắt stack (down)', icon: PowerOff, onSelect: () => onAction(n, 'down') },
-    { label: 'Xoá trạng thái (clear)', icon: Eraser, onSelect: () => onAction(n, 'clear') },
-    { label: 'Cài lại agents', icon: RefreshCcw, onSelect: () => onCreds(n, 'agents') },
-    { label: 'Tài khoản (creds)', icon: KeyRound, onSelect: () => onCreds(n, 'creds') },
-    { label: 'Reset lane', icon: RotateCcw, danger: true, onSelect: () => onAction(n, 'reset') },
-    { label: 'Xoá lane', icon: Trash2, danger: true, onSelect: () => onAction(n, 'remove') },
+    { label: tr('Quy trình của lane'), icon: GitMerge, onSelect: () => setPipeline(true) },
+    { label: tr('Bật stack (up)'), icon: Power, onSelect: () => onAction(n, 'up') },
+    { label: tr('Tắt stack (down)'), icon: PowerOff, onSelect: () => onAction(n, 'down') },
+    { label: tr('Xoá trạng thái (clear)'), icon: Eraser, onSelect: () => onAction(n, 'clear') },
+    { label: tr('Cài lại agents'), icon: RefreshCcw, onSelect: () => onCreds(n, 'agents') },
+    { label: tr('Tài khoản (creds)'), icon: KeyRound, onSelect: () => onCreds(n, 'creds') },
+    { label: tr('Reset lane'), icon: RotateCcw, danger: true, onSelect: () => onAction(n, 'reset') },
+    { label: tr('Xoá lane'), icon: Trash2, danger: true, onSelect: () => onAction(n, 'remove') },
   ];
   const waitingReview = !archived && !!lane.run_id && lane.status === 'waiting';
   const branch = lane.git_branch || lane.branch || '';
@@ -45,7 +46,7 @@ export default function LaneHeader({ lane, projectName, archived, onBackToBoard,
           <div className="lh-Subnav">
             <button type="button" className="lh-back-btn" onClick={onBackToBoard}>
               <ArrowLeft size={13} />
-              <span>Tổng quan</span>
+              <span>{tr('Tổng quan')}</span>
             </button>
             {projectName && (
               <>
@@ -62,8 +63,8 @@ export default function LaneHeader({ lane, projectName, archived, onBackToBoard,
         )}
         <div className="lh-title">
           <span className="lh-lane">Lane {n}</span>
-          <h1>{lane.feature_title || 'Chưa có việc'}</h1>
-          {archived && <Badge tone="info">đang xem bản cũ</Badge>}
+          <h1>{lane.feature_title || tr('Chưa có việc')}</h1>
+          {archived && <Badge tone="info">{tr('đang xem bản cũ')}</Badge>}
           <Badge tone={laneStatus(lane.status)[0]} dot>{laneStatus(lane.status)[1]}</Badge>
         </div>
         <div className="lh-meta">
@@ -72,14 +73,14 @@ export default function LaneHeader({ lane, projectName, archived, onBackToBoard,
           {lane.ticket_url && <a href={lane.ticket_url} target="_blank" rel="noreferrer">ticket <ExternalLink size={12} aria-hidden="true" /></a>}
           {lane.manual_test_url && <a href={lane.manual_test_url} target="_blank" rel="noreferrer">{lane.manual_test_url.replace('http://localhost', 'localhost')} <ExternalLink size={12} aria-hidden="true" /></a>}
         </div>
-        {waitingReview && lane.needs_action && <p className="rv-sub">Đang chờ: {lane.needs_action}</p>}
+        {waitingReview && lane.needs_action && <p className="rv-sub">{tr('Đang chờ: {0}', [lane.needs_action])}</p>}
         {err && <p className="m-err">{err}</p>}
       </div>
       <div className="lh-actions">
-        {waitingReview && onReview && <Button variant="primary" icon={ClipboardCheck} onClick={onReview}>Mở màn hình duyệt</Button>}
-        {!archived && lane.run_id && onDocs && <Button variant="ghost" icon={FileText} onClick={onDocs}>Tài liệu</Button>}
+        {waitingReview && onReview && <Button variant="primary" icon={ClipboardCheck} onClick={onReview}>{tr('Mở màn hình duyệt')}</Button>}
+        {!archived && lane.run_id && onDocs && <Button variant="ghost" icon={FileText} onClick={onDocs}>{tr('Tài liệu')}</Button>}
         {acts.map(a => BTN[a])}
-        {!archived && <Menu items={menu} label={`Thao tác lane ${n}`} />}
+        {!archived && <Menu items={menu} label={tr('Thao tác lane {0}', [n])} />}
       </div>
     </header>
   );

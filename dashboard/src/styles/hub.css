@@ -1,0 +1,18 @@
+/* "Dự án": create a project, drafts being shaped with the AIs, and the created projects. */
+.hub { display: grid; gap: 22px; max-width: 1100px }
+.hub-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap }
+.hub-group { display: grid; gap: 10px }
+.hub-h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: none }
+.hub-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); overflow: hidden }
+.hub-row { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 4px; border-top: 1px solid var(--border) }
+.hub-row:first-child { border-top: 0 }
+.hub-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 8px; border: 0; border-radius: 8px; background: none; text-align: left; cursor: pointer; color: inherit; font: inherit }
+.hub-main:hover { background: var(--panel-hover) }
+.hub-main:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+.hub-icon { flex: none; color: var(--text-muted) }
+.hub-text { display: flex; flex-direction: column; gap: 2px; min-width: 0 }
+.hub-name { font-weight: 600; font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.hub-meta { font-size: 12.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.hub-busy { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--accent-text) }
+@media (max-width: 640px) { .hub-row { flex-wrap: wrap } .hub-main { flex-basis: 100% } }
+.pd-body { padding: 16px 20px }

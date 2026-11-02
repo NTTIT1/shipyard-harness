@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import Button from './ui/Button.jsx';
+import { tr } from '../lib/i18n.js';
 
 function handleImgError(e) {
   e.target.onerror = null;
@@ -16,8 +17,8 @@ export default function GalleryModal({ gallery, onClose, onShot }) {
     <div className="galbox" onClick={onClose}>
       <div className="gal-panel" onClick={e => e.stopPropagation()}>
         <div className="gal-head">
-          <b>{slug} · {g} · {imgs.length} screenshots</b>
-          <Button size="sm" icon={X} onClick={onClose} title="close (Esc)">close</Button>
+          <b>{tr('{0} · {1} · {2} screenshots', [slug, g, imgs.length])}</b>
+          <Button size="sm" icon={X} onClick={onClose} title={tr('close (Esc)')}>{tr('close')}</Button>
         </div>
         <div className="gal-grid">
           {imgs.map((img, ix) => (

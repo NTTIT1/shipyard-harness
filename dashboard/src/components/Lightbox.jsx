@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { tr } from '../lib/i18n.js';
 
 function handleImgError(e) {
   e.target.onerror = null;
@@ -25,15 +26,15 @@ export default function Lightbox({ shot, onClose, onNav }) {
 
   return (
     <div className="shotbox" onClick={onClose}>
-      <button className="sh-x" onClick={e => { e.stopPropagation(); onClose(); }} title="close (Esc)"><X size={18} strokeWidth={1.75} aria-hidden="true" /></button>
+      <button className="sh-x" onClick={e => { e.stopPropagation(); onClose(); }} title={tr('close (Esc)')}><X size={18} strokeWidth={1.75} aria-hidden="true" /></button>
       <button className="sh-nav" style={{ visibility: i > 0 ? 'visible' : 'hidden' }}
-        onClick={e => { e.stopPropagation(); onNav(-1); }} title="previous (←)"><ChevronLeft size={26} strokeWidth={1.75} aria-hidden="true" /></button>
+        onClick={e => { e.stopPropagation(); onNav(-1); }} title={tr('previous (←)')}><ChevronLeft size={26} strokeWidth={1.75} aria-hidden="true" /></button>
       <figure onClick={e => e.stopPropagation()}>
         <img src={src} alt="" onError={handleImgError} />
         <figcaption>{slug} · {g} · {imgs[i]}  ({i + 1}/{imgs.length})</figcaption>
       </figure>
       <button className="sh-nav" style={{ visibility: i < imgs.length - 1 ? 'visible' : 'hidden' }}
-        onClick={e => { e.stopPropagation(); onNav(1); }} title="next (→)"><ChevronRight size={26} strokeWidth={1.75} aria-hidden="true" /></button>
+        onClick={e => { e.stopPropagation(); onNav(1); }} title={tr('next (→)')}><ChevronRight size={26} strokeWidth={1.75} aria-hidden="true" /></button>
     </div>
   );
 }

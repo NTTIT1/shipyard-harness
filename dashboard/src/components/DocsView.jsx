@@ -11,19 +11,20 @@ import { platform } from '../lib/platform.js';
 import { STEP_LABEL, ROLE_LABEL, STATUS_LABEL, safeImageSrc } from '../lib/review.js';
 import { finalRevisions, finalDocuments, mdDownloadName } from '../lib/docs.js';
 import '../styles/docs.css';
+import { tr, locale } from '../lib/i18n.js';
 
-const fmt = iso => (iso ? new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
+const fmt = iso => (iso ? new Date(iso).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
 const STATUS_TONE = { APPROVED: 'ok', AWAITING_REVIEW: 'warn', AI_WORKING: 'accent', SKIPPED: 'neutral', PENDING: 'neutral' };
 const RUN_STATUS = {
-  RUNNING: 'Đang chạy',
-  ACTIVE: 'Đang chạy',
-  WAITING_REVIEW: 'Chờ duyệt',
-  AWAITING_REVIEW: 'Chờ duyệt',
-  DONE: 'Hoàn tất',
-  COMPLETED: 'Hoàn tất',
-  APPROVED: 'Đã duyệt',
-  CANCELLED: 'Đã huỷ',
-  RELEASED: 'Đã phát hành',
+  RUNNING: tr('Đang chạy'),
+  ACTIVE: tr('Đang chạy'),
+  WAITING_REVIEW: tr('Chờ duyệt'),
+  AWAITING_REVIEW: tr('Chờ duyệt'),
+  DONE: tr('Hoàn tất'),
+  COMPLETED: tr('Hoàn tất'),
+  APPROVED: tr('Đã duyệt'),
+  CANCELLED: tr('Đã huỷ'),
+  RELEASED: tr('Đã phát hành'),
 };
 const RUN_TONE = {
   RUNNING: 'accent',
@@ -77,20 +78,18 @@ function StepCard({ runId, title, row, users, onHistory }) {
         <span className="dc-step-name">{STEP_LABEL[row.step] || row.step}</span>
         <Badge tone={STATUS_TONE[row.status] || 'neutral'}>{STATUS_LABEL[row.status] || row.status}</Badge>
         {rev && (
-          <span className="dc-step-ver">
-            bản {rev.revisionNo}{row.count > 1 ? ` / ${row.count} lần nộp` : ''}
+          <span className="dc-step-ver">{tr('bản {0}', [rev.revisionNo])}{row.count > 1 ? tr(' / {0} lần nộp', [row.count]) : ''}
           </span>
         )}
         {row.approved && who && (
-          <span className="dc-who">
-            duyệt bởi <b>{who}</b>
+          <span className="dc-who">{tr('duyệt bởi')}{' '}<b>{who}</b>
             {rev.decidedAsRole ? ` · ${ROLE_LABEL[rev.decidedAsRole] || rev.decidedAsRole}` : ''}
             {' · '}{fmt(rev.decidedAt)}
           </span>
         )}
         {!rev && (
           <span className="dc-step-empty">
-            {row.status === 'SKIPPED' ? 'bỏ qua (không có giao diện)' : 'chưa có tài liệu'}
+            {row.status === 'SKIPPED' ? tr('bỏ qua (không có giao diện)') : tr('chưa có tài liệu')}
           </span>
         )}
       </button>
@@ -98,16 +97,16 @@ function StepCard({ runId, title, row, users, onHistory }) {
       {open && rev && (
         <div className="dc-body">
           {err && <p className="m-err">{err}</p>}
-          {!detail && !err && <p className="muted-empty">Đang tải nội dung tài liệu…</p>}
+          {!detail && !err && <p className="muted-empty">{tr('Đang tải nội dung tài liệu…')}</p>}
           {detail && (
             <>
               {rev.summary && (
                 <div className="rv-box">
-                  <h2>Tóm tắt của AI</h2>
+                  <h2>{tr('Tóm tắt của AI')}</h2>
                   <Markdown text={rev.summary} />
                 </div>
               )}
-              {rev.feedback && <p className="rv-sub">Góp ý khi duyệt: {rev.feedback}</p>}
+              {rev.feedback && <p className="rv-sub">{tr('Góp ý khi duyệt: {0}', [rev.feedback])}</p>}
               {docs.length > 0 && (
                 <div className="rv-box">
                   <Tabs value={doc} onChange={setDoc} items={docs.map(d => ({ id: d.name, label: d.name }))} />
@@ -116,17 +115,14 @@ function StepCard({ runId, title, row, users, onHistory }) {
                       <div className="dc-doc-tools">
                         {cur.edited && (
                           <Badge tone="accent">
-                            <PencilLine size={12} aria-hidden="true" /> người duyệt đã sửa
-                          </Badge>
+                            <PencilLine size={12} aria-hidden="true" />{' '}{tr('người duyệt đã sửa')}</Badge>
                         )}
-                        {!row.approved && <Badge tone="warn">bản chưa được duyệt</Badge>}
+                        {!row.approved && <Badge tone="warn">{tr('bản chưa được duyệt')}</Badge>}
                         <Button
                           size="sm"
                           variant="ghost"
                           icon={Download}
-                          onClick={() => download(mdDownloadName(title, row.step, cur.name), cur.text)}>
-                          Tải về (.md)
-                        </Button>
+                          onClick={() => download(mdDownloadName(title, row.step, cur.name), cur.text)}>{tr('Tải về (.md)')}</Button>
                       </div>
                       <div className="dc-doc-content">
                         {cur.name.endsWith('.md') ? <Markdown text={cur.text} /> : <pre className="diff">{cur.text}</pre>}
@@ -137,7 +133,7 @@ function StepCard({ runId, title, row, users, onHistory }) {
               )}
               {images.length > 0 && (
                 <div className="rv-box">
-                  <h2>Hình ảnh đính kèm ({images.length})</h2>
+                  <h2>{tr('Hình ảnh đính kèm ({0})', [images.length])}</h2>
                   <div className="rv-imgs">
                     {images.map((im, i) => (
                       <figure key={i} style={{ margin: 0 }}>
@@ -151,9 +147,7 @@ function StepCard({ runId, title, row, users, onHistory }) {
                 </div>
               )}
               <div>
-                <Button size="sm" variant="secondary" icon={History} onClick={() => onHistory(runId)}>
-                  Xem lịch sử các bản & so sánh
-                </Button>
+                <Button size="sm" variant="secondary" icon={History} onClick={() => onHistory(runId)}>{tr('Xem lịch sử các bản & so sánh')}</Button>
               </div>
             </>
           )}
@@ -230,11 +224,9 @@ export default function DocsView({ initialRunId, onOpenRun, activeProjectId, onS
         <div className="dc-header-titles">
           <h1 id="dc-title" className="rv-h1">
             <FileText size={20} strokeWidth={1.85} style={{ color: 'var(--accent-text)' }} />
-            <span>Tài liệu đã duyệt</span>
+            <span>{tr('Tài liệu đã duyệt')}</span>
           </h1>
-          <p className="rv-page-desc">
-            Yêu cầu, nghiệp vụ, kế hoạch, thiết kế và luật AI đã duyệt — theo từng tính năng của dự án đang xem.
-          </p>
+          <p className="rv-page-desc">{tr('Yêu cầu, nghiệp vụ, kế hoạch, thiết kế và luật AI đã duyệt — theo từng tính năng của dự án đang xem.')}</p>
         </div>
 
       </div>
@@ -244,17 +236,17 @@ export default function DocsView({ initialRunId, onOpenRun, activeProjectId, onS
       {!projects.length && !err ? (
         <div className="modern-empty-state">
           <div className="modern-empty-icon"><FileText size={22} /></div>
-          <div className="modern-empty-title">Bạn chưa là thành viên dự án nào</div>
-          <div className="modern-empty-desc">Hãy tạo dự án mới hoặc nhờ quản trị viên thêm bạn vào dự án để xem tài liệu.</div>
+          <div className="modern-empty-title">{tr('Bạn chưa là thành viên dự án nào')}</div>
+          <div className="modern-empty-desc">{tr('Hãy tạo dự án mới hoặc nhờ quản trị viên thêm bạn vào dự án để xem tài liệu.')}</div>
         </div>
       ) : (
         <div className="dc-layout">
           {/* Left Panel: Feature / Run List */}
-          <aside className="dc-sidebar" aria-label="Danh sách tính năng">
+          <aside className="dc-sidebar" aria-label={tr('Danh sách tính năng')}>
             <div className="dc-sidebar-head">
               <span className="dc-sidebar-title">
                 <Layers size={14} />
-                <span>Tính năng & Phiên ({runs.length})</span>
+                <span>{tr('Tính năng & Phiên ({0})', [runs.length])}</span>
               </span>
             </div>
 
@@ -263,7 +255,7 @@ export default function DocsView({ initialRunId, onOpenRun, activeProjectId, onS
                 <Search size={14} />
                 <input
                   type="text"
-                  placeholder="Tìm tài liệu tính năng…"
+                  placeholder={tr('Tìm tài liệu tính năng…')}
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                 />
@@ -293,7 +285,7 @@ export default function DocsView({ initialRunId, onOpenRun, activeProjectId, onS
               })}
               {!filteredRuns.length && (
                 <p className="muted-empty" style={{ padding: '16px 12px', margin: 0, textAlign: 'center' }}>
-                  {runs.length === 0 ? 'Dự án chưa có tài liệu tính năng nào.' : 'Không tìm thấy tính năng phù hợp.'}
+                  {runs.length === 0 ? tr('Dự án chưa có tài liệu tính năng nào.') : tr('Không tìm thấy tính năng phù hợp.')}
                 </p>
               )}
             </div>
@@ -309,21 +301,18 @@ export default function DocsView({ initialRunId, onOpenRun, activeProjectId, onS
                     <div className="dc-detail-sub">
                       <span className="dc-detail-date">
                         <Calendar size={13} />
-                        <span>Tạo lúc {fmt(view.run.createdAt)}</span>
+                        <span>{tr('Tạo lúc {0}', [fmt(view.run.createdAt)])}</span>
                       </span>
                       <Badge tone={RUN_TONE[view.run.status] || 'neutral'}>
                         {RUN_STATUS[view.run.status] || view.run.status}
                       </Badge>
                       {view.run.currentStep && (
-                        <span className="dc-detail-step-pill">
-                          Bước hiện tại: <b>{STEP_LABEL[view.run.currentStep] || view.run.currentStep}</b>
+                        <span className="dc-detail-step-pill">{tr('Bước hiện tại:')}{' '}<b>{STEP_LABEL[view.run.currentStep] || view.run.currentStep}</b>
                         </span>
                       )}
                     </div>
                   </div>
-                  <Button size="sm" variant="secondary" icon={History} onClick={() => onOpenRun(view.run.id)}>
-                    Lịch sử & Duyệt
-                  </Button>
+                  <Button size="sm" variant="secondary" icon={History} onClick={() => onOpenRun(view.run.id)}>{tr('Lịch sử & Duyệt')}</Button>
                 </div>
 
                 <div className="dc-steps">
@@ -339,12 +328,11 @@ export default function DocsView({ initialRunId, onOpenRun, activeProjectId, onS
                   ))}
                 </div>
 
-                <p className="dc-footnote">
-                  Mỗi bước hiển thị bản tài liệu mới nhất hoặc bản đã duyệt cuối cùng (bao gồm cả phần người duyệt chỉnh sửa trực tiếp). Muốn xem các bản cũ và so sánh diff, bấm <b>“Lịch sử & Duyệt”</b>.
+                <p className="dc-footnote">{tr('Mỗi bước hiển thị bản tài liệu mới nhất hoặc bản đã duyệt cuối cùng (bao gồm cả phần người duyệt chỉnh sửa trực tiếp). Muốn xem các bản cũ và so sánh diff, bấm')}{' '}<b>{tr('“Lịch sử & Duyệt”')}</b>.
                 </p>
               </div>
             ) : (
-              runs.length > 0 && <p className="muted-empty">Đang tải tài liệu…</p>
+              runs.length > 0 && <p className="muted-empty">{tr('Đang tải tài liệu…')}</p>
             )}
           </div>
         </div>

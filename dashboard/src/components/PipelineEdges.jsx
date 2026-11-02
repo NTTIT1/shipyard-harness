@@ -1,6 +1,7 @@
 import React from 'react';
 import { NODES, MAINY, BUS, BLKY, TKT } from '../lib/constants.js';
 import { phaseIdx } from '../lib/constants.js';
+import { tr } from '../lib/i18n.js';
 
 export default function PipelineEdges({ lane }) {
   const cur = phaseIdx(lane.stage);
@@ -18,7 +19,7 @@ export default function PipelineEdges({ lane }) {
 
   // edge labels
   els.push(<text key="lgo" className="e-label" x="850" y={MAINY - 8} textAnchor="middle">GO</text>);
-  els.push(<text key="lmg" className="e-label" x="1066" y={MAINY - 8} textAnchor="middle">human merges</text>);
+  els.push(<text key="lmg" className="e-label" x="1066" y={MAINY - 8} textAnchor="middle">{tr('người merge')}</text>);
 
   // fix loop bus
   els.push(<path key="bus" d={`M1227,${BUS} H385`} fill="none" style={{ stroke: 'var(--text-faint)' }}
@@ -30,7 +31,7 @@ export default function PipelineEdges({ lane }) {
       style={{ stroke: 'var(--danger)' }} strokeWidth="1.3" strokeDasharray="4 3" opacity=".6" markerEnd="url(#acr)" />);
   }
   els.push(<text key="lfup" className="e-label" x="1219" y={BUS - 10} textAnchor="end"
-    style={{ fill: 'var(--danger)', opacity: .85 }}>{'dev-QC FAIL → follow-up PR'}</text>);
+    style={{ fill: 'var(--danger)', opacity: .85 }}>{tr('QC trên dev lỗi → PR sửa tiếp')}</text>);
 
   // gates -> fix drop
   els.push(<path key="gfix" d={`M366,${MAINY + 14} V${BUS - 21}`} fill="none"
@@ -40,7 +41,7 @@ export default function PipelineEdges({ lane }) {
   els.push(<path key="ret" d={`M350,${BUS} H323 V96 H358 V84`} fill="none"
     style={{ stroke: 'var(--accent)' }} strokeWidth="1.7" strokeDasharray="5 3" opacity=".95" markerEnd="url(#ab)" />);
   els.push(<text key="lret" className="e-label" x="315" y="140" textAnchor="end"
-    style={{ fill: 'var(--accent)' }}>{'↻ re-enter stage 2'}</text>);
+    style={{ fill: 'var(--accent)' }}>{tr('↻ quay lại bước 2')}</text>);
 
   // blocked stub (gate -> "blocked — needs you"; an escalation, not an automatic cap)
   els.push(<circle key="blkc" cx="797" cy={BLKY} r="2" style={{ fill: 'var(--danger)' }} opacity=".7" />);
@@ -51,7 +52,7 @@ export default function PipelineEdges({ lane }) {
   els.push(<path key="cflct" d={`M1012,${MAINY - 14} V24 H366 V${MAINY - 18}`} fill="none"
     style={{ stroke: 'var(--danger)' }} strokeWidth="1.3" strokeDasharray="4 3" opacity=".55" markerEnd="url(#acr)" />);
   els.push(<text key="lcflct" className="e-label" x="689" y="18" textAnchor="middle">
-    {'base conflict → sync development into the branch'}</text>);
+    {tr('xung đột với nhánh gốc → đồng bộ development vào nhánh')}</text>);
 
   // ticket fork (right after the PR opens)
   els.push(<path key="tkt" d={`M914,${MAINY - 13} V${TKT[3]} H${TKT[2] - 17}`} fill="none"

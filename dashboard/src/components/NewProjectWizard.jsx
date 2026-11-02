@@ -14,6 +14,7 @@ import {
 } from '../lib/scaffold.js';
 import { WORKFLOW_PRESETS } from '../lib/review.js';
 import '../styles/wizard.css';
+import { tr } from '../lib/i18n.js';
 
 const JOB_KEY = 'shipyard.scaffoldJob';
 const remember = id => { try { id ? sessionStorage.setItem(JOB_KEY, id) : sessionStorage.removeItem(JOB_KEY); } catch { /* storage off */ } };
@@ -95,38 +96,36 @@ export default function NewProjectWizard({ onClose, onCreated }) {
   let buttons;
   if (job) {
     buttons = [];
-    if (job.status === 'running') buttons.push({ label: 'Huỷ', icon: StopCircle, cls: 'warn', disabled: busy, fn: act(async () => setJob(await scaffold.cancel(job.id))) });
+    if (job.status === 'running') buttons.push({ label: tr('Huỷ'), icon: StopCircle, cls: 'warn', disabled: busy, fn: act(async () => setJob(await scaffold.cancel(job.id))) });
     if (job.retryable) {
-      buttons.push({ label: job.archFirst && job.stages?.blueprint === 'done' ? 'Thử dựng lại' : 'Thử lại', icon: RotateCcw, cls: 'add', disabled: busy, fn: act(async () => setJob(await scaffold.retry(job.id))) });
+      buttons.push({ label: job.archFirst && job.stages?.blueprint === 'done' ? tr('Thử dựng lại') : tr('Thử lại'), icon: RotateCcw, cls: 'add', disabled: busy, fn: act(async () => setJob(await scaffold.retry(job.id))) });
     } else if (job.status === 'failed' || job.status === 'cancelled') {
-      buttons.push({ label: 'Xoá thư mục & sửa lựa chọn', icon: Trash2, cls: 'warn', disabled: busy,
+      buttons.push({ label: tr('Xoá thư mục & sửa lựa chọn'), icon: Trash2, cls: 'warn', disabled: busy,
         fn: act(async () => { await scaffold.discard(job.id); remember(null); setJob(null); setStep(steps.length - 1); }) });
     }
-    if (job.status === 'done' || job.status === 'waiting') buttons.push({ label: 'Mở dự án', icon: ArrowRight, cls: 'add', fn: () => { onCreated(job.project?.id); onClose(); } });
-    else buttons.push({ label: 'Đóng', fn: onClose });
+    if (job.status === 'done' || job.status === 'waiting') buttons.push({ label: tr('Mở dự án'), icon: ArrowRight, cls: 'add', fn: () => { onCreated(job.project?.id); onClose(); } });
+    else buttons.push({ label: tr('Đóng'), fn: onClose });
   } else {
     buttons = [
-      { label: 'Quay lại', icon: ArrowLeft, disabled: step === 0, fn: () => setStep(s => s - 1) },
+      { label: tr('Quay lại'), icon: ArrowLeft, disabled: step === 0, fn: () => setStep(s => s - 1) },
       cur === 'review'
-        ? { label: busy ? 'Đang gửi…' : 'Tạo dự án', icon: Rocket, cls: 'add', disabled: busy || !!problem, fn: create }
-        : { label: 'Tiếp', icon: ArrowRight, cls: 'add', disabled: !!problem, fn: () => setStep(s => s + 1) },
+        ? { label: busy ? tr('Đang gửi…') : tr('Tạo dự án'), icon: Rocket, cls: 'add', disabled: busy || !!problem, fn: create }
+        : { label: tr('Tiếp'), icon: ArrowRight, cls: 'add', disabled: !!problem, fn: () => setStep(s => s + 1) },
     ];
   }
 
   return (
-    <Modal title={job ? `Đang tạo ${job.name}` : 'Tạo dự án mới từ khung'} wide onClose={onClose} buttons={buttons}>
+    <Modal title={job ? tr('Đang tạo {0}', [job.name]) : tr('Tạo dự án mới từ khung')} wide onClose={onClose} buttons={buttons}>
       {err && <p className="m-err" role="alert">{err}</p>}
-      {!catalog && !err && <p className="muted-empty">Đang tải danh mục…</p>}
+      {!catalog && !err && <p className="muted-empty">{tr('Đang tải danh mục…')}</p>}
       {job?.status === 'waiting' && (
         <div className="wz-waiting" role="status">
-          <b>Đang chờ duyệt kiến trúc.</b> Kiến trúc sư AI đang soạn <code>architecture.md</code>; khi xong, bản kiến trúc nằm trong
-          {' '}<b>Chờ duyệt</b> của dự án. Duyệt xong Shipyard tự tạo khung dự án theo kiến trúc đó — bạn có thể đóng cửa sổ này.
-        </div>
+          <b>{tr('Đang chờ duyệt kiến trúc.')}</b>{' '}{tr('Kiến trúc sư AI đang soạn')}{' '}<code>architecture.md</code>{tr('; khi xong, bản kiến trúc nằm trong')}{' '}<b>{tr('Chờ duyệt')}</b>{' '}{tr('của dự án. Duyệt xong Shipyard tự tạo khung dự án theo kiến trúc đó — bạn có thể đóng cửa sổ này.')}</div>
       )}
       {job && catalog && <JobView job={job} stages={job.stageList || catalog.stages} />}
       {!job && catalog && (
         <div className="wz">
-          <ol className="wz-steps" aria-label="Các bước">
+          <ol className="wz-steps" aria-label={tr('Các bước')}>
             {steps.map((s, i) => (
               <li
                 key={s.id}
@@ -143,18 +142,18 @@ export default function NewProjectWizard({ onClose, onCreated }) {
             {cur === 'info' && (
               <div className="wz-fields">
                 <div className="form-field">
-                  <label className="form-label" htmlFor="wz-name">Tên dự án</label>
-                  <input id="wz-name" autoFocus value={form.name} maxLength={100} placeholder="Ví dụ: Quản lý kho hàng"
+                  <label className="form-label" htmlFor="wz-name">{tr('Tên dự án')}</label>
+                  <input id="wz-name" autoFocus value={form.name} maxLength={100} placeholder={tr('Ví dụ: Quản lý kho hàng')}
                     onChange={e => set({ name: e.target.value, ...(form.slugTouched ? {} : { slug: slugify(e.target.value) }) })} />
                 </div>
                 <div className="form-field">
-                  <label className="form-label" htmlFor="wz-slug">Slug (tên thư mục và repo)</label>
+                  <label className="form-label" htmlFor="wz-slug">{tr('Slug (tên thư mục và repo)')}</label>
                   <input id="wz-slug" value={form.slug} maxLength={40} placeholder="quan-ly-kho-hang"
                     onChange={e => set({ slug: e.target.value.toLowerCase(), slugTouched: true })} />
-                  <span className="faint">Thư mục: <code>{catalog.root}/{form.slug || '…'}</code></span>
+                  <span className="faint">{tr('Thư mục:')}{' '}<code>{catalog.root}/{form.slug || '…'}</code></span>
                 </div>
                 <div className="form-field">
-                  <label className="form-label" htmlFor="wz-desc">Mô tả ngắn (không bắt buộc)</label>
+                  <label className="form-label" htmlFor="wz-desc">{tr('Mô tả ngắn (không bắt buộc)')}</label>
                   <input id="wz-desc" value={form.description} maxLength={500} onChange={e => set({ description: e.target.value })} />
                 </div>
               </div>
@@ -163,16 +162,16 @@ export default function NewProjectWizard({ onClose, onCreated }) {
             {cur === 'need' && (
               <div className="wz-fields">
                 <div className="form-field">
-                  <label className="form-label" htmlFor="wz-need">Bạn cần xây hệ thống gì?</label>
+                  <label className="form-label" htmlFor="wz-need">{tr('Bạn cần xây hệ thống gì?')}</label>
                   <textarea id="wz-need" rows={5} maxLength={20000} value={form.requirements}
                     onChange={e => { set({ requirements: e.target.value }); setApplied(false); }}
-                    placeholder={'Ví dụ: Hệ thống bán hàng cho chuỗi 5 cửa hàng, khoảng 1000 người dùng. Có quản lý sản phẩm, đơn hàng, kho, khách hàng, báo cáo doanh thu…'} />
-                  <span className="faint">Không bắt buộc. Nhờ AI tư vấn để được gợi ý công nghệ, quy mô và quy trình — bạn vẫn tự chọn ở các bước sau.</span>
+                    placeholder={tr('Ví dụ: Hệ thống bán hàng cho chuỗi 5 cửa hàng, khoảng 1000 người dùng. Có quản lý sản phẩm, đơn hàng, kho, khách hàng, báo cáo doanh thu…')} />
+                  <span className="faint">{tr('Không bắt buộc. Nhờ AI tư vấn để được gợi ý công nghệ, quy mô và quy trình — bạn vẫn tự chọn ở các bước sau.')}</span>
                 </div>
                 <div className="wz-advise-row">
                   <button type="button" className="btn btn-md btn-secondary" disabled={advising || form.requirements.trim().length < 10} onClick={askAdvice}>
                     {advising ? <Loader2 size={16} className="wz-spin" aria-hidden="true" /> : <Sparkles size={16} aria-hidden="true" />}
-                    <span>{advising ? 'AI đang tư vấn… (khoảng 1 phút)' : advice ? 'Tư vấn lại' : 'Nhờ AI tư vấn'}</span>
+                    <span>{advising ? tr('AI đang tư vấn… (khoảng 1 phút)') : advice ? tr('Tư vấn lại') : tr('Nhờ AI tư vấn')}</span>
                   </button>
                   {adviceErr && <span className="m-err" role="alert" style={{ margin: 0 }}>{adviceErr}</span>}
                 </div>
@@ -183,19 +182,19 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                       <span className="wz-pill"><Terminal size={12} /> {advice.kind === 'fullstack' ? `backend/ ${stackName(advice.stack)}` : stackName(advice.stack)}</span>
                       {advice.frontend && <span className="wz-pill"><Terminal size={12} /> frontend/ {stackName(advice.frontend.stack)}</span>}
                       {advice.options.db && advice.options.db !== 'none' && <span className="wz-pill"><Database size={12} /> {advice.options.db}</span>}
-                      <span className="wz-pill">Quy trình: {WORKFLOW_PRESETS.find(x => x.id === advice.workflow)?.label}</span>
-                      <span className="wz-pill">{advice.archFirst ? 'Duyệt kiến trúc trước' : 'Tạo khung ngay'}</span>
+                      <span className="wz-pill">{tr('Quy trình: {0}', [WORKFLOW_PRESETS.find(x => x.id === advice.workflow)?.label])}</span>
+                      <span className="wz-pill">{advice.archFirst ? tr('Duyệt kiến trúc trước') : tr('Tạo khung ngay')}</span>
                     </div>
-                    {[['Vì sao', advice.reasons], ['Với quy mô này', advice.scale], ['Cần làm rõ', advice.risks]].filter(([, l]) => l.length).map(([t, l]) => (
+                    {[[tr('Vì sao'), advice.reasons], [tr('Với quy mô này'), advice.scale], [tr('Cần làm rõ'), advice.risks]].filter(([, l]) => l.length).map(([t, l]) => (
                       <div key={t} className="wz-advice-sec"><b>{t}</b><ul>{l.map((x, i) => <li key={i}>{x}</li>)}</ul></div>
                     ))}
                     <div className="wz-advise-row">
                       <button type="button" className="btn btn-md btn-primary" disabled={applied}
                         onClick={() => { setForm(f => applyAdvice(f, advice, catalog)); setApplied(true); }}>
                         {applied ? <Check size={16} aria-hidden="true" /> : <ArrowRight size={16} aria-hidden="true" />}
-                        <span>{applied ? 'Đã áp dụng' : 'Áp dụng gợi ý'}</span>
+                        <span>{applied ? tr('Đã áp dụng') : tr('Áp dụng gợi ý')}</span>
                       </button>
-                      <span className="faint">{applied ? 'Các bước sau đã được chọn sẵn theo gợi ý — bấm Tiếp để xem và chỉnh.' : 'Áp dụng sẽ chọn sẵn kiểu dự án, framework, database, kiến trúc và quy trình.'}</span>
+                      <span className="faint">{applied ? tr('Các bước sau đã được chọn sẵn theo gợi ý — bấm Tiếp để xem và chỉnh.') : tr('Áp dụng sẽ chọn sẵn kiểu dự án, framework, database, kiến trúc và quy trình.')}</span>
                     </div>
                   </div>
                 )}
@@ -204,7 +203,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
 
             {cur === 'kind' && (
               <fieldset className="wz-grid">
-                <legend className="form-label">Dự án gồm những gì?</legend>
+                <legend className="form-label">{tr('Dự án gồm những gì?')}</legend>
                 {KINDS.map(k => (
                   <Choice key={k.id} name="kind" value={k.id} current={form.kind} title={k.label} desc={k.desc}
                     onPick={v => {
@@ -219,7 +218,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
 
             {cur === 'language' && (
               <fieldset className="wz-grid">
-                <legend className="form-label">{form.kind === 'fullstack' ? 'Ngôn ngữ cho backend' : 'Chọn ngôn ngữ'}</legend>
+                <legend className="form-label">{form.kind === 'fullstack' ? tr('Ngôn ngữ cho backend') : tr('Chọn ngôn ngữ')}</legend>
                 {languages.map(l => (
                   <Choice key={l.id} name="language" value={l.id} current={form.language} title={l.label}
                     badge={`${l.stacks.length} framework`}
@@ -233,8 +232,8 @@ export default function NewProjectWizard({ onClose, onCreated }) {
               <fieldset className="wz-grid">
                 <legend className="form-label">{form.kind === 'fullstack' ? `Backend (${lang.label})` : `Framework cho ${lang.label}`}</legend>
                 {lang.stacks.map(s => (
-                  <Choice key={s.id} name="stack" value={s.id} current={form.stack} title={s.label} desc={s.description}
-                    badge={s.available ? 'Sẵn sàng' : 'Thiếu công cụ'}
+                  <Choice key={s.id} name="stack" value={s.id} current={form.stack} title={s.label} desc={tr(s.description)}
+                    badge={s.available ? tr('Sẵn sàng') : tr('Thiếu công cụ')}
                     disabled={!s.available} onPick={v => {
                       const picked = findStack(catalog, v);
                       set({
@@ -245,7 +244,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                     }}>
                     {!s.available && (
                       <span className="wz-missing">
-                        <Badge tone="warn">thiếu {s.missing.map(m => m.tool).join(', ')}</Badge>
+                        <Badge tone="warn">{tr('thiếu {0}', [s.missing.map(m => m.tool).join(', ')])}</Badge>
                         {s.missing.map(m => <span key={m.tool} className="faint">{m.hint}</span>)}
                       </span>
                     )}
@@ -259,7 +258,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                 <legend className="form-label">Database</legend>
                 {stack.options.find(o => o.id === 'db').choices.map(c => (
                   <Choice key={c.id} name="db" value={c.id} current={form.options.db} title={c.label}
-                    desc={c.id === 'none' ? 'Không cấu hình Database ban đầu' : `Tự cấu hình kết nối, driver & Docker Compose cho ${c.label}`}
+                    desc={c.id === 'none' ? tr('Không cấu hình Database ban đầu') : tr('Tự cấu hình kết nối, driver & Docker Compose cho {0}', [c.label])}
                     onPick={v => setOpt('db', v)} />
                 ))}
               </fieldset>
@@ -271,19 +270,19 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                   o.type === 'bool' ? (
                     <label key={o.id} className="wz-check">
                       <input type="checkbox" checked={!!form.options[o.id]} onChange={e => setOpt(o.id, e.target.checked)} />
-                      <span>{o.label}</span>
+                      <span>{tr(o.label)}</span>
                     </label>
                   ) : (
                     <div key={o.id} className="form-field">
-                      <label className="form-label" htmlFor={`wz-o-${o.id}`}>{o.label}</label>
+                      <label className="form-label" htmlFor={`wz-o-${o.id}`}>{tr(o.label)}</label>
                       {o.type === 'choice' ? (
                         <select id={`wz-o-${o.id}`} value={form.options[o.id]} onChange={e => setOpt(o.id, e.target.value)}>
-                          {o.choices.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                          {o.choices.map(c => <option key={c.id} value={c.id}>{tr(c.label)}</option>)}
                         </select>
                       ) : (
                         <input id={`wz-o-${o.id}`} value={form.options[o.id] ?? ''} onChange={e => setOpt(o.id, e.target.value.trim())} />
                       )}
-                      {o.help && <span className="faint">{o.help}</span>}
+                      {o.help && <span className="faint">{tr(o.help)}</span>}
                     </div>
                   )
                 ))}
@@ -293,10 +292,10 @@ export default function NewProjectWizard({ onClose, onCreated }) {
             {cur === 'frontend' && (
               <div className="wz-fields">
                 <fieldset className="wz-grid">
-                  <legend className="form-label">Frontend (thư mục frontend/, gọi backend qua /api)</legend>
+                  <legend className="form-label">{tr('Frontend (thư mục frontend/, gọi backend qua /api)')}</legend>
                   {frontendStacks(catalog).map(s => (
-                    <Choice key={s.id} name="frontend" value={s.id} current={form.frontend.stack} title={s.label} desc={s.description}
-                      badge={s.available ? 'Sẵn sàng' : 'Thiếu công cụ'} disabled={!s.available}
+                    <Choice key={s.id} name="frontend" value={s.id} current={form.frontend.stack} title={s.label} desc={tr(s.description)}
+                      badge={s.available ? tr('Sẵn sàng') : tr('Thiếu công cụ')} disabled={!s.available}
                       onPick={v => set({ frontend: { stack: v, options: defaultOptions(findStack(catalog, v)) } })} />
                   ))}
                 </fieldset>
@@ -304,18 +303,18 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                   o.type === 'bool' ? (
                     <label key={o.id} className="wz-check">
                       <input type="checkbox" checked={!!form.frontend.options[o.id]} onChange={e => setFeOpt(o.id, e.target.checked)} />
-                      <span>{o.label}</span>
+                      <span>{tr(o.label)}</span>
                     </label>
                   ) : (
                     <div key={o.id} className="form-field">
-                      <label className="form-label" htmlFor={`wz-fe-${o.id}`}>{o.label}</label>
+                      <label className="form-label" htmlFor={`wz-fe-${o.id}`}>{tr(o.label)}</label>
                       <select id={`wz-fe-${o.id}`} value={form.frontend.options[o.id]} onChange={e => setFeOpt(o.id, e.target.value)}>
-                        {(o.choices || []).map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                        {(o.choices || []).map(c => <option key={c.id} value={c.id}>{tr(c.label)}</option>)}
                       </select>
                     </div>
                   )
                 ))}
-                <p className="wz-hint">Shipyard nối sẵn frontend với backend: Vite chuyển <code>/api</code> sang backend, trang chủ hiện trạng thái backend; <code>./dev.sh</code> chạy cả hai.</p>
+                <p className="wz-hint">{tr('Shipyard nối sẵn frontend với backend: Vite chuyển')}{' '}<code>/api</code>{' '}{tr('sang backend, trang chủ hiện trạng thái backend;')}{' '}<code>./dev.sh</code>{' '}{tr('chạy cả hai.')}</p>
               </div>
             )}
 
@@ -328,23 +327,21 @@ export default function NewProjectWizard({ onClose, onCreated }) {
             {cur === 'arch' && (
               <div className="wz-fields">
                 <fieldset className="wz-grid">
-                  <legend className="form-label">Khi nào tạo khung dự án?</legend>
-                  <Choice name="archFirst" value="now" current={form.archFirst ? 'first' : 'now'} title="Tạo khung ngay"
-                    desc="Sinh code khung, build, test, đăng ký dự án ngay bây giờ. Kiến trúc của từng tính năng được duyệt sau."
+                  <legend className="form-label">{tr('Khi nào tạo khung dự án?')}</legend>
+                  <Choice name="archFirst" value="now" current={form.archFirst ? 'first' : 'now'} title={tr('Tạo khung ngay')}
+                    desc={tr('Sinh code khung, build, test, đăng ký dự án ngay bây giờ. Kiến trúc của từng tính năng được duyệt sau.')}
                     onPick={() => set({ archFirst: false })} />
-                  <Choice name="archFirst" value="first" current={form.archFirst ? 'first' : 'now'} title="Duyệt kiến trúc trước"
-                    desc="AI soạn kiến trúc tổng thể từ yêu cầu của bạn; Tech Lead / Owner duyệt xong Shipyard mới tạo khung và bắt đầu code."
+                  <Choice name="archFirst" value="first" current={form.archFirst ? 'first' : 'now'} title={tr('Duyệt kiến trúc trước')}
+                    desc={tr('AI soạn kiến trúc tổng thể từ yêu cầu của bạn; Tech Lead / Owner duyệt xong Shipyard mới tạo khung và bắt đầu code.')}
                     onPick={() => set({ archFirst: true })} />
                 </fieldset>
                 {form.archFirst && (
                   <div className="form-field">
-                    <label className="form-label" htmlFor="wz-req">Hệ thống cần xây (cho kiến trúc sư AI — lấy từ bước Yêu cầu, sửa thêm được)</label>
+                    <label className="form-label" htmlFor="wz-req">{tr('Hệ thống cần xây (cho kiến trúc sư AI — lấy từ bước Yêu cầu, sửa thêm được)')}</label>
                     <textarea id="wz-req" rows={6} maxLength={20000} value={form.requirements} onChange={e => set({ requirements: e.target.value })}
-                      placeholder={'Ví dụ: Hệ thống quản lý kho cho 3 chi nhánh. Người dùng: thủ kho, kế toán, quản lý. Nhập/xuất kho, kiểm kê, cảnh báo tồn thấp, báo cáo tháng. Đăng nhập bằng tài khoản công ty…'} />
-                    <span className="faint">
-                      Công nghệ đã chọn ở các bước trước được giữ nguyên. Bản kiến trúc được duyệt sẽ nằm ở <code>docs/architecture.md</code>
-                      {' '}và là khung cho mọi tính năng sau. {form.requirements.length.toLocaleString('vi-VN')}/20.000 ký tự.
-                    </span>
+                      placeholder={tr('Ví dụ: Hệ thống quản lý kho cho 3 chi nhánh. Người dùng: thủ kho, kế toán, quản lý. Nhập/xuất kho, kiểm kê, cảnh báo tồn thấp, báo cáo tháng. Đăng nhập bằng tài khoản công ty…')} />
+                    <span className="faint">{tr('Công nghệ đã chọn ở các bước trước được giữ nguyên. Bản kiến trúc được duyệt sẽ nằm ở')}{' '}<code>docs/architecture.md</code>
+                      {' '}{tr('và là khung cho mọi tính năng sau. {0}/20.000 ký tự.', [form.requirements.length.toLocaleString('vi-VN')])}</span>
                   </div>
                 )}
               </div>
@@ -352,8 +349,7 @@ export default function NewProjectWizard({ onClose, onCreated }) {
 
             {cur === 'workflow' && (
               <div className="wz-fields">
-                <p className="faint" style={{ margin: 0 }}>Mọi lane của dự án chạy theo quy trình này (đổi sau ở <b>Quy trình &amp; duyệt</b>). Ví dụ dự án chỉ cần
-                  {' '}<b>Plan → Code → Test</b>: test xanh là xong, đỏ thì dừng chờ người.</p>
+                <p className="faint" style={{ margin: 0 }}>{tr('Mọi lane của dự án chạy theo quy trình này (đổi sau ở')}{' '}<b>{tr('Quy trình & duyệt')}</b>{tr('). Ví dụ dự án chỉ cần')}{' '}<b>Plan → Code → Test</b>{tr(': test xanh là xong, đỏ thì dừng chờ người.')}</p>
                 <div className="wz-wf card-panel">
                   <WorkflowEditor value={form.workflow} onChange={w => set({ workflow: w })} />
                 </div>
@@ -372,14 +368,14 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <label className="wz-check">
                     <input type="checkbox" checked={form.aiTeam} onChange={e => set({ aiTeam: e.target.checked })} />
-                    <span>Giao <b>AI Manager</b> soạn thêm bộ luật chi tiết từ tài liệu dự án ngay sau khi tạo (bạn duyệt trước khi dùng)</span>
+                    <span>{tr('Giao')}{' '}<b>AI Manager</b>{' '}{tr('soạn thêm bộ luật chi tiết từ tài liệu dự án ngay sau khi tạo (bạn duyệt trước khi dùng)')}</span>
                   </label>
                   {form.aiTeam && (
                     <div className="form-field">
-                      <label className="form-label" htmlFor="wz-brief">Tài liệu tổng quan cho AI Manager (không bắt buộc)</label>
+                      <label className="form-label" htmlFor="wz-brief">{tr('Tài liệu tổng quan cho AI Manager (không bắt buộc)')}</label>
                       <textarea id="wz-brief" rows={4} maxLength={20000} value={form.brief} onChange={e => set({ brief: e.target.value })}
-                        placeholder={'Ví dụ: nghiệp vụ chính, chuẩn code của công ty, quy tắc đặt tên bảng, cách đặt tên nhánh, thư viện bắt buộc…'} />
-                      <span className="faint">Lưu vào <code>.shipyard/human/brief.md</code>. AI Manager đọc như tài liệu tham khảo để soạn luật; {form.brief.length.toLocaleString('vi-VN')}/20.000 ký tự.</span>
+                        placeholder={tr('Ví dụ: nghiệp vụ chính, chuẩn code của công ty, quy tắc đặt tên bảng, cách đặt tên nhánh, thư viện bắt buộc…')} />
+                      <span className="faint">{tr('Lưu vào')}{' '}<code>.shipyard/human/brief.md</code>{tr('. AI Manager đọc như tài liệu tham khảo để soạn luật; {0}/20.000 ký tự.', [form.brief.length.toLocaleString('vi-VN')])}</span>
                     </div>
                   )}
                 </div>
@@ -400,10 +396,9 @@ export default function NewProjectWizard({ onClose, onCreated }) {
                   <tbody>{summary(form, stack, catalog, fstack).map(([k, v]) => <tr key={k}><th scope="row">{k}</th><td>{v}</td></tr>)}</tbody>
                 </table>
                 {form.archFirst ? (
-                  <p className="faint">Shipyard đăng ký dự án{form.git.provider !== 'local' ? ', tạo repo trống' : ''} rồi giao kiến trúc sư AI soạn kiến trúc.
-                    {' '}Sau khi bản kiến trúc được duyệt trong <b>Chờ duyệt</b>, Shipyard mới sinh khung tại <code>{catalog.root}/{form.slug}</code>, build + test, khởi tạo Git và kèm <code>docs/architecture.md</code>.</p>
+                  <p className="faint">{tr('Shipyard đăng ký dự án')}{form.git.provider !== 'local' ? tr(', tạo repo trống') : ''}{' '}{tr('rồi giao kiến trúc sư AI soạn kiến trúc.')}{' '}{tr('Sau khi bản kiến trúc được duyệt trong')}{' '}<b>{tr('Chờ duyệt')}</b>{tr(', Shipyard mới sinh khung tại')}{' '}<code>{catalog.root}/{form.slug}</code>{tr(', build + test, khởi tạo Git và kèm')}{' '}<code>docs/architecture.md</code>.</p>
                 ) : (
-                <p className="faint">Shipyard sẽ sinh khung dự án tại <code>{catalog.root}/{form.slug}</code>, nạp các Skill AI vào <code>.shipyard/</code> & <code>.claude/skills/</code>, chạy thử lệnh build + test, khởi tạo kho Git và đăng ký dự án tự động.</p>
+                <p className="faint">{tr('Shipyard sẽ sinh khung dự án tại')}{' '}<code>{catalog.root}/{form.slug}</code>{tr(', nạp các Skill AI vào')}{' '}<code>.shipyard/</code> & <code>.claude/skills/</code>{tr(', chạy thử lệnh build + test, khởi tạo kho Git và đăng ký dự án tự động.')}</p>
                 )}
               </div>
             )}
