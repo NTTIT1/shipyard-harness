@@ -602,3 +602,70 @@ describe('studio — a created project owns its chat', () => {
     expect(s.job).toMatchObject({ id: 'imp_1', status: 'running' });
   });
 });
+
+describe('studio — approved chat documents reach the project memory', () => {
+  const fakes = (failFirst = false) => {
+    const events = [];
+    let fail = failFirst;
+    return { events,
+      projectDocs: { seedDocs: () => {}, hasDocs: () => false, readDocs: () => ({ features: [] }), addFeature: () => {}, seedFromRepo: () => {} },
+      projectQueue: { enqueue: () => {}, readProjectQueue: () => ({ items: [], assigned: [], error: '' }) },
+      memory: { approved: async e => { if (fail) { fail = false; throw new Error('context-service down'); } events.push(e); } } };
+  };
+  const settle = () => new Promise(r => setTimeout(r, 30));
+
+  it('sends the approved brief, architecture and design once the project exists', async () => {
+    const f = fakes();
+    const jobs = { start: () => ({ id: 'scf_1' }), get: () => ({ id: 'scf_1', status: 'running', stages: {}, stageList: [], project: { id: 'proj_9' } }) };
+    const st = createStudio({ root: () => root, run: fakeClaude([]), tools: () => ALL, route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n, jobs, ...f });
+    let s = st.start(me, 'Tôi cần hệ thống bán hàng');
+    await until(() => !st.isBusy(s.id));
+    st.send(s.id, me, 'Chuỗi 5 cửa hàng, 1000 người dùng');
+    await until(() => !st.isBusy(s.id));
+    for (const stage of ['pm', 'system', 'ui']) { st.approve(s.id, me, stage); await until(() => !st.isBusy(s.id)); }
+    st.create(s.id, me, 'tok', { name: 'Bán hàng', slug: 'ban-hang' });
+    st.get(s.id, me);
+    await settle();
+    expect(f.events.map(e => [e.projectId, e.step, Object.keys(e.documents)])).toEqual([
+      ['proj_9', 'PM', ['product-brief.md']], ['proj_9', 'ARCH', ['architecture.md']], ['proj_9', 'DESIGN', ['design.md']]]);
+    expect(f.events[0]).toMatchObject({ runId: `chat:${s.id}`, runTitle: 'Tạo dự án — Bán hàng 5 cửa hàng' });
+    st.get(s.id, me);
+    await settle();
+    expect(f.events).toHaveLength(3);                // sent once
+  });
+
+  it('a failed send is retried on the next look; an approved feature is sent too', async () => {
+    const f = fakes(true);
+    const st = createStudio({ root: () => root, tools: () => ALL, route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n, ...f,
+      run: async (cmd, args, opts) => {
+        const agent = args[args.indexOf('--append-system-prompt') + 1];
+        const w = (n, t) => fs.writeFileSync(path.join(opts.cwd, n), t);
+        if (agent === 'studio-pm-agent') w('product-brief.md', '# Xuất Excel\n\n## Tiêu chí chấp nhận\n1. Có nút');
+        if (agent === 'studio-architect-agent') { w('architecture.md', '# đổi'); w('feature.json', JSON.stringify({ title: 'Xuất Excel', hasUi: false })); }
+        opts.log(JSON.stringify({ type: 'result', is_error: false, result: 'ok\nROLE-STEP: DONE chat' }));
+      } });
+    let s = st.startFeature(me, 'proj_9', 'Cần xuất Excel danh sách đơn');
+    for (const stage of ['pm', 'system']) { await until(() => !st.isBusy(s.id)); s = st.approve(s.id, me, stage); }
+    await settle();
+    expect(f.events).toHaveLength(1);               // the first of the two failed
+    st.get(s.id, me);
+    await settle();
+    expect(f.events.map(e => e.step).sort()).toEqual(['ARCH', 'PM']);
+    expect(f.events[0]).toMatchObject({ projectId: 'proj_9', runTitle: 'Xuất Excel' });
+  });
+
+  it('a project created before this has its documents and memory filled from its creation chat', async () => {
+    const f = fakes(), seeded = [];
+    f.projectDocs.seedDocs = (pid, d) => seeded.push({ pid, ...d });
+    const st = createStudio({ root: () => root, run: fakeClaude([]), tools: () => ALL, route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n, ...f });
+    fs.mkdirSync(path.join(root, 'stu_dddddddddddd'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'stu_dddddddddddd', 'product-brief.md'), '# Web học');
+    fs.writeFileSync(path.join(root, 'stu_dddddddddddd.json'), JSON.stringify({ id: 'stu_dddddddddddd', title: 'Web học', stage: 'build',
+      project: { jobId: 'gone', slug: 'web-hoc', name: 'Web học', projectId: 'proj_7' }, approved: { pm: 'x' }, messages: [], createdBy: 'u1', createdAt: 'x' }));
+    st.ensureProjectDocs('proj_7');
+    await settle();
+    expect(seeded[0]).toMatchObject({ pid: 'proj_7', brief: '# Web học' });
+    expect(f.events.map(e => e.step)).toEqual(['PM']);
+  });
+});
+

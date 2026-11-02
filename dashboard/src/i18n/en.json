@@ -1511,5 +1511,13 @@
   "Chọn frontend": "Pick the frontend",
   "Bước {0}/4 · {1}": "Step {0}/4 · {1}",
   "Đang tạo dự án": "Creating the project",
-  "Thiết kế hệ thống": "System design"
+  "Thiết kế hệ thống": "System design",
+  "Không thể hiển thị tài liệu dự án": "Can't show the project documents",
+  "Tài liệu dự án": "Project documents",
+  "Những gì đã duyệt trong chat dự án: yêu cầu sản phẩm, thiết kế hệ thống, giao diện và các tính năng thêm sau. Cũng có trong Bộ nhớ dự án để các AI dùng lại.": "What the project chat approved: product requirements, system design, UI and the features added later. Also in the project memory for the AIs to reuse.",
+  "Dự án chưa có tài liệu đã duyệt. Thêm tính năng trong chat dự án: AI đọc code sẵn có rồi cùng bạn viết tài liệu.": "The project has no approved documents yet. Add a feature in the project chat: the AI reads the existing code and writes the documents with you.",
+  "Giao diện": "UI",
+  "Chưa có.": "None yet.",
+  "Chưa có tính năng nào được thêm qua chat dự án.": "No feature has been added through the project chat yet.",
+  "Đã duyệt — chưa làm": "Approved — not built yet"
 }

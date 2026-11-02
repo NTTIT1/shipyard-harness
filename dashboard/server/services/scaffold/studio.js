@@ -231,7 +231,9 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
   // The project's master documents and feature queue, and where its code is checked out (feature threads).
   projectDocs = null, projectQueue = null, repoDirOf = () => null, importer = null,
   // Provisions a lane bound to a created project (lane-add.sh with its profile), so its queue starts on its own.
-  addLane = null } = {}) {
+  addLane = null,
+  // The project memory (context-service): every document approved in a chat goes there as an approved step.
+  memory = null } = {}) {
   // Each role talks with the model chosen for its lane step in "Nhà cung cấp AI" (defaults):
   // Claude on this machine's account, or Gemini/OpenAI/… through the LiteLLM gateway.
   const STEP_OF = { pm: 'pm', system: 'arch', ui: 'design', create: 'arch' };
@@ -453,6 +455,25 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
     save(s);
   }
 
+  // What each approved chat stage hands to the memory, as the step a lane would have approved it in.
+  const MEMORY_STEPS = [['pm', 'PM', 'product-brief.md', 'brief'], ['system', 'ARCH', 'architecture.md', 'architecture'], ['ui', 'DESIGN', 'design.md', 'design']];
+  const sending = new Set();
+  /** Send this chat's approved documents to its project's memory, once each (retried on the next look if it failed). */
+  function sendMemory(s) {
+    const pid = projectOfSession(s);
+    if (!memory || !pid) return;
+    const d = docs(s.id);
+    for (const [stage, step, file, key] of MEMORY_STEPS) {
+      const k = `${s.id}:${step}`;
+      if (!s.approved?.[stage] || !d[key] || s.memorySent?.[step] || sending.has(k)) continue;
+      sending.add(k);
+      Promise.resolve().then(() => memory.approved({ projectId: pid, runId: `chat:${s.id}`, step, documents: { [file]: d[key] },
+        runTitle: s.kind === 'feature' ? s.title : `Tạo dự án — ${s.title}`, eventId: `chat:${s.id}:${step}` }))
+        .then(() => { const cur = load(s.id); if (cur) { cur.memorySent = { ...cur.memorySent, [step]: true }; save(cur); } }, () => { /* next look retries */ })
+        .finally(() => sending.delete(k));
+    }
+  }
+
   /** All approved: record the feature in the project's documents and queue it for a free lane. */
   function finishFeature(s) {
     const d = docs(s.id);
@@ -469,8 +490,10 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
     s.featureSlug = slug;
     s.stage = 'queued';
     s.approved = { ...s.approved, queued: now().toISOString() };
-    say(s, 'queued', 'shipyard', `Đã duyệt "${title}" — đã ghi vào tài liệu dự án và xếp hàng chờ; lane rảnh đầu tiên của dự án sẽ nhận.`);
-    return view(save(s));
+    say(s, 'queued', 'shipyard', `Đã duyệt "${title}" — đã ghi vào tài liệu dự án và bộ nhớ dự án, xếp hàng chờ; lane rảnh đầu tiên của dự án sẽ nhận.`);
+    save(s);
+    sendMemory(s);
+    return view(s);
   }
 
   function approveFeature(s, stage) {
@@ -520,6 +543,7 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       const pid = jobOf(s)?.project?.id || null;
       if (pid && s.project.projectId !== pid) { s.project.projectId = pid; save(s); }
       if (pid && !s.seeded) bindProject(s, pid);
+      if (projectOfSession(s) && (s.kind !== 'feature' || s.stage === 'queued')) sendMemory(load(id) || s);
       // Created (its lane profile now exists): give it a lane straight away, once.
       const job = jobOf(s);
       if (pid && job?.status === 'done' && !s.laneAdded && addLane && s.project?.slug) {
@@ -749,6 +773,20 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
         });
       return { root: r ? view(r) : null, threads, queue: q };
     },
+    /**
+     * A project's documents and memory, also for one created before they existed: from the chat that
+     * created it when there is one, else from the docs already in its repo.
+     */
+    ensureProjectDocs(pid) {
+      if (!projectDocs) return;
+      const r = rootOf(pid);
+      if (!projectDocs.hasDocs(pid)) {
+        if (r) { const d = docs(r.id); if (d.brief || d.architecture) projectDocs.seedDocs(pid, { brief: d.brief, architecture: d.architecture, design: d.design, mockups: d.mockups }); }
+        else projectDocs.seedFromRepo(pid, repoDirOf(pid));
+      }
+      if (r) sendMemory(r);
+    },
+
     /** The folder slug of the project a chat created (where its code was generated or cloned). */
     projectSlug: pid => rootOf(pid)?.project?.slug || null,
     isBusy: id => busy.has(id),

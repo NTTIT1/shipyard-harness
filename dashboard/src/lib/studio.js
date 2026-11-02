@@ -33,6 +33,7 @@ export const projectChat = {
   thread: (pid, id) => call('GET', `/api/projects/${pid}/chat/${id}`),
   addFeature: (pid, text) => call('POST', `/api/projects/${pid}/chat/features`, { text }),
   queue: pid => call('GET', `/api/projects/${pid}/queue`),
+  docs: pid => call('GET', `/api/projects/${pid}/docs`),
   // op: { order: [slug…] } or { remove: slug } — applied to the queue as it is on the server now.
   saveQueue: (pid, op) => call('PUT', `/api/projects/${pid}/queue`, op),
 };
@@ -82,6 +83,9 @@ export function moveItem(items, i, dir) {
   [out[i], out[j]] = [out[j], out[i]];
   return out;
 }
+
+/** Where a feature of the project documents stands. */
+export const FEATURE_STATUS_LABEL = { approved: 'Đã duyệt — chưa làm', done: 'Đã có', dropped: 'Đã bỏ' };
 
 /** A creation chat not yet tied to a project (shown under "Tiếp tục bản nháp"). */
 export const isDraft = s => !s.projectId;

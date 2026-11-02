@@ -53,3 +53,10 @@ describe('project chat', () => {
     expect(isDraft({ projectId: 'proj_9' })).toBe(false);
   });
 });
+
+describe('project documents', () => {
+  it('labels every feature status', async () => {
+    const { FEATURE_STATUS_LABEL } = await import('../src/lib/studio.js');
+    expect(FEATURE_STATUS_LABEL).toEqual({ approved: 'Đã duyệt — chưa làm', done: 'Đã có', dropped: 'Đã bỏ' });
+  });
+});

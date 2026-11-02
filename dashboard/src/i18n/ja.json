@@ -1578,5 +1578,13 @@
   "Chọn frontend": "フロントエンドを選択してください",
   "Bước {0}/4 · {1}": "ステップ{0}/4・{1}",
   "Đang tạo dự án": "プロジェクトを作成中",
-  "Thiết kế hệ thống": "システム設計"
+  "Thiết kế hệ thống": "システム設計",
+  "Không thể hiển thị tài liệu dự án": "プロジェクト文書を表示できません",
+  "Tài liệu dự án": "プロジェクト文書",
+  "Những gì đã duyệt trong chat dự án: yêu cầu sản phẩm, thiết kế hệ thống, giao diện và các tính năng thêm sau. Cũng có trong Bộ nhớ dự án để các AI dùng lại.": "プロジェクトチャットで承認された内容：製品要件、システム設計、UI、後から追加した機能。AIが再利用できるようプロジェクトメモリにも保存されています。",
+  "Dự án chưa có tài liệu đã duyệt. Thêm tính năng trong chat dự án: AI đọc code sẵn có rồi cùng bạn viết tài liệu.": "このプロジェクトにはまだ承認済みの文書がありません。プロジェクトチャットで機能を追加すると、AIが既存コードを読んで一緒に文書を作成します。",
+  "Giao diện": "UI",
+  "Chưa có.": "まだありません。",
+  "Chưa có tính năng nào được thêm qua chat dự án.": "プロジェクトチャットから追加された機能はまだありません。",
+  "Đã duyệt — chưa làm": "承認済み・未実装"
 }

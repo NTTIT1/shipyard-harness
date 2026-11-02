@@ -17,6 +17,7 @@ import { discoverLanes } from '../services/state.js';
 import { laneBinding, LANES_ROOT } from '../services/config.js';
 import { platformProjectLookup } from './team.js';
 import { runAction } from '../services/actions.js';
+import { memoryClient } from '../services/projectmemory.js';
 
 /** Creates the project on the platform as the calling user (who becomes OWNER). */
 export function platformRegistrar(gatewayUrl = PLATFORM_URL, fetchImpl = fetch) {
@@ -107,7 +108,7 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
     return dir && fs.existsSync(dir) ? dir : null;
   };
   const chat = studio || createStudio({ tools, jobs, providers, importer: imports, projectDocs, projectQueue, repoDirOf,
-    addLane: project => runAction(null, 'add', { project }) });
+    addLane: project => runAction(null, 'add', { project }), memory: memoryClient() });
   // An approved architecture scaffolds the project through the job runner (same job, or rebuilt).
   blueprint.setBuilder?.((entry, architecture) => jobs.build(entry.snapshot, architecture));
   const admin = (req, res, next) => {
@@ -156,6 +157,8 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
     return s;
   }));
   router.post('/api/projects/:pid/chat/features', admin, member, wrapS(req => chat.startFeature(req.user, req.params.pid, req.body?.text)));
+  // The project's approved documents (brief, architecture with the roadmap, design, mockups, features).
+  router.get('/api/projects/:pid/docs', member, wrapS(req => { chat.ensureProjectDocs(req.params.pid); return projectDocs.readDocs(req.params.pid); }));
   router.get('/api/projects/:pid/queue', member, wrapS(req => projectQueue.readProjectQueue(req.params.pid)));
   router.put('/api/projects/:pid/queue', admin, member, wrapS(req => projectQueue.writeProjectQueue(req.params.pid, req.body || {})));
 
