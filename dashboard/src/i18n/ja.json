@@ -1586,5 +1586,8 @@
   "Giao diện": "UI",
   "Chưa có.": "まだありません。",
   "Chưa có tính năng nào được thêm qua chat dự án.": "プロジェクトチャットから追加された機能はまだありません。",
-  "Đã duyệt — chưa làm": "承認済み・未実装"
+  "Đã duyệt — chưa làm": "承認済み・未実装",
+  "Tài liệu gốc của dự án": "プロジェクトの基本文書",
+  "Yêu cầu mới": "新しい要望",
+  "Chat với đội AI của dự án": "プロジェクトのAIチームとチャット"
 }

@@ -654,6 +654,22 @@ describe('studio — approved chat documents reach the project memory', () => {
     expect(f.events[0]).toMatchObject({ projectId: 'proj_9', runTitle: 'Xuất Excel' });
   });
 
+  it('on start, every project made by a chat gets its documents and memory filled', async () => {
+    const f = fakes(), seeded = [];
+    f.projectDocs.seedDocs = (pid, d) => seeded.push(pid);
+    const st = createStudio({ root: () => root, run: fakeClaude([]), tools: () => ALL, route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n, ...f });
+    for (const [id, pid] of [['stu_eeeeeeeeeeee', 'proj_1'], ['stu_ffffffffffff', null]]) {
+      fs.mkdirSync(path.join(root, id), { recursive: true });
+      fs.writeFileSync(path.join(root, id, 'product-brief.md'), '# X');
+      fs.writeFileSync(path.join(root, `${id}.json`), JSON.stringify({ id, title: 'X', stage: pid ? 'build' : 'pm', approved: { pm: 'x' },
+        ...(pid ? { project: { slug: 'x', name: 'X', projectId: pid } } : {}), messages: [], createdBy: 'u1', createdAt: 'x' }));
+    }
+    st.backfill();
+    await settle();
+    expect(seeded).toEqual(['proj_1']);
+    expect(f.events.map(e => e.projectId)).toEqual(['proj_1']);
+  });
+
   it('a project created before this has its documents and memory filled from its creation chat', async () => {
     const f = fakes(), seeded = [];
     f.projectDocs.seedDocs = (pid, d) => seeded.push({ pid, ...d });

@@ -787,6 +787,12 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
       if (r) sendMemory(r);
     },
 
+    /** At start: every project a chat created gets its documents and memory (older projects included). */
+    backfill() {
+      const pids = new Set(all().filter(s => s.kind !== 'feature').map(projectOfSession).filter(Boolean));
+      for (const pid of pids) { try { this.ensureProjectDocs(pid); } catch { /* next start */ } }
+    },
+
     /** The folder slug of the project a chat created (where its code was generated or cloned). */
     projectSlug: pid => rootOf(pid)?.project?.slug || null,
     isBusy: id => busy.has(id),

@@ -150,6 +150,8 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
       next();
     } catch (e) { fail(res, e); }
   };
+  // Older projects get their documents and memory from their creation chat soon after the dashboard starts.
+  setTimeout(() => { try { chat.backfill?.(); } catch { /* next start */ } }, 5000).unref?.();
   router.get('/api/projects/:pid/chat', member, wrapS(req => ({ ...chat.projectChat(req.params.pid), canSend: req.user.role === 'SYS_ADMIN' })));
   router.get('/api/projects/:pid/chat/:id', member, wrapS(req => {
     const s = chat.get(req.params.id, req.user);

@@ -3,7 +3,8 @@ import { Search, EyeOff, Eye, Brain, AlertCircle, ChevronRight } from 'lucide-re
 import Badge from './ui/Badge.jsx';
 import IconButton from './ui/IconButton.jsx';
 import { platform } from '../lib/platform.js';
-import { memoryFeature, memoryLabel, memoryPreview } from '../lib/memory.js';
+import { memoryLabel, memoryPreview, memoryGroups } from '../lib/memory.js';
+import Markdown from './Markdown.jsx';
 import { fmtWhen } from '../lib/format.js';
 import { tr } from '../lib/i18n.js';
 
@@ -50,21 +51,8 @@ export default function MemoryPanel({ projectId, canManage }) {
     return c;
   }, [items]);
 
-  // Newest feature first; inside a feature, the order the work happened.
-  const groups = useMemo(() => {
-    const byRun = new Map();
-    for (const it of (items || []).filter(i => !kind || i.kind === kind)) {
-      const key = it.runId || '—';
-      if (!byRun.has(key)) byRun.set(key, { key, name: '', latest: '', items: [] });
-      const g = byRun.get(key);
-      g.items.push(it);
-      g.name ||= memoryFeature(it);
-      if (String(it.createdAt) > g.latest) g.latest = String(it.createdAt);
-    }
-    const out = [...byRun.values()];
-    for (const g of out) g.items.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
-    return out.sort((a, b) => b.latest.localeCompare(a.latest));
-  }, [items, kind]);
+  // What the project chat approved at creation first; then newest feature first.
+  const groups = useMemo(() => memoryGroups(items, kind), [items, kind]);
 
   const total = items?.length || 0;
 
@@ -110,11 +98,13 @@ export default function MemoryPanel({ projectId, canManage }) {
         <section key={g.key} className="mem-group" aria-label={g.name || tr('Khác')}>
           <h3 className="mem-group-title">
             <span>{g.name || tr('Khác')}</span>
+            {g.pinned && <Badge tone="accent">{tr('Tài liệu gốc của dự án')}</Badge>}
             <span className="mem-group-n">{g.items.length}</span>
           </h3>
           <ul className="mem-rows">
             {g.items.map(it => {
-              const isOpen = open.has(it.id);
+              // The creation documents are open from the start: they are what people come here to read.
+              const isOpen = open.has(it.id) !== (g.pinned && it.kind === 'ARTIFACT');
               return (
                 <li key={it.id} className={`mem-row${it.disabled ? ' off' : ''}${isOpen ? ' open' : ''}`}>
                   <div className="mem-row-head">
@@ -130,7 +120,9 @@ export default function MemoryPanel({ projectId, canManage }) {
                         label={it.disabled ? tr('Bật lại cho AI dùng') : tr('Tắt: AI không dùng mục này')} onClick={() => toggleDisabled(it)} />
                     )}
                   </div>
-                  {isOpen && <pre className="mem-text" id={`mem-${it.id}`}>{it.content}</pre>}
+                  {isOpen && (it.kind === 'ARTIFACT' && /\.md$/.test(it.title || '') || it.kind === 'DECISION'
+                    ? <div className="mem-text mem-md" id={`mem-${it.id}`}><Markdown text={it.content || ''} /></div>
+                    : <pre className="mem-text" id={`mem-${it.id}`}>{it.content}</pre>)}
                 </li>
               );
             })}

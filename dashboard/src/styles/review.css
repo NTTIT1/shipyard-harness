@@ -475,3 +475,4 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
   .pl-check, .prov-auth-opt, .imp-db-opt { transition: none }
   .pl-check:active, .prov-auth-opt:active, .imp-db-opt:active { transform: none }
 }
+.mem-md { white-space: normal; font-family: inherit }

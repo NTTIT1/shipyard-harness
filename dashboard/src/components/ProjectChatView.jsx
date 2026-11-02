@@ -81,7 +81,7 @@ export default function ProjectChatView({ pid, project }) {
       <aside className="st-list" aria-label={tr('Các luồng trong chat dự án')}>
         <div className="st-list-head">
           <span className="pc-title">{project?.name || tr('Chat dự án')}</span>
-          {canSend && <Button size="sm" variant="primary" icon={Plus} onClick={() => open('new')}>{tr('Thêm tính năng')}</Button>}
+          {canSend && sel && sel !== 'new' && <Button size="sm" variant="primary" icon={Plus} onClick={() => open('new')}>{tr('Yêu cầu mới')}</Button>}
         </div>
         {err && <div className="m-err st-err" role="alert">{err}</div>}
         <div className="st-list-scroll">
@@ -135,14 +135,15 @@ export default function ProjectChatView({ pid, project }) {
 
       <section className="st-main">
         {!canSend && chat && <p className="wz-hint pc-readonly">{tr('Chỉ admin được trao đổi và duyệt trong chat dự án')}</p>}
-        {sel === 'new' && canSend ? (
+        {/* No thread picked: the chat box is right there — type what the project needs next. */}
+        {(sel === 'new' || !sel) && canSend ? (
           <div className="st-new">
             <div className="st-new-hero">
-              <h1 className="st-new-title">{tr('Cần thêm tính năng gì?')}</h1>
+              <h1 className="st-new-title">{tr('Chat với đội AI của dự án')}</h1>
               <p className="st-new-sub">{tr('AI PM đọc toàn bộ tài liệu dự án (và code) rồi tư vấn yêu cầu; tiếp theo AI kiến trúc sư thiết kế phần thay đổi, AI thiết kế vẽ giao diện nếu cần. Duyệt hết thì tính năng vào hàng chờ cho lane rảnh.')}</p>
             </div>
             <div className="st-new-card">
-              <textarea className="st-new-input" rows={4} maxLength={8000} value={text} aria-label={tr('Tính năng cần thêm')}
+              <textarea className="st-new-input" rows={4} maxLength={8000} value={text} aria-label={tr('Tính năng cần thêm')} autoFocus
                 placeholder={tr('Ví dụ: Cần xuất danh sách đơn hàng ra Excel, lọc theo ngày và cửa hàng.')}
                 onChange={e => setText(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && text.trim().length >= 5) { e.preventDefault(); addFeature(); } }} />

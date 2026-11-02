@@ -1519,5 +1519,8 @@
   "Giao diện": "UI",
   "Chưa có.": "None yet.",
   "Chưa có tính năng nào được thêm qua chat dự án.": "No feature has been added through the project chat yet.",
-  "Đã duyệt — chưa làm": "Approved — not built yet"
+  "Đã duyệt — chưa làm": "Approved — not built yet",
+  "Tài liệu gốc của dự án": "Project's base documents",
+  "Yêu cầu mới": "New request",
+  "Chat với đội AI của dự án": "Chat with the project's AI team"
 }
