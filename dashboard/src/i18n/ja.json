@@ -1606,5 +1606,8 @@
   "Màn trước": "前の画面",
   "Màn sau": "次の画面",
   "Chưa xếp lịch": "未スケジュール",
-  "Thiết kế hệ thống chưa có mục “Lộ trình tính năng”.": "システム設計に「機能ロードマップ」の項目がまだありません。"
+  "Thiết kế hệ thống chưa có mục “Lộ trình tính năng”.": "システム設計に「機能ロードマップ」の項目がまだありません。",
+  "{0} chưa có lane nào": "{0}にはまだレーンがありません",
+  "Dự án này": "このプロジェクト",
+  "Thêm một lane cho dự án: lane tự nhận lần lượt các tính năng đang chờ trong hàng chờ của dự án.": "プロジェクトにレーンを追加すると、待ち行列の機能を順番に担当します。"
 }

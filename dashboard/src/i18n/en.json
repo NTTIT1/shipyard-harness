@@ -1539,5 +1539,8 @@
   "Màn trước": "Previous screen",
   "Màn sau": "Next screen",
   "Chưa xếp lịch": "Not scheduled",
-  "Thiết kế hệ thống chưa có mục “Lộ trình tính năng”.": "The system design has no “Feature roadmap” section yet."
+  "Thiết kế hệ thống chưa có mục “Lộ trình tính năng”.": "The system design has no “Feature roadmap” section yet.",
+  "{0} chưa có lane nào": "{0} has no lane yet",
+  "Dự án này": "This project",
+  "Thêm một lane cho dự án: lane tự nhận lần lượt các tính năng đang chờ trong hàng chờ của dự án.": "Add a lane for the project: it takes the features waiting in the project's queue one after another."
 }

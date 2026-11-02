@@ -6,7 +6,7 @@ import { postAction, deleteProof } from './lib/api.js';
 import { platform } from './lib/platform.js';
 import { useTheme } from './hooks/useTheme.js';
 import { useRemembered, restoreProject, restoreView } from './hooks/useRemembered.js';
-import { laneAttention } from './lib/laneview.js';
+import { laneAttention, laneInScope } from './lib/laneview.js';
 import { Menu as MenuIcon, Plus } from 'lucide-react';
 import Sidebar from './components/Sidebar.jsx';
 import LaneHeader from './components/LaneHeader.jsx';
@@ -102,7 +102,8 @@ export default function App({ user, onLogout }) {
     setSelectedLane((run || currentScoped[0]).lane);
   }, [lanes, selectedLane, activeProjectId]);
 
-  const selectedLaneData = lanes.find(l => l.lane === selectedLane);
+  // Only a lane of the open project is shown (a lane remembered from another project is not).
+  const selectedLaneData = lanes.find(l => l.lane === selectedLane && laneInScope(l, activeProjectId));
   const selectedLaneProject = projects.find(p => p.id === selectedLaneData?.run_project_id)
     || (projects.length === 1 ? projects[0] : null);
 
@@ -327,9 +328,15 @@ export default function App({ user, onLogout }) {
         {view === 'lanes' && (<>
         {!selectedLaneData ? (
           <div className="empty-state">
-            <h1>{tr('Chưa có lane nào')}</h1>
-            <p>{tr('Thêm lane để bắt đầu, rồi giao việc cho nó.')}</p>
-            <Button variant="primary" icon={Plus} onClick={() => setAddLane(true)}>{tr('Thêm lane')}</Button>
+            {activeProjectId && activeProjectId !== 'ALL' ? (<>
+              <h1>{tr('{0} chưa có lane nào', [projects.find(p => p.id === activeProjectId)?.name || tr('Dự án này')])}</h1>
+              <p>{tr('Thêm một lane cho dự án: lane tự nhận lần lượt các tính năng đang chờ trong hàng chờ của dự án.')}</p>
+              <Button variant="primary" icon={Plus} onClick={() => setAddLane(true)}>{tr('Thêm lane cho dự án này')}</Button>
+            </>) : (<>
+              <h1>{tr('Chưa có lane nào')}</h1>
+              <p>{tr('Thêm lane để bắt đầu, rồi giao việc cho nó.')}</p>
+              <Button variant="primary" icon={Plus} onClick={() => setAddLane(true)}>{tr('Thêm lane')}</Button>
+            </>)}
           </div>
         ) : (
           <>

@@ -65,9 +65,7 @@ export default function Sidebar({
   // Filter lanes by active project when a specific project is selected
   const scopedLanes = useMemo(() => {
     if (!activeProjectId || activeProjectId === 'ALL' || projects.length === 0) return lanes;
-    const matched = lanes.filter(l => l.run_project_id === activeProjectId);
-    if (matched.length > 0) return matched;
-    return projects.length === 1 ? lanes : [];
+    return lanes.filter(l => l.run_project_id === activeProjectId);
   }, [lanes, projects.length, activeProjectId]);
 
   const sortedLanes = useMemo(() => sortLanes(scopedLanes), [scopedLanes]);
@@ -109,8 +107,6 @@ export default function Sidebar({
               <NavItem icon={FolderOpen} label={tr('Dự án')} active={view === 'hub' || view === 'studio'} onClick={() => handleNav('hub')} />
               <NavItem icon={Inbox} label={tr('Chờ tôi duyệt')} active={view === 'inbox' || view === 'review'} onClick={() => handleNav('inbox')}
                 badge={inboxCount ? <span className="sb-nav-pill-badge" aria-label={tr('{0} bước chờ duyệt', [inboxCount])}>{inboxCount}</span> : null} />
-              <NavItem icon={ListTodo} label={tr('Lanes')} active={view === 'lanes'} onClick={() => handleNav('lanes')}
-                badge={scopedLanes.length > 0 ? <span className="sb-nav-count-badge">{scopedLanes.length}</span> : null} />
             </div>
           </nav>
 
@@ -127,6 +123,9 @@ export default function Sidebar({
               <NavItem icon={SlidersHorizontal} label={tr('Quy trình & duyệt')} active={view === 'projects' && projectSubTab === 'gates'} onClick={() => handleNav('projects', 'gates')} />
               <NavItem icon={Layers} label={tr('Tính năng & model AI')} active={view === 'projects' && projectSubTab === 'runs'} onClick={() => handleNav('projects', 'runs')} />
               <NavItem icon={MessagesSquare} label={tr('Chat dự án')} active={view === 'chat'} onClick={() => handleNav('chat')} />
+              {/* The open project's lanes only: a lane of another project never shows here. */}
+              <NavItem icon={ListTodo} label={tr('Lanes')} active={view === 'lanes'} onClick={() => handleNav('lanes')}
+                badge={scopedLanes.length > 0 ? <span className="sb-nav-count-badge">{scopedLanes.length}</span> : null} />
               <NavItem icon={FileText} label={tr('Tài liệu đã duyệt')} active={view === 'docs'} onClick={() => handleNav('docs')} />
               <NavItem icon={Database} label={tr('Bộ nhớ dự án')} active={view === 'projects' && projectSubTab === 'memory'} onClick={() => handleNav('projects', 'memory')} />
               <NavItem icon={Palette} label={tr('Kỹ năng AI & khung')} active={view === 'projects' && projectSubTab === 'team'} onClick={() => handleNav('projects', 'team')} />

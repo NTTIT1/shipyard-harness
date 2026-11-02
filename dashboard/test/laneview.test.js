@@ -114,3 +114,14 @@ describe('stageLabel for role steps', () => {
     expect(stageLabel('review-design')).toBe('Chờ duyệt Thiết kế UI');
   });
 });
+
+describe('lanes of the open project', () => {
+  it('a lane shows only under its own project (or under all projects)', async () => {
+    const { laneInScope } = await import('../src/lib/laneview.js');
+    const hrm = { lane: 1, run_project_id: 'proj_hrm' };
+    expect(laneInScope(hrm, 'proj_hoc')).toBe(false);
+    expect(laneInScope(hrm, 'proj_hrm')).toBe(true);
+    expect(laneInScope(hrm, 'ALL')).toBe(true);
+    expect(laneInScope(undefined, 'ALL')).toBe(false);
+  });
+});

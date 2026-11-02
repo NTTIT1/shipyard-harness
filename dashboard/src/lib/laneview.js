@@ -136,3 +136,6 @@ export function mergeSteps(steps) {
   }
   return [...byId.values()];
 }
+
+/** A lane is shown under the project it works on (or when every project is in view). */
+export const laneInScope = (lane, activeProjectId) => !!lane && (!activeProjectId || activeProjectId === 'ALL' || lane.run_project_id === activeProjectId);
