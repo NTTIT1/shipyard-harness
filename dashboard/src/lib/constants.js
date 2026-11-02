@@ -2,20 +2,21 @@ import {
   FileText, Compass, Hammer, FlaskConical, Clapperboard, Eye, Search, ShieldCheck, GitPullRequest,
   RefreshCw, GitMerge, Globe, CircleCheck, Wrench, OctagonX, Ticket,
 } from 'lucide-react';
+import { tr } from './i18n.js';
 
 export const NODES = [
-  ['intake', FileText, 43], ['plan', Compass, 151], ['implement', Hammer, 258], ['gates', FlaskConical, 366],
-  ['e2e', Clapperboard, 474], ['review', Eye, 581], ['QC', Search, 689], ['sr gate', ShieldCheck, 797],
-  ['PR', GitPullRequest, 904], ['watch PR', RefreshCw, 1012], ['merged', GitMerge, 1120], ['dev QC', Globe, 1227],
-  ['done', CircleCheck, 1335],
+  [tr('nhận việc'), FileText, 43], [tr('lập kế hoạch'), Compass, 151], [tr('viết code'), Hammer, 258], [tr('kiểm tra CI'), FlaskConical, 366],
+  ['e2e', Clapperboard, 474], [tr('review code'), Eye, 581], ['QC', Search, 689], [tr('duyệt cuối'), ShieldCheck, 797],
+  ['PR', GitPullRequest, 904], [tr('theo dõi PR'), RefreshCw, 1012], [tr('đã merge'), GitMerge, 1120], [tr('QC trên dev'), Globe, 1227],
+  [tr('xong'), CircleCheck, 1335],
 ];
 
 export const MAINY = 66;
 export const BUS = 196;
 export const BLKY = 146;
-export const FIXN = ['fix on branch', Wrench, 366, BUS];
+export const FIXN = [tr('sửa trên nhánh'), Wrench, 366, BUS];
 export const BLKN = ['', OctagonX, 845, BLKY];
-export const TKT = ['ticket', Ticket, 948, 20];
+export const TKT = [tr('ticket'), Ticket, 948, 20];
 
 // One inner array per NODES entry; phaseIdx(stage) -> node index. Stage names
 // from the RETIRED integration flow (integrate/dev-gates/e2e-on-dev/push-dev,

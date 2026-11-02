@@ -15,11 +15,11 @@ export default function PipelineMap({ lane, config, archived }) {
     <div className="mapwrap">
       {(archived || showTime) && (
         <div className="maphead">
-          {archived && <span className="pf-prev" title={tr('viewing a past feature — read-only snapshot')}>{tr('past feature')}</span>}
+          {archived && <span className="pf-prev" title={tr('Đang xem tính năng cũ — bản chụp chỉ đọc')}>{tr('tính năng cũ')}</span>}
           {showTime && (
-            <span title={tr('time on current phase')}><Clock size={12} strokeWidth={1.75} aria-hidden="true" /> on <b>{lane.stage}</b>{' '}{tr('for {0}', [fmtDur(lane.stage_age_sec)])}</span>
+            <span title={tr('Thời gian ở bước hiện tại')}><Clock size={12} strokeWidth={1.75} aria-hidden="true" /> {tr('ở bước')} <b>{lane.stage}</b>{' '}{tr('được {0}', [fmtDur(lane.stage_age_sec)])}</span>
           )}
-          {archived && <span className="hint">{tr('pick “• current” to return to the live feature')}</span>}
+          {archived && <span className="hint">{tr('chọn “• hiện tại” để quay lại tính năng đang chạy')}</span>}
         </div>
       )}
       <svg viewBox="0 -12 1390 254" xmlns="http://www.w3.org/2000/svg">
@@ -39,12 +39,12 @@ export default function PipelineMap({ lane, config, archived }) {
         <PipelineNodes lane={lane} config={config} />
       </svg>
       <div className="legend">
-        <span><i className="ld g" />{tr('done')}</span>
-        <span><i className="ld b" />{tr('current')}</span>
-        <span><i className="ld w" />{tr('passed without evidence — check it')}</span>
-        <span><i className="ld n" />{tr('pending')}</span>
-        <span style={{ color: 'var(--warn-text)' }}>{'↻ self-resolves & continues (hover)'}</span>
-        <span className="legend-r">{'red dashed = fail paths → fix · blue = re-entry'}</span>
+        <span><i className="ld g" />{tr('đã xong')}</span>
+        <span><i className="ld b" />{tr('đang làm')}</span>
+        <span><i className="ld w" />{tr('đã qua nhưng thiếu bằng chứng — kiểm tra lại')}</span>
+        <span><i className="ld n" />{tr('chưa tới')}</span>
+        <span style={{ color: 'var(--warn-text)' }}>{tr('↻ tự giải quyết rồi chạy tiếp (rê chuột để xem)')}</span>
+        <span className="legend-r">{tr('nét đứt đỏ = nhánh lỗi → sửa · xanh = quay lại')}</span>
       </div>
     </div>
   );
