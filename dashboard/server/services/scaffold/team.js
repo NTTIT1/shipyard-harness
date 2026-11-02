@@ -168,6 +168,11 @@ export const STACK_RULES = {
     '- Cấu hình chỉ đọc qua `config.get_settings()`; không đọc `os.environ` rải rác.',
     '- Truy cập DB qua dependency `get_db()`; không giữ session toàn cục.',
   ],
+  'flutter-android': () => [
+    '- Flutter (Dart, null-safety). Mỗi màn hình một file trong `lib/screens/`, widget nhỏ tách ra `lib/widgets/`; state đơn giản bằng `setState` hoặc Provider.',
+    '- Gọi backend chỉ qua `lib/api.dart`; địa chỉ đọc từ `--dart-define=API_URL` (trên máy ảo là `http://10.0.2.2:<cổng API>`), không viết cứng.',
+    '- Mỗi màn hình mới có test widget trong `test/`; `flutter analyze` không còn cảnh báo trước khi nộp.',
+  ],
   'ts-react-vite': () => [
     '- React + TypeScript, function component và hooks; không dùng `any`.',
     '- Mỗi component một file, tên PascalCase; logic gọi API tách khỏi component.',

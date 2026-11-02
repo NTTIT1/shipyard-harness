@@ -119,6 +119,11 @@ export function probeTools(spawnImpl = spawnSync) {
     uv: probe('uv', ['--version'], /uv (\d+[\d.]*)/),
     git: probe('git', ['--version'], /version (\d+[\d.]*)/),
     unzip: probe('unzip', ['-v'], /UnZip (\d+[\d.]*)/),
+    // Mobile (Flutter + Android emulator): only needed by projects with a Flutter app.
+    flutter: probe('flutter', ['--version'], /Flutter (\d+[\d.]*)/),
+    adb: probe('adb', ['version'], /version (\d+[\d.]*)/),
+    emulator: probe('emulator', ['-version'], /version (\d+[\d.]*)/),
+    maestro: probe('maestro', ['--version'], /(\d+[\d.]*)/),
   };
 }
 

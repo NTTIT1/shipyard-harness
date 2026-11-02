@@ -9,9 +9,15 @@ import { mergeGitignore } from './common.js';
 import { plan } from './ci.js';
 import { STACK_RULES } from './team.js';
 import { readText } from './util.js';
+import { dartName } from './stacks/flutter-android.js';
 
 export const BACKEND_STACKS = ['java-spring', 'python-fastapi', 'ts-nestjs'];
-export const FRONTEND_STACKS = ['ts-react-vite'];
+export const FRONTEND_STACKS = ['ts-react-vite', 'flutter-android'];
+/** Frontends that are a phone app (built to an APK and QC'd on the Android emulator, not served on a port). */
+export const MOBILE_STACKS = ['flutter-android'];
+export const isMobileStack = id => MOBILE_STACKS.includes(id);
+/** The Android application id of a generated app: <org>.<project as a Dart name>. */
+export const mobilePackageId = (org, slug) => `${org}.${dartName(slug)}`;
 export const FRONTEND_DEV_PORT = 5173;
 
 /** Where each backend answers a cheap "are you up" request (the frontend's status badge calls it). */
