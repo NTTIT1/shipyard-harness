@@ -1592,5 +1592,17 @@
   "Chat với đội AI của dự án": "プロジェクトのAIチームとチャット",
   "Tài liệu sản phẩm": "製品ドキュメント",
   "Bộ nhớ AI": "AIメモリ",
-  "Bản mới nhất của những gì đã duyệt trong chat dự án: yêu cầu sản phẩm, thiết kế hệ thống, giao diện và các tính năng thêm sau. Tab Bộ nhớ AI giữ đầy đủ lịch sử để các AI dùng lại.": "プロジェクトチャットで承認された内容の最新版：製品要件、システム設計、UI、後から追加した機能。AIメモリのタブには、AIが再利用できるよう全履歴が残ります。"
+  "Bản mới nhất của những gì đã duyệt trong chat dự án: yêu cầu sản phẩm, thiết kế hệ thống, giao diện và các tính năng thêm sau. Tab Bộ nhớ AI giữ đầy đủ lịch sử để các AI dùng lại.": "プロジェクトチャットで承認された内容の最新版：製品要件、システム設計、UI、後から追加した機能。AIメモリのタブには、AIが再利用できるよう全履歴が残ります。",
+  "{0} mục": "{0}項目",
+  "{0} màn hình": "{0}画面",
+  "Hướng dẫn thiết kế": "デザインガイド",
+  "Chưa có": "まだありません",
+  "{0} đã có · {1} chờ làm": "実装済み{0}・未着手{1}",
+  "Các phần tài liệu": "文書のセクション",
+  "Mục lục": "目次",
+  "Màn hình ({0})": "画面（{0}）",
+  "Xem lớn màn {0}": "画面「{0}」を拡大表示",
+  "Chưa có hướng dẫn thiết kế.": "デザインガイドはまだありません。",
+  "Màn trước": "前の画面",
+  "Màn sau": "次の画面"
 }

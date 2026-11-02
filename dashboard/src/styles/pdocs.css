@@ -1,0 +1,122 @@
+/* "Tài liệu sản phẩm": one screen — sections on the left, the open one on the right scrolling on its own,
+   a translucent bar with its outline on top, screens as a gallery that opens each one large. */
+
+.pd { display: grid; gap: 16px; min-width: 0 }
+.pd-layout {
+  display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px;
+  /* Fits the window: the page itself never scrolls to reach the end of a document. */
+  height: max(480px, calc(100dvh - 230px));
+}
+
+/* Sections */
+.pd-rail { display: flex; flex-direction: column; gap: 4px; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow-y: auto }
+.pd-rail-item {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 10px; border: 0; border-radius: var(--radius-sm);
+  background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+  transition: background-color .15s var(--ease), transform .1s ease-out;
+}
+.pd-rail-item:hover { background: var(--panel-hover) }
+.pd-rail-item:active { transform: scale(.98) }
+.pd-rail-item.on { background: var(--accent-soft) }
+.pd-rail-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+.pd-rail-icon { flex: none; margin-top: 1px; color: var(--text-muted) }
+.pd-rail-item.on .pd-rail-icon { color: var(--accent-text) }
+.pd-rail-text { display: flex; flex-direction: column; gap: 3px; min-width: 0 }
+.pd-rail-name { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; letter-spacing: -.005em }
+.pd-rail-n { font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 999px; background: var(--bg-subtle); color: var(--text-muted); font-variant-numeric: tabular-nums }
+.pd-rail-item.on .pd-rail-n { background: var(--panel); color: var(--accent-text) }
+.pd-rail-meta { font-size: 12px; line-height: 1.4; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+
+/* The open section: scrolls inside its own card */
+.pd-pane { min-width: 0; min-height: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: hidden; display: flex }
+.pd-doc { flex: 1; min-width: 0; overflow-y: auto; overscroll-behavior: contain; scroll-padding-top: 96px }
+.pd-bar {
+  position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding: 14px 24px 12px;
+  /* A light material: the text scrolls under it, a soft edge instead of a hard divider. */
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(16px) saturate(170%); -webkit-backdrop-filter: blur(16px) saturate(170%);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--border) 70%, transparent);
+}
+.pd-title { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -.015em; line-height: 1.25; color: var(--text) }
+.pd-outline { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1 1 100%; mask-image: linear-gradient(90deg, #000 92%, transparent) }
+.pd-outline::-webkit-scrollbar { display: none }
+.pd-chip {
+  flex: none; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel);
+  font: 12px var(--font); color: var(--text-muted); cursor: pointer; white-space: nowrap;
+  transition: color .15s var(--ease), border-color .15s var(--ease), transform .1s ease-out;
+}
+.pd-chip:hover { color: var(--text); border-color: var(--border-strong) }
+.pd-chip:active { transform: scale(.96) }
+.pd-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+.pd-read { padding: 8px 24px 32px; max-width: 76ch; font-size: 14px; line-height: 1.6 }
+.pd-read h2 { scroll-margin-top: 96px }
+
+/* Design guide vs screens */
+.pd-seg { display: inline-flex; padding: 2px; border-radius: 8px; background: var(--bg-subtle); margin-left: auto }
+.pd-seg button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 0; border-radius: 6px; background: none;
+  font: 500 12.5px var(--font); color: var(--text-muted); cursor: pointer; transition: background-color .15s var(--ease), color .15s var(--ease);
+}
+.pd-seg button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow-sm) }
+.pd-seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+
+/* Screens at a glance */
+.pd-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 18px; margin: 0; padding: 8px 24px 28px; list-style: none }
+.pd-shot {
+  display: flex; flex-direction: column; gap: 8px; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: zoom-in;
+  transition: transform .1s ease-out;
+}
+.pd-shot:active { transform: scale(.98) }
+.pd-thumb {
+  position: relative; display: block; aspect-ratio: 16 / 10; overflow: hidden; border-radius: 10px; background: var(--bg-subtle);
+  border: 1px solid var(--border); box-shadow: var(--shadow-sm); transition: box-shadow .2s var(--ease), border-color .2s var(--ease);
+}
+.pd-thumb iframe { position: absolute; top: 0; left: 0; width: 1280px; height: 800px; border: 0; transform-origin: 0 0; pointer-events: none; background: #fff }
+.pd-shot:hover .pd-thumb { box-shadow: var(--shadow-md); border-color: var(--border-strong) }
+.pd-shot:focus-visible .pd-thumb { outline: 2px solid var(--accent); outline-offset: 2px }
+.pd-shot-name { display: flex; align-items: baseline; gap: 8px; font-size: 13px; font-weight: 600; color: var(--text); min-width: 0 }
+.pd-shot-n { flex: none; font-size: 11px; font-weight: 600; color: var(--text-faint); font-variant-numeric: tabular-nums }
+
+/* The large viewer: dims the page and grows from the card it came from */
+.pd-sheet-scrim { position: fixed; inset: 0; z-index: 60; background: rgb(0 0 0 / 0); transition: background-color .25s var(--ease) }
+.pd-sheet-scrim.in { background: rgb(0 0 0 / .45) }
+.pd-sheet-stage {
+  position: absolute; inset: 0; display: grid; place-items: center; padding: 3vh 3vw;
+  opacity: 0; transform: scale(.25);
+  /* No overshoot: a menu-like open, not a flick. */
+  transition: transform .34s cubic-bezier(.2, .9, .25, 1), opacity .2s ease-out;
+}
+.pd-sheet-stage.in { opacity: 1; transform: none }
+.pd-sheet {
+  display: flex; flex-direction: column; width: min(1400px, 100%); height: 100%; border-radius: 14px; overflow: hidden;
+  background: var(--panel); border: 1px solid var(--border); box-shadow: 0 24px 64px rgb(0 0 0 / .28);
+}
+.pd-sheet-head { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border) }
+.pd-sheet-title { flex: 1; text-align: center; font-size: 14px; font-weight: 600; letter-spacing: -.01em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.pd-sheet-x { margin-left: 4px }
+.pd-sheet-body { flex: 1; min-height: 0; display: flex; flex-direction: column }
+.pd-sheet-body .st-mockups-wrap { flex: 1; min-height: 0; margin: 0; border: 0; border-radius: 0 }
+.pd-sheet-body .st-mock-canvas { flex: 1; height: auto }
+
+.pd-features { margin: 8px 24px 24px }
+
+@media (max-width: 860px) {
+  .pd-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); height: auto }
+  .pd-rail { flex-direction: row; overflow-x: auto }
+  .pd-rail-item { flex: none; width: auto }
+  .pd-rail-meta { display: none }
+  .pd-pane { height: max(420px, calc(100dvh - 300px)) }
+  .pd-bar, .pd-read, .pd-gallery { padding-left: 16px; padding-right: 16px }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pd-sheet-stage { transform: none; transition: opacity .2s ease }
+  .pd-rail-item, .pd-chip, .pd-shot { transition: none }
+  .pd-rail-item:active, .pd-chip:active, .pd-shot:active { transform: none }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .pd-bar { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none }
+}
+@media (prefers-contrast: more) {
+  .pd-bar { background: var(--panel); backdrop-filter: none; box-shadow: 0 1px 0 var(--border-strong) }
+  .pd-thumb, .pd-pane, .pd-rail { border-color: var(--border-strong) }
+}

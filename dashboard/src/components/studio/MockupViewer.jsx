@@ -110,8 +110,11 @@ function injectPrototypeNavigation(html) {
   return html + SCRIPT_INJECTION;
 }
 
-export function Mockups({ mockups }) {
-  const [i, setI] = useState(0);
+// start / onIndex: open on a given screen and tell the owner which one is shown (the screen gallery's viewer).
+export function Mockups({ mockups, start = 0, onIndex }) {
+  const [i, setIState] = useState(start);
+  const setI = k => { setIState(k); onIndex?.(k); };
+  useEffect(() => { setIState(start); }, [start]);
   const m = mockups[Math.min(i, mockups.length - 1)];
   const [screenMode, setScreenMode] = useState('desktop'); // desktop | mobile
 
