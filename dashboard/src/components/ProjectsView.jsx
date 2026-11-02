@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState, useMemo, lazy, Suspense } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
-  Plus, Copy, Check, FolderKanban,
+  Copy, Check, FolderKanban,
   GitBranch, ExternalLink, AlertCircle,
   Wand2
 } from 'lucide-react';
@@ -12,20 +12,18 @@ import DeleteProjectButton from './DeleteProjectButton.jsx';
 import ProjectMembersTab from './projects/ProjectMembersTab.jsx';
 import ProjectGatesTab from './projects/ProjectGatesTab.jsx';
 import ProjectRunsTab from './projects/ProjectRunsTab.jsx';
-import LinkRepoModal from './projects/LinkRepoModal.jsx';
 import BlueprintStatus from './projects/BlueprintStatus.jsx';
 import { scaffold } from '../lib/scaffold.js';
 import { platform } from '../lib/platform.js';
 import { ROLE_LABEL } from '../lib/review.js';
 import { useWorkflowLanes } from '../hooks/useRunViews.js';
 import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
+import { tr } from '../lib/i18n.js';
 
-const NewProjectWizard = lazy(() => import('./NewProjectWizard.jsx'));
-const ImportRepoWizard = lazy(() => import('./projects/ImportRepoWizard.jsx'));
 
 const SECTION_LABEL = {
-  members: 'Tổng quan & thành viên', gates: 'Quy trình & duyệt', runs: 'Tính năng & model AI',
-  memory: 'Bộ nhớ dự án', team: 'Kỹ năng AI & khung',
+  members: tr('Tổng quan & thành viên'), gates: tr('Quy trình & duyệt'), runs: tr('Tính năng & model AI'),
+  memory: tr('Bộ nhớ dự án'), team: tr('Kỹ năng AI & khung'),
 };
 
 export default function ProjectsView({
@@ -36,6 +34,7 @@ export default function ProjectsView({
   onOpenRun,
   subTab,
   onTabChange,
+  onCreateProject,
 }) {
   const [projects, setProjects] = useState([]);
   const [localSel, setLocalSel] = useState(null);
@@ -44,9 +43,6 @@ export default function ProjectsView({
   const setTab = onTabChange || setLocalTab;
   const [err, setErr] = useState('');
   const [copiedType, setCopiedType] = useState('');
-  const [showLinkModal, setShowLinkModal] = useState(false);
-  const [wizard, setWizard] = useState(false);
-  const [importing, setImporting] = useState(false);
 
   const sel = activeProjectId && projects.some(p => p.id === activeProjectId)
     ? activeProjectId
@@ -178,20 +174,15 @@ export default function ProjectsView({
                           <ExternalLink size={11} style={{ opacity: 0.65 }} />
                         </a>
                       ) : (
-                        <span className="pj-meta-muted">Cấu hình quyền hạn, cổng duyệt và kỹ năng AI của dự án</span>
+                        <span className="pj-meta-muted">{tr('Cấu hình quyền hạn, cổng duyệt và kỹ năng AI của dự án')}</span>
                       )}
                     </div>
                   </div>
                 </div>
 
                 <div className="pj-hero-actions">
-                  <Button variant="ghost" size="sm" icon={Plus} onClick={() => setShowLinkModal(true)}>
-                    Liên kết kho
-                  </Button>
-                  {canScaffold && (
-                    <Button variant="secondary" size="sm" icon={Wand2} onClick={() => setWizard(true)}>
-                      Tạo dự án mới
-                    </Button>
+                  {canScaffold && onCreateProject && (
+                    <Button variant="secondary" size="sm" icon={Wand2} onClick={onCreateProject}>{tr('Tạo dự án')}</Button>
                   )}
                   {roles.includes('OWNER') && (
                     <DeleteProjectButton
@@ -205,7 +196,7 @@ export default function ProjectsView({
               {/* Restrained Apple Hairline Telemetry Strip */}
               <div className="pj-apple-metrics-bar">
                 <div className="pj-apple-metric">
-                  <span className="pj-apple-metric-label">Tiến độ</span>
+                  <span className="pj-apple-metric-label">{tr('Tiến độ')}</span>
                   <div className="pj-apple-metric-val-row">
                     <strong className="pj-apple-metric-val">
                       {currentMetrics.avgProg != null ? `${currentMetrics.avgProg}%` : '—'}
@@ -215,14 +206,14 @@ export default function ProjectsView({
                     </div>
                     <span className="pj-apple-metric-sub">
                       {currentMetrics.activeCount > 0
-                        ? `${currentMetrics.activeCount} lane đang chạy`
-                        : 'Chưa có lane chạy'}
+                        ? tr('{0} lane đang chạy', [currentMetrics.activeCount])
+                        : tr('Chưa có lane chạy')}
                     </span>
                   </div>
                 </div>
 
                 <div className="pj-apple-metric">
-                  <span className="pj-apple-metric-label">Chi phí</span>
+                  <span className="pj-apple-metric-label">{tr('Chi phí')}</span>
                   <div className="pj-apple-metric-val-row">
                     <strong className="pj-apple-metric-val">{fmtVnd(currentMetrics.costVnd)}</strong>
                     <span className="pj-apple-metric-sub">
@@ -233,7 +224,7 @@ export default function ProjectsView({
                 </div>
 
                 <div className="pj-apple-metric pj-apple-metric-env">
-                  <span className="pj-apple-metric-label">Mã kết nối Lane</span>
+                  <span className="pj-apple-metric-label">{tr('Mã kết nối Lane')}</span>
                   <div className="pj-apple-metric-val-row">
                     <code className="pj-apple-code mono" title={`PLATFORM_PROJECT_ID="${project.id}"`}>
                       {project.id}
@@ -243,7 +234,7 @@ export default function ProjectsView({
                       className="pj-copy-pill"
                       onClick={copyEnvVar}>
                       {copiedType === 'env' ? <Check size={12} /> : <Copy size={12} />}
-                      <span>{copiedType === 'env' ? 'Đã chép biến' : 'Chép biến'}</span>
+                      <span>{copiedType === 'env' ? tr('Đã chép biến') : tr('Chép biến')}</span>
                     </button>
                   </div>
                 </div>
@@ -253,7 +244,7 @@ export default function ProjectsView({
             <ProjectBlueprint key={`bp-${project.id}`} pid={project.id} onOpenRun={onOpenRun} />
           </>) : (
             <div className="pj-section-head">
-              <h1 id="pj-title">{SECTION_LABEL[tab] || 'Dự án'}</h1>
+              <h1 id="pj-title">{SECTION_LABEL[tab] || tr('Dự án')}</h1>
               <span className="pj-meta-muted">{project.name}</span>
             </div>
           )}
@@ -269,50 +260,16 @@ export default function ProjectsView({
           <div className="modern-empty-icon">
             <FolderKanban size={24} />
           </div>
-          <div id="pj-title" className="modern-empty-title">Chưa có dự án nào được chọn</div>
-          <div className="modern-empty-desc">
-            Hãy tạo dự án mới từ khung hoặc liên kết kho mã nguồn đã có để bắt đầu điều phối các lane.
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <Button variant="secondary" icon={Plus} onClick={() => setShowLinkModal(true)}>
-              Liên kết kho đã có
-            </Button>
-            {canScaffold && (
-              <Button variant="primary" icon={Wand2} onClick={() => setWizard(true)}>
-                Tạo dự án từ khung
-              </Button>
-            )}
-          </div>
+          <div id="pj-title" className="modern-empty-title">{tr('Chưa có dự án nào được chọn')}</div>
+          <div className="modern-empty-desc">{tr('Tạo dự án từ ý tưởng, từ khung hoặc từ git có sẵn — mỗi dự án có một ô chat chung với các AI.')}</div>
+          {canScaffold && onCreateProject && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <Button variant="primary" icon={Wand2} onClick={onCreateProject}>{tr('Tạo dự án')}</Button>
+            </div>
+          )}
         </div>
       )}
 
-      {showLinkModal && (
-        <LinkRepoModal
-          canScaffold={canScaffold}
-          onClose={() => setShowLinkModal(false)}
-          onOpenWizard={() => setWizard(true)}
-          onOpenImport={() => setImporting(true)}
-          onCreated={async id => { await load(); if (id) selectProject(id); }}
-        />
-      )}
-
-      {importing && (
-        <Suspense fallback={null}>
-          <ImportRepoWizard
-            onClose={() => setImporting(false)}
-            onCreated={async id => { await load(); if (id) selectProject(id); }}
-          />
-        </Suspense>
-      )}
-
-      {wizard && (
-        <Suspense fallback={null}>
-          <NewProjectWizard
-            onClose={() => setWizard(false)}
-            onCreated={async id => { await load(); if (id) selectProject(id); }}
-          />
-        </Suspense>
-      )}
     </section>
   );
 }

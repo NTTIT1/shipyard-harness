@@ -142,18 +142,18 @@ describe('studio', () => {
     expect(() => st.reopen(s.id, me, 'system')).toThrow(/bước trước/);
   });
 
-  it('a failing AI turn lands in the chat; sessions are private; inputs are bounded', async () => {
+  it('a failing AI turn lands in the chat; any admin opens it; inputs are bounded', async () => {
     const st = make([], { fail: 'studio-pm-agent' });
     const s = st.start(me, 'Một ý tưởng bất kỳ');
     await until(() => !st.isBusy(s.id));
     const v = st.get(s.id, me);
     expect(v.error).toMatch(/quota exceeded/);
     expect(v.messages.at(-1)).toMatchObject({ role: 'shipyard' });
-    expect(() => st.get(s.id, { id: 'u2' })).toThrow(/Không tìm thấy/);
+    expect(st.get(s.id, { id: 'u2' }).id).toBe(s.id);   // chats belong to the project: every admin opens them
     expect(() => st.get('../../etc/passwd', me)).toThrow(/Không tìm thấy/);
     expect(() => st.start(me, 'x')).toThrow(/ý tưởng/);
     expect(() => st.send(s.id, me, 'y'.repeat(9000))).toThrow(/tối đa/);
-    expect(st.list({ id: 'u2' })).toEqual([]);
+    expect(st.list({ id: 'u2' }).map(x => x.id)).toEqual([s.id]);
     expect(st.list(me).map(x => x.id)).toEqual([s.id]);
     st.remove(s.id, me);
     expect(st.list(me)).toEqual([]);
@@ -270,5 +270,335 @@ describe('studio', () => {
     const s = { title: 'T', messages: [{ stage: 'pm', role: 'user', text: 'a' }, { stage: 'pm', role: 'ai', text: 'b' }, { stage: 'system', role: 'shipyard', text: 'c' }] };
     expect(turnPrompt(s, 'system')).toContain('[Shipyard]:\nc');
     expect(turnPrompt(s, 'system')).not.toContain('[Người dùng]: a');
+  });
+});
+
+describe('studio — how a project starts', () => {
+  const admin2 = { id: 'u2', email: 'b@x.io', name: 'B' };
+  // `git clone … <dir>` makes a tiny repo (or fails when told to); every other call is the fake claude.
+  const withGit = (calls, { cloneFails = false } = {}, gitCalls = []) => {
+    const claude = fakeClaude(calls);
+    return async (cmd, args, opts) => {
+      if (cmd !== 'git') return claude(cmd, args, opts);
+      gitCalls.push(args);
+      if (cloneFails) throw new Error('fatal: repository not found');
+      const dir = path.join(opts.cwd, args.at(-1));
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'README.md'), '# Shop');
+    };
+  };
+  const makeGit = (calls, o = {}, gitCalls = []) => createStudio({ root: () => root, run: withGit(calls, o, gitCalls), tools: () => ALL,
+    route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n });
+
+  it('a plain idea still starts as before', async () => {
+    const st = make([]);
+    const s = st.start(me, 'Tôi cần hệ thống bán hàng');
+    expect(s.kind).toBe('idea');
+    await until(() => !st.isBusy(s.id));
+  });
+
+  it('a template limits the architect to the chosen stack', async () => {
+    const calls = [];
+    const st = make(calls);
+    let s = st.start(me, { kind: 'template', text: 'Chuỗi 5 cửa hàng bán lẻ', template: { stack: 'java-spring' } });
+    expect(s.kind).toBe('template');
+    await until(() => !st.isBusy(s.id));
+    st.send(s.id, me, 'Chuỗi 5 cửa hàng, 1000 người dùng');
+    await until(() => !st.isBusy(s.id));
+    st.approve(s.id, me, 'pm');
+    await until(() => !st.isBusy(s.id));
+    const arch = calls.find(c => c.agent === 'studio-architect-agent');
+    expect(arch.prompt).toContain('Khung đã chọn: backend java-spring');
+    expect(JSON.parse(fs.readFileSync(path.join(arch.cwd, 'stacks.json'), 'utf8')).map(x => x.id)).toEqual(['java-spring']);
+    expect(() => st.start(me, { kind: 'template', text: 'abcdef', template: { stack: 'cobol' } })).toThrow(/khung/);
+  });
+
+  it('a template keeps the chosen backend, frontend and database through to the created project', async () => {
+    const calls = [], started = [];
+    const jobs = { start: spec => { started.push(spec); return { id: 'scf_1' }; }, get: () => null };
+    const st = createStudio({ root: () => root, run: fakeClaude(calls), tools: () => ALL, route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n, jobs });
+    const template = { kind: 'fullstack', stack: 'java-spring', options: { db: 'mysql' }, frontend: { stack: 'ts-react-vite', options: {} } };
+    let s = st.start(me, { kind: 'template', text: 'Chuỗi 5 cửa hàng bán lẻ', template });
+    await until(() => !st.isBusy(s.id));
+    st.send(s.id, me, 'Chuỗi 5 cửa hàng, 1000 người dùng');
+    await until(() => !st.isBusy(s.id));
+    st.approve(s.id, me, 'pm');
+    await until(() => !st.isBusy(s.id));
+    const arch = calls.find(c => c.agent === 'studio-architect-agent');
+    expect(arch.prompt).toMatch(/backend java-spring.*db: mysql.*frontend ts-react-vite/s);
+    expect(JSON.parse(fs.readFileSync(path.join(arch.cwd, 'stacks.json'), 'utf8')).map(x => x.id).sort()).toEqual(['java-spring', 'ts-react-vite']);
+    for (const stage of ['system', 'ui']) { st.approve(s.id, me, stage); await until(() => !st.isBusy(s.id)); }
+    st.create(s.id, me, 'tok', { name: 'Bán lẻ', slug: 'ban-le' });
+    expect(started[0]).toMatchObject({ kind: 'fullstack', stack: 'java-spring', options: { db: 'mysql' }, frontend: { stack: 'ts-react-vite' } });
+    expect(() => st.start(me, { kind: 'template', text: 'abcdef', template: { kind: 'fullstack', stack: 'java-spring', frontend: { stack: 'cobol' } } })).toThrow(/frontend/);
+  });
+
+  it('a git project: the repo is cloned and the documents given, then the AI PM reads them', async () => {
+    const calls = [], gitCalls = [];
+    const st = makeGit(calls, {}, gitCalls);
+    let s = st.start(me, { kind: 'git', text: 'Shop có sẵn', source: { url: 'https://github.com/a/shop.git' },
+      docs: { files: [{ name: 'yeu-cau.md', content: '# Yêu cầu' }], paths: ['docs/a.md'] } });
+    expect(s.kind).toBe('git');
+    expect(s.preparing).toBe(true);
+    expect(s.importDraft).toEqual({ name: '', slug: '', branch: '' });
+    await until(() => !st.isBusy(s.id) && calls.length);
+    expect(gitCalls[0]).toContain('https://github.com/a/shop.git');
+    const pm = calls[0];
+    expect(pm.agent).toBe('studio-pm-agent');
+    expect(fs.existsSync(path.join(pm.cwd, 'repo/README.md'))).toBe(true);
+    expect(fs.readFileSync(path.join(pm.cwd, 'input/yeu-cau.md'), 'utf8')).toBe('# Yêu cầu');
+    expect(pm.prompt).toContain('code ở ./repo');
+    expect(pm.prompt).toContain('docs/a.md');
+    expect(st.get(s.id, me).preparing).toBe(false);
+  });
+
+  it('a failed clone says so and is retried by sending again', async () => {
+    const calls = [];
+    const st = makeGit(calls, { cloneFails: true });
+    let s = st.start(me, { kind: 'git', text: 'Shop có sẵn', source: { url: 'https://github.com/a/nope.git' } });
+    await until(() => !st.isBusy(s.id));
+    s = st.get(s.id, me);
+    expect(s.preparing).toBe(false);
+    expect(s.error).toMatch(/repository not found/);
+    expect(s.messages.at(-1).text).toMatch(/Không đọc được repo/);
+    expect(calls).toEqual([]);
+    st.send(s.id, me, 'thử lại');
+    await until(() => !st.isBusy(s.id));
+    expect(st.get(s.id, me).messages.filter(m => /Không đọc được repo/.test(m.text))).toHaveLength(2);
+  });
+
+  it('refuses bad documents', () => {
+    const st = makeGit([]);
+    const go = files => () => st.start(me, { kind: 'git', text: 'Shop có sẵn', source: { url: 'https://github.com/a/shop.git' }, docs: { files } });
+    expect(go([{ name: '../x.md', content: 'a' }])).toThrow(expect.objectContaining({ status: 400 }));
+    expect(go([{ name: 'a.exe', content: 'a' }])).toThrow(/loại tệp/);
+    expect(go(Array.from({ length: 21 }, (_, i) => ({ name: `${i}.md`, content: 'a' })))).toThrow(/20 tệp/);
+    expect(go([{ name: 'big.md', content: 'x'.repeat(2 * 1024 * 1024 + 1) }])).toThrow(/2 MB/);
+    expect(go([{ name: 'bin.md', content: 'a\0b' }])).toThrow(/văn bản/);
+    expect(() => st.start(me, { kind: 'git', text: 'Shop có sẵn', source: { url: 'ftp://x' } })).toThrow(/URL repo/);
+    expect(fs.readdirSync(root).filter(f => f.endsWith('.json'))).toEqual([]);
+  });
+
+  it('an interrupted clone (repo/ left half-written) is cloned again on resend', async () => {
+    const calls = [], gitCalls = [];
+    const st = makeGit(calls, {}, gitCalls);
+    fs.mkdirSync(path.join(root, 'stu_cccccccccccc', 'repo'), { recursive: true });   // partial clone, no marker
+    fs.writeFileSync(path.join(root, 'stu_cccccccccccc.json'), JSON.stringify({ id: 'stu_cccccccccccc', title: 'X', kind: 'git', stage: 'pm',
+      source: { provider: 'url', url: 'https://github.com/a/shop.git' }, preparing: true, messages: [], approved: {}, createdBy: 'u1', createdAt: 'x' }));
+    expect(st.get('stu_cccccccccccc', me).error).toMatch(/Bị gián đoạn/);
+    st.send('stu_cccccccccccc', me, 'thử lại');
+    await until(() => !st.isBusy('stu_cccccccccccc') && calls.length);
+    expect(gitCalls).toHaveLength(1);
+    expect(fs.existsSync(path.join(root, 'stu_cccccccccccc', 'repo', '.shipyard-cloned'))).toBe(true);
+  });
+
+  it('a session left running by a restart is shown as interrupted', () => {
+    const st = make([]);
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(path.join(root, 'stu_aaaaaaaaaaaa.json'), JSON.stringify({ id: 'stu_aaaaaaaaaaaa', title: 'X', kind: 'git', stage: 'pm',
+      preparing: true, messages: [], approved: {}, createdBy: 'u1', createdAt: 'x' }));
+    const s = st.get('stu_aaaaaaaaaaaa', me);
+    expect(s.preparing).toBe(false);
+    expect(s.error).toMatch(/Bị gián đoạn/);
+  });
+
+  it('any admin opens any chat', async () => {
+    const st = make([]);
+    const s = st.start(me, 'Tôi cần hệ thống bán hàng');
+    await until(() => !st.isBusy(s.id));
+    expect(st.list(admin2).map(x => x.id)).toContain(s.id);
+    expect(st.get(s.id, admin2).id).toBe(s.id);
+  });
+});
+
+describe('studio — feature threads in a project chat', () => {
+  // The project's master docs and queue, faked: what the thread reads and where approved features go.
+  const fakeProject = () => {
+    const added = [], queued = [];
+    const docs = { brief: '# Bán hàng', architecture: ARCH, design: '# Giao diện', mockups: [{ name: '01.html', html: '<html></html>' }], features: [] };
+    return { added, queued,
+      projectDocs: { hasDocs: () => true, seedFromRepo: () => {}, readDocs: () => ({ ...docs, features: added.map(f => ({ slug: f.slug, title: f.title, status: 'approved' })) }),
+        addFeature: (pid, f) => added.push({ pid, ...f }) },
+      projectQueue: { enqueue: (pid, item) => queued.push({ pid, ...item }), readProjectQueue: () => ({ items: queued, assigned: [], error: '' }) },
+      repoDirOf: () => '/srv/proj_9' };
+  };
+  // The architect of a feature writes feature.json instead of stack.json.
+  const featureClaude = (calls, hasUi) => async (cmd, args, opts) => {
+    const agent = args[args.indexOf('--append-system-prompt') + 1];
+    calls.push({ agent, prompt: args[1], cwd: opts.cwd, args });
+    const w = (f, t) => { fs.mkdirSync(path.dirname(path.join(opts.cwd, f)), { recursive: true }); fs.writeFileSync(path.join(opts.cwd, f), t); };
+    if (agent === 'studio-pm-agent') w('product-brief.md', '# Xuất Excel\n\n## Tiêu chí chấp nhận\n1. Có nút Xuất');
+    if (agent === 'studio-architect-agent') { w('architecture.md', '# Xuất Excel — thay đổi'); w('feature.json', JSON.stringify({ title: 'Xuất Excel', hasUi })); }
+    if (agent === 'studio-designer-agent') { w('design.md', '# Nút xuất'); w('mockups/01-xuat.html', '<html>Xuất</html>'); }
+    opts.log(JSON.stringify({ type: 'result', is_error: false, result: 'Xong.\nROLE-STEP: DONE chat' }));
+  };
+  const makeFeature = (calls, p, hasUi = false) => createStudio({ root: () => root, run: featureClaude(calls, hasUi), tools: () => ALL, route: claudeRoute,
+    claudeBin: '/x/claude', agentPrompt: n => n, projectDocs: p.projectDocs, projectQueue: p.projectQueue, repoDirOf: p.repoDirOf });
+  const walk = async (st, s, stages) => { for (const stage of stages) { await until(() => !st.isBusy(s.id)); s = st.approve(s.id, me, stage); } await until(() => !st.isBusy(s.id)); return s; };
+
+  it('reads the project docs and code, then an approved feature is recorded and queued', async () => {
+    const calls = [], p = fakeProject();
+    const st = makeFeature(calls, p);
+    let s = st.startFeature(me, 'proj_9', 'Cần xuất Excel danh sách đơn');
+    expect(s).toMatchObject({ kind: 'feature', projectId: 'proj_9', stage: 'pm' });
+    await until(() => !st.isBusy(s.id));
+    expect(fs.readFileSync(path.join(calls[0].cwd, 'project-docs/architecture.md'), 'utf8')).toContain('Lộ trình tính năng');
+    expect(fs.existsSync(path.join(calls[0].cwd, 'project-docs/mockups/01.html'))).toBe(true);
+    expect(calls[0].prompt).toContain('CHẾ ĐỘ BỔ SUNG TÍNH NĂNG');
+    expect(calls[0].args).toEqual(expect.arrayContaining(['--add-dir', '/srv/proj_9']));
+    s = await walk(st, s, ['pm', 'system']);
+    expect(s.stage).toBe('queued');
+    expect(fs.existsSync(path.join(calls[1].cwd, 'stacks.json'))).toBe(false);   // a feature never changes the stack
+    expect(p.added).toHaveLength(1);
+    expect(p.added[0]).toMatchObject({ pid: 'proj_9', slug: 'xuat-excel', title: 'Xuất Excel', architecture: '# Xuất Excel — thay đổi' });
+    expect(p.queued).toHaveLength(1);
+    expect(p.queued[0]).toMatchObject({ pid: 'proj_9', slug: 'xuat-excel', title: 'Xuất Excel', sessionId: s.id });
+    expect(p.queued[0].spec).toContain('## Tiêu chí chấp nhận');
+  });
+
+  it('a feature with screens goes through the designer', async () => {
+    const calls = [], p = fakeProject();
+    const st = makeFeature(calls, p, true);
+    let s = st.startFeature(me, 'proj_9', 'Cần xuất Excel danh sách đơn');
+    s = await walk(st, s, ['pm', 'system']);
+    expect(s.stage).toBe('ui');
+    s = await walk(st, s, ['ui']);
+    expect(s.stage).toBe('queued');
+    expect(p.queued[0].designDir).toBe(path.join(root, s.id));
+  });
+
+  it('the architect must say what the feature is', async () => {
+    const calls = [], p = fakeProject();
+    const st = createStudio({ root: () => root, tools: () => ALL, route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n, ...p,
+      run: async (cmd, args, opts) => {
+        const agent = args[args.indexOf('--append-system-prompt') + 1];
+        if (agent === 'studio-pm-agent') fs.writeFileSync(path.join(opts.cwd, 'product-brief.md'), '# X');
+        if (agent === 'studio-architect-agent') fs.writeFileSync(path.join(opts.cwd, 'architecture.md'), '# X');
+        opts.log(JSON.stringify({ type: 'result', is_error: false, result: 'ok\nROLE-STEP: DONE chat' }));
+      } });
+    let s = st.startFeature(me, 'proj_9', 'Cần xuất Excel danh sách đơn');
+    await until(() => !st.isBusy(s.id));
+    st.approve(s.id, me, 'pm');
+    await until(() => !st.isBusy(s.id));
+    expect(() => st.approve(s.id, me, 'system')).toThrow(/feature.json/);
+  });
+
+  it('two features approved one after the other get their own slugs', async () => {
+    const calls = [], p = fakeProject();
+    const st = makeFeature(calls, p);
+    const a = st.startFeature(me, 'proj_9', 'Cần xuất Excel danh sách đơn');
+    await walk(st, a, ['pm', 'system']);
+    const b = st.startFeature(me, 'proj_9', 'Cần xuất Excel lần nữa');
+    await walk(st, b, ['pm', 'system']);
+    expect(p.queued.map(x => x.slug)).toEqual(['xuat-excel', 'xuat-excel-2']);
+  });
+
+  it('a project chat holds its creation thread and only its own features', async () => {
+    const calls = [], p = fakeProject();
+    const st = makeFeature(calls, p);
+    fs.mkdirSync(root, { recursive: true });
+    // An older studio session that created proj_9 (the project id kept under `project`).
+    fs.writeFileSync(path.join(root, 'stu_bbbbbbbbbbbb.json'), JSON.stringify({ id: 'stu_bbbbbbbbbbbb', title: 'Bán hàng', stage: 'build',
+      project: { jobId: 'scf_1', slug: 'ban-hang', name: 'Bán hàng', projectId: 'proj_9' }, messages: [], approved: {}, createdBy: 'u1', createdAt: 'x' }));
+    const f = st.startFeature(me, 'proj_9', 'Cần xuất Excel danh sách đơn');
+    await until(() => !st.isBusy(f.id));
+    const c = st.projectChat('proj_9');
+    expect(c.root.id).toBe('stu_bbbbbbbbbbbb');
+    expect(c.threads.map(t => t.id)).toEqual([f.id]);
+    expect(c.threads[0]).toMatchObject({ stage: 'pm', status: 'pm' });
+    expect(st.get(f.id, me).parent).toBe('stu_bbbbbbbbbbbb');
+    const other = st.projectChat('proj_X');
+    expect(other.root).toBe(null);
+    expect(other.threads).toEqual([]);
+    expect(st.list(me).map(x => x.id)).not.toContain(f.id);   // feature threads live in the project chat, not in drafts
+  });
+});
+
+describe('studio — a created project owns its chat', () => {
+  const fakes = () => {
+    const seeded = [], queued = [];
+    return { seeded, queued, projectDocs: { seedDocs: (pid, d) => seeded.push({ pid, ...d }), hasDocs: () => false, readDocs: () => ({ features: [] }) },
+      projectQueue: { enqueue: (pid, item) => queued.push({ pid, ...item }), readProjectQueue: () => ({ items: [], assigned: [], error: '' }) } };
+  };
+  const toCreate = async (st, text = 'Tôi cần hệ thống bán hàng') => {
+    let s = st.start(me, text);
+    await until(() => !st.isBusy(s.id));
+    st.send(s.id, me, 'Chuỗi 5 cửa hàng, 1000 người dùng');
+    await until(() => !st.isBusy(s.id));
+    for (const stage of ['pm', 'system', 'ui']) { st.approve(s.id, me, stage); await until(() => !st.isBusy(s.id)); }
+    return st.get(s.id, me);
+  };
+
+  it('seeds the master docs and queues the roadmap once the project is registered', async () => {
+    const f = fakes();
+    let registered = null;
+    const jobs = { start: () => ({ id: 'scf_1' }), get: () => ({ id: 'scf_1', status: 'running', stages: {}, stageList: [], project: registered }) };
+    const st = createStudio({ root: () => root, run: fakeClaude([]), tools: () => ALL, route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n,
+      jobs, projectDocs: f.projectDocs, projectQueue: f.projectQueue });
+    let s = await toCreate(st);
+    s = st.create(s.id, me, 'tok', { name: 'Bán hàng', slug: 'ban-hang' });
+    expect(f.seeded).toEqual([]);
+    registered = { id: 'proj_9' };
+    s = st.get(s.id, me);
+    expect(s.projectId).toBe('proj_9');
+    expect(f.seeded).toHaveLength(1);
+    expect(f.seeded[0]).toMatchObject({ pid: 'proj_9', brief: '# Bán hàng 5 cửa hàng\n\n## Tóm tắt\nPOS.' });
+    expect(f.seeded[0].mockups.map(m => m.name)).toEqual(['01-dang-nhap.html']);
+    expect(f.queued.map(q => [q.slug, q.title])).toEqual([['dang-nhap-phan-quyen', 'Đăng nhập & phân quyền'], ['san-pham', 'Sản phẩm'], ['don-hang-tai-quay', 'Đơn hàng tại quầy']]);
+    expect(f.queued[0].requirement).toMatch(/^Tính năng "Đăng nhập & phân quyền" của dự án Bán hàng/);
+    st.get(s.id, me);
+    expect(f.queued).toHaveLength(3);
+    expect(st.projectChat('proj_9').root.id).toBe(s.id);
+  });
+
+  it('adds a lane for the project once it is created, only once', async () => {
+    const f = fakes(), added = [];
+    let status = 'running';
+    const jobs = { start: () => ({ id: 'scf_1' }), get: () => ({ id: 'scf_1', status, stages: {}, stageList: [], project: { id: 'proj_9' } }) };
+    const st = createStudio({ root: () => root, run: fakeClaude([]), tools: () => ALL, route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n,
+      jobs, ...f, addLane: p => added.push(p) });
+    let s = await toCreate(st);
+    st.create(s.id, me, 'tok', { name: 'Bán hàng', slug: 'ban-hang' });
+    st.get(s.id, me);
+    expect(added).toEqual([]);                       // still generating: no profile to bind a lane to yet
+    status = 'done';
+    s = st.get(s.id, me);
+    st.get(s.id, me);
+    expect(added).toEqual([{ slug: 'ban-hang', projectId: 'proj_9', name: 'Bán hàng' }]);
+    expect(s.messages.at(-1).text).toMatch(/tự thêm một lane/);
+  });
+
+  it('roadmap items already in the code are not queued', async () => {
+    const f = fakes();
+    const jobs = { start: () => ({ id: 'scf_1' }), get: () => ({ id: 'scf_1', status: 'done', stages: {}, stageList: [], project: { id: 'proj_9' } }) };
+    const claude = fakeClaude([]);
+    const st = createStudio({ root: () => root, tools: () => ALL, route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n, jobs, ...f,
+      run: async (cmd, args, opts) => {
+        await claude(cmd, args, opts);
+        const a = path.join(opts.cwd, 'architecture.md');
+        if (fs.existsSync(a)) fs.writeFileSync(a, fs.readFileSync(a, 'utf8').replace('— danh mục, giá', '— danh mục, giá (Đã có)'));
+      } });
+    let s = await toCreate(st);
+    st.create(s.id, me, 'tok', { name: 'Bán hàng', slug: 'ban-hang' });
+    st.get(s.id, me);
+    expect(f.queued.map(q => q.title)).toEqual(['Đăng nhập & phân quyền', 'Đơn hàng tại quầy']);
+  });
+
+  it('a git project is created through the importer with its source and documents', async () => {
+    const f = fakes(), started = [];
+    const importer = { start: (spec, user, token) => { started.push(spec); return { id: 'imp_1' }; },
+      get: () => ({ id: 'imp_1', status: 'running', stage: 'clone', stages: {}, stageList: [], project: null }) };
+    const claude = fakeClaude([]);
+    const st = createStudio({ root: () => root, tools: () => ALL, route: claudeRoute, claudeBin: '/x/claude', agentPrompt: n => n, importer, ...f,
+      run: async (cmd, args, opts) => { if (cmd === 'git') { fs.mkdirSync(path.join(opts.cwd, 'repo'), { recursive: true }); return; } return claude(cmd, args, opts); } });
+    let s = st.start(me, { kind: 'git', text: 'Shop có sẵn ở công ty', source: { url: 'https://github.com/a/shop.git' }, docs: { paths: ['docs/a.md'] } });
+    await until(() => !st.isBusy(s.id) && st.get(s.id, me).messages.some(m => m.role === 'ai'));
+    st.send(s.id, me, 'Chuỗi 5 cửa hàng, 1000 người dùng');
+    await until(() => !st.isBusy(s.id));
+    for (const stage of ['pm', 'system', 'ui']) { st.approve(s.id, me, stage); await until(() => !st.isBusy(s.id)); }
+    const form = { name: 'Shop', slug: 'shop', branch: 'main', backend: { tech: 'Laravel', run: 'php artisan serve' } };
+    s = st.create(s.id, me, 'tok', { import: form });
+    expect(started[0]).toMatchObject({ slug: 'shop', source: { url: 'https://github.com/a/shop.git' }, docs: { brief: '', other: ['docs/a.md'] } });
+    expect(s.job).toMatchObject({ id: 'imp_1', status: 'running' });
   });
 });

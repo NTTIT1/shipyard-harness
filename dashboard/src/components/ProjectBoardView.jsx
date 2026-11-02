@@ -12,16 +12,17 @@ import { LANE_STATUS, stageLabel as stageLabel_ } from '../lib/laneview.js';
 import { laneAttention } from '../lib/laneview.js';
 import { simpleStepIndex } from '../lib/constants.js';
 import { useWorkflowLanes } from '../hooks/useRunViews.js';
+import { tr } from '../lib/i18n.js';
 
 
 
 const SIMPLE_STEPS = [
-  { id: 'plan', label: '1. Kế hoạch' },
-  { id: 'code', label: '2. Lập trình' },
-  { id: 'check', label: '3. Kiểm tra' },
-  { id: 'qc', label: '4. Review & QC' },
-  { id: 'pr', label: '5. Pull Request' },
-  { id: 'done', label: '6. Hoàn tất' },
+  { id: 'plan', label: tr('1. Kế hoạch') },
+  { id: 'code', label: tr('2. Lập trình') },
+  { id: 'check', label: tr('3. Kiểm tra') },
+  { id: 'qc', label: tr('4. Review & QC') },
+  { id: 'pr', label: tr('5. Pull Request') },
+  { id: 'done', label: tr('6. Hoàn tất') },
 ];
 
 export const getSimpleStepIndex = simpleStepIndex;
@@ -89,7 +90,7 @@ export default function ProjectBoardView({
       groups.push({
         project: {
           id: '__unassigned__',
-          name: projects.length === 0 ? 'Không gian làm việc mặc định' : 'Các Lane dùng chung / Chưa gắn dự án',
+          name: projects.length === 0 ? tr('Không gian làm việc mặc định') : tr('Các Lane dùng chung / Chưa gắn dự án'),
           slug: 'workspace-lanes',
           isDefault: true,
         },
@@ -141,47 +142,40 @@ export default function ProjectBoardView({
       {/* Top Header */}
       <header className="pb-header">
         <div className="pb-header-titles">
-          <h1 id="pb-title" className="pb-h1">Tổng quan</h1>
-          <p className="pb-subtitle">Tiến độ, chi phí và trạng thái các lane, gom theo dự án.</p>
+          <h1 id="pb-title" className="pb-h1">{tr('Tổng quan')}</h1>
+          <p className="pb-subtitle">{tr('Tiến độ, chi phí và trạng thái các lane, gom theo dự án.')}</p>
         </div>
         <div className="pb-header-actions">
           {canScaffold && (
-            <Button variant="secondary" icon={Wand2} onClick={onOpenWizard}>
-              Khởi tạo dự án từ khung
-            </Button>
+            <Button variant="secondary" icon={Wand2} onClick={onOpenWizard}>{tr('Tạo dự án')}</Button>
           )}
-          <Button variant="secondary" icon={Server} onClick={onAddLane}>
-            Thêm lane
-          </Button>
+          <Button variant="secondary" icon={Server} onClick={onAddLane}>{tr('Thêm lane')}</Button>
           {/* The sidebar carries this action on wide screens; phones only see it here. */}
-          <Button variant="primary" icon={Plus} className="pb-cta-narrow" onClick={() => onAssign(null)}>
-            Giao việc mới
-          </Button>
+          <Button variant="primary" icon={Plus} className="pb-cta-narrow" onClick={() => onAssign(null)}>{tr('Giao việc mới')}</Button>
         </div>
       </header>
 
       {/* Scope Telemetry Strip */}
-      <div className="pb-telemetry-strip" aria-label="Chỉ số tổng hợp">
+      <div className="pb-telemetry-strip" aria-label={tr('Chỉ số tổng hợp')}>
         <div className="pb-telemetry-cell">
           <span className="pb-telemetry-label">
             <FolderKanban size={14} aria-hidden="true" />
-            <span>Đang xem</span>
+            <span>{tr('Đang xem')}</span>
           </span>
           <div className="pb-telemetry-main">
             <span className="pb-telemetry-val">
-              {(!activeProjectId || activeProjectId === 'ALL') ? `${projects.length || 1} dự án` : visibleGroups[0]?.project?.name || '1 dự án'}
+              {(!activeProjectId || activeProjectId === 'ALL') ? tr('{0} dự án', [projects.length || 1]) : visibleGroups[0]?.project?.name || tr('1 dự án')}
             </span>
             <span className="pb-telemetry-badge">{scopeMetrics.laneCount} lane</span>
           </div>
           <span className="pb-telemetry-sub">
-            {scopeMetrics.runningCount} đang chạy · {scopeMetrics.waitingCount} cần duyệt
-          </span>
+            {tr('{0} đang chạy · {1} cần duyệt', [scopeMetrics.runningCount, scopeMetrics.waitingCount])}</span>
         </div>
 
         <div className="pb-telemetry-cell">
           <span className="pb-telemetry-label">
             <Gauge size={14} aria-hidden="true" />
-            <span>Tiến độ trung bình</span>
+            <span>{tr('Tiến độ trung bình')}</span>
           </span>
           <div className="pb-telemetry-main">
             <span className="pb-telemetry-val">{scopeMetrics.avgProg != null ? `${scopeMetrics.avgProg}%` : '—'}</span>
@@ -191,23 +185,21 @@ export default function ProjectBoardView({
           </div>
           <span className="pb-telemetry-sub">
             {scopeMetrics.activeCount > 0
-              ? `Trung bình cộng từ ${scopeMetrics.activeCount}/${scopeMetrics.laneCount} lane có việc`
-              : 'Chưa có lane nào đang thực thi'}
+              ? tr('Trung bình cộng từ {0}/{1} lane có việc', [scopeMetrics.activeCount, scopeMetrics.laneCount])
+              : tr('Chưa có lane nào đang thực thi')}
           </span>
         </div>
 
         <div className="pb-telemetry-cell">
           <span className="pb-telemetry-label is-cost">
             <Coins size={14} aria-hidden="true" />
-            <span>Chi phí tháng này</span>
+            <span>{tr('Chi phí tháng này')}</span>
           </span>
           <div className="pb-telemetry-main">
             <span className="pb-telemetry-val">{fmtVnd(scopeMetrics.totalVnd)}</span>
             <span className="pb-telemetry-badge">{fmtUsd(scopeMetrics.totalUsd)} API</span>
           </div>
-          <span className="pb-telemetry-sub">
-            Tổng các lane đang xem
-          </span>
+          <span className="pb-telemetry-sub">{tr('Tổng các lane đang xem')}</span>
         </div>
       </div>
 
@@ -239,7 +231,7 @@ export default function ProjectBoardView({
 
                 <div className="pb-project-metrics">
                   <div className="pb-pm-item">
-                    <span className="pb-pm-label">Tiến độ dự án ({activeCount} lane)</span>
+                    <span className="pb-pm-label">{tr('Tiến độ dự án ({0} lane)', [activeCount])}</span>
                     <div className="pb-pm-val-row">
                       <span className="pb-pm-val">{avgProg != null ? `${avgProg}%` : '—'}</span>
                       <span className="pb-pm-mini-bar">
@@ -251,7 +243,7 @@ export default function ProjectBoardView({
                   <div className="pb-pm-divider" />
 
                   <div className="pb-pm-item">
-                    <span className="pb-pm-label">Chi phí dự án</span>
+                    <span className="pb-pm-label">{tr('Chi phí dự án')}</span>
                     <div className="pb-pm-val-row">
                       <span className="pb-pm-val">{fmtVnd(costVnd)}</span>
                       <span className="pb-pm-sub">({fmtUsd(costUsd)})</span>
@@ -263,9 +255,7 @@ export default function ProjectBoardView({
                       size="sm"
                       variant="ghost"
                       icon={SlidersHorizontal}
-                      onClick={() => onOpenProjectSettings(pj.id)}>
-                      Cấu hình & Skill AI
-                    </Button>
+                      onClick={() => onOpenProjectSettings(pj.id)}>{tr('Cấu hình & Skill AI')}</Button>
                   )}
                 </div>
               </div>
@@ -279,7 +269,7 @@ export default function ProjectBoardView({
                     const stInfo = LANE_STATUS[l.status] || LANE_STATUS.idle;
                     const stepIdx = getSimpleStepIndex(l.stage, l.status);
                     const tc = l.track?.current;
-                    const stageLabel = tc ? `${tc.label} · ${tc.sub}` : l.track?.releasing ? `Bàn giao — ${stageLabel_(l.stage)}` : stageLabel_(l.stage);
+                    const stageLabel = tc ? `${tc.label} · ${tc.sub}` : l.track?.releasing ? tr('Bàn giao — {0}', [stageLabel_(l.stage)]) : stageLabel_(l.stage);
                     const isFinished = l.status === 'passed' || l.stage === 'done';
                     const segs = l.track ? l.track.steps.map((st, idx) => ({ id: st.id, label: `${idx + 1}. ${st.label} — ${st.sub}`, state: st.state }))
                       : SIMPLE_STEPS.map((st, idx) => ({ id: st.id, label: st.label,
@@ -304,11 +294,11 @@ export default function ProjectBoardView({
                         </div>
 
                         <h3 className="pb-lc-title">
-                          {l.feature_title || 'Lane đang rảnh — sẵn sàng nhận tính năng mới'}
+                          {l.feature_title || tr('Lane đang rảnh — sẵn sàng nhận tính năng mới')}
                         </h3>
 
                         {/* Mini-stepper: the lane's workflow steps (or the generic 6 stages) */}
-                        <div className="pb-lc-stepper" aria-label={`Giai đoạn: ${stageLabel}`}>
+                        <div className="pb-lc-stepper" aria-label={tr('Giai đoạn: {0}', [stageLabel])}>
                           <div className="pb-lc-segments" style={{ '--stage-count': segs.length }}>
                             {segs.map(st => (
                               <span
@@ -327,7 +317,7 @@ export default function ProjectBoardView({
                         {l.needs_action && (
                           <div className="pb-lc-alert">
                             <AlertTriangle size={13} />
-                            <span>Cần bạn: {l.needs_action}</span>
+                            <span>{tr('Cần bạn: {0}', [l.needs_action])}</span>
                           </div>
                         )}
 
@@ -338,7 +328,7 @@ export default function ProjectBoardView({
                           </div>
                           <div className="pb-lc-cost mono">
                             {(l.cost_vnd > 0 || l.cost_usd > 0) ? (
-                              <span title={`Chi phí Lane ${l.lane}: ${fmtVnd(l.cost_vnd)} (${fmtUsd(l.cost_usd)})`}>
+                              <span title={tr('Chi phí Lane {0}: {1} ({2})', [l.lane, fmtVnd(l.cost_vnd), fmtUsd(l.cost_usd)])}>
                                 {fmtVnd(l.cost_vnd)} · {fmtUsd(l.cost_usd)}
                               </span>
                             ) : (
@@ -346,7 +336,7 @@ export default function ProjectBoardView({
                             )}
                           </div>
                           <span className="pb-lc-open">
-                            <span>Chi tiết</span>
+                            <span>{tr('Chi tiết')}</span>
                             <ArrowRight size={13} />
                           </span>
                         </footer>
@@ -356,10 +346,8 @@ export default function ProjectBoardView({
                 </div>
               ) : (
                 <div className="pb-empty-lanes">
-                  <span>Dự án này chưa có Lane nào đang chạy tính năng.</span>
-                  <Button size="sm" variant="secondary" icon={Plus} onClick={() => onAssign(null)}>
-                    Giao việc vào Lane
-                  </Button>
+                  <span>{tr('Dự án này chưa có Lane nào đang chạy tính năng.')}</span>
+                  <Button size="sm" variant="secondary" icon={Plus} onClick={() => onAssign(null)}>{tr('Giao việc vào Lane')}</Button>
                 </div>
               )}
             </div>

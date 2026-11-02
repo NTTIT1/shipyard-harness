@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useMe
 import {
   Plus, Server, Settings2, Sun, Moon, X, Ship, LogOut, Inbox,
   FolderKanban, LayoutGrid, Users, Coins, FileText, Gauge,
-  ListTodo, Layers, SlidersHorizontal, Sparkles, Database, Palette
+  ListTodo, Layers, SlidersHorizontal, Database, Palette, MessagesSquare, FolderOpen
 } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import IconButton from './ui/IconButton.jsx';
@@ -12,6 +12,8 @@ import { sortLanes, laneAttention, ATTENTION as ATTN } from '../lib/laneview.js'
 import { fmtAge } from '../lib/format.js';
 import { isAdmin } from '../lib/users.js';
 import { createSpring, SPRING, project, rubberband, velocityFrom, prefersReducedMotion } from '../lib/spring.js';
+import { tr } from '../lib/i18n.js';
+import LangSwitch from './ui/LangSwitch.jsx';
 
 
 function dotTone(l) {
@@ -80,7 +82,7 @@ export default function Sidebar({
     <>
       {narrow && <div className="sb-scrim" ref={scrimRef} onClick={onClose} aria-hidden="true" />}
       {narrow && !open && <div className="sb-edge" onPointerDown={onEdgePointerDown} aria-hidden="true" />}
-      <aside ref={asideRef} className={`sidebar${open ? ' open' : ''}`} aria-label="Điều hướng chính" inert={drawerClosed ? '' : undefined}
+      <aside ref={asideRef} className={`sidebar${open ? ' open' : ''}`} aria-label={tr('Điều hướng chính')} inert={drawerClosed ? '' : undefined}
         onPointerDown={onDrawerPointerDown} onClickCapture={onDrawerClickCapture}
         {...(drawerOpen ? { role: 'dialog', 'aria-modal': 'true' } : {})}>
         
@@ -93,62 +95,59 @@ export default function Sidebar({
             <strong className="sb-brand-name">AI Factory</strong>
             <span className="sb-brand-sub">SHIPYARD SYSTEM</span>
           </div>
-          <IconButton ref={closeRef} className="sb-close" icon={X} label="Đóng" onClick={onClose} />
+          <IconButton ref={closeRef} className="sb-close" icon={X} label={tr('Đóng')} onClick={onClose} />
         </div>
 
-        <Button variant="primary" icon={Plus} className="sb-assign" onClick={() => onAssign(null)}>
-          Giao việc mới
-        </Button>
+        <Button variant="primary" icon={Plus} className="sb-assign" onClick={() => onAssign(null)}>{tr('Giao việc mới')}</Button>
 
         <div className="sb-scroll">
-          {/* Daily work: what needs me, what runs, new ideas. */}
+          {/* Daily work: what needs me, what runs. */}
           <nav className="sb-section-group" aria-labelledby="sb-h-work">
-            <div className="sb-section-heading" id="sb-h-work">Điều hành</div>
+            <div className="sb-section-heading" id="sb-h-work">{tr('Điều hành')}</div>
             <div className="sb-nav">
-              <NavItem icon={LayoutGrid} label="Tổng quan" active={view === 'board'} onClick={() => handleNav('board')} />
-              <NavItem icon={Inbox} label="Chờ tôi duyệt" active={view === 'inbox' || view === 'review'} onClick={() => handleNav('inbox')}
-                badge={inboxCount ? <span className="sb-nav-pill-badge" aria-label={`${inboxCount} bước chờ duyệt`}>{inboxCount}</span> : null} />
-              <NavItem icon={ListTodo} label="Lanes" active={view === 'lanes'} onClick={() => handleNav('lanes')}
+              <NavItem icon={LayoutGrid} label={tr('Tổng quan')} active={view === 'board'} onClick={() => handleNav('board')} />
+              <NavItem icon={FolderOpen} label={tr('Dự án')} active={view === 'hub' || view === 'studio'} onClick={() => handleNav('hub')} />
+              <NavItem icon={Inbox} label={tr('Chờ tôi duyệt')} active={view === 'inbox' || view === 'review'} onClick={() => handleNav('inbox')}
+                badge={inboxCount ? <span className="sb-nav-pill-badge" aria-label={tr('{0} bước chờ duyệt', [inboxCount])}>{inboxCount}</span> : null} />
+              <NavItem icon={ListTodo} label={tr('Lanes')} active={view === 'lanes'} onClick={() => handleNav('lanes')}
                 badge={scopedLanes.length > 0 ? <span className="sb-nav-count-badge">{scopedLanes.length}</span> : null} />
-              {isAdmin(user) && (
-                <NavItem icon={Sparkles} label="Ý tưởng sản phẩm" active={view === 'studio'} onClick={() => handleNav('studio')} />
-              )}
             </div>
           </nav>
 
           {/* The project picked in the header: every item below is about it. */}
           <nav className="sb-section-group" aria-labelledby="sb-h-project">
             <div className="sb-section-heading" id="sb-h-project">
-              <span>Dự án</span>
-              <span className="sb-heading-project" title={activeProject?.name || 'Chọn dự án ở thanh trên'}>
-                {activeProject ? activeProject.name : projects.length ? 'chưa chọn' : ''}
+              <span>{tr('Dự án')}</span>
+              <span className="sb-heading-project" title={activeProject?.name || tr('Chọn dự án ở thanh trên')}>
+                {activeProject ? activeProject.name : projects.length ? tr('chưa chọn') : ''}
               </span>
             </div>
             <div className="sb-nav">
-              <NavItem icon={FolderKanban} label="Tổng quan & thành viên" active={view === 'projects' && (!projectSubTab || projectSubTab === 'members')} onClick={() => handleNav('projects', 'members')} />
-              <NavItem icon={SlidersHorizontal} label="Quy trình & duyệt" active={view === 'projects' && projectSubTab === 'gates'} onClick={() => handleNav('projects', 'gates')} />
-              <NavItem icon={Layers} label="Tính năng & model AI" active={view === 'projects' && projectSubTab === 'runs'} onClick={() => handleNav('projects', 'runs')} />
-              <NavItem icon={FileText} label="Tài liệu đã duyệt" active={view === 'docs'} onClick={() => handleNav('docs')} />
-              <NavItem icon={Database} label="Bộ nhớ dự án" active={view === 'projects' && projectSubTab === 'memory'} onClick={() => handleNav('projects', 'memory')} />
-              <NavItem icon={Palette} label="Kỹ năng AI & khung" active={view === 'projects' && projectSubTab === 'team'} onClick={() => handleNav('projects', 'team')} />
+              <NavItem icon={FolderKanban} label={tr('Tổng quan & thành viên')} active={view === 'projects' && (!projectSubTab || projectSubTab === 'members')} onClick={() => handleNav('projects', 'members')} />
+              <NavItem icon={SlidersHorizontal} label={tr('Quy trình & duyệt')} active={view === 'projects' && projectSubTab === 'gates'} onClick={() => handleNav('projects', 'gates')} />
+              <NavItem icon={Layers} label={tr('Tính năng & model AI')} active={view === 'projects' && projectSubTab === 'runs'} onClick={() => handleNav('projects', 'runs')} />
+              <NavItem icon={MessagesSquare} label={tr('Chat dự án')} active={view === 'chat'} onClick={() => handleNav('chat')} />
+              <NavItem icon={FileText} label={tr('Tài liệu đã duyệt')} active={view === 'docs'} onClick={() => handleNav('docs')} />
+              <NavItem icon={Database} label={tr('Bộ nhớ dự án')} active={view === 'projects' && projectSubTab === 'memory'} onClick={() => handleNav('projects', 'memory')} />
+              <NavItem icon={Palette} label={tr('Kỹ năng AI & khung')} active={view === 'projects' && projectSubTab === 'team'} onClick={() => handleNav('projects', 'team')} />
             </div>
           </nav>
 
           {isAdmin(user) && (
             <nav className="sb-section-group" aria-labelledby="sb-h-admin">
-              <div className="sb-section-heading" id="sb-h-admin">Quản trị</div>
+              <div className="sb-section-heading" id="sb-h-admin">{tr('Quản trị')}</div>
               <div className="sb-nav">
-                <NavItem icon={Coins} label="Chi phí & hạn mức" active={view === 'costs'} onClick={() => handleNav('costs')} />
-                <NavItem icon={Users} label="Người dùng" active={view === 'users'} onClick={() => handleNav('users')} />
-                <NavItem icon={Settings2} label="Nhà cung cấp AI" onClick={() => { onProviders(); onClose(); }} />
+                <NavItem icon={Coins} label={tr('Chi phí & hạn mức')} active={view === 'costs'} onClick={() => handleNav('costs')} />
+                <NavItem icon={Users} label={tr('Người dùng')} active={view === 'users'} onClick={() => handleNav('users')} />
+                <NavItem icon={Settings2} label={tr('Nhà cung cấp AI')} onClick={() => { onProviders(); onClose(); }} />
               </div>
             </nav>
           )}
 
         {/* If viewing Lanes view, display quick switcher list directly under Lanes menu */}
         {view === 'lanes' && scopedLanes.length > 0 && (
-          <div className="sb-sub-lane-list" aria-label="Danh sách lane">
-            <div className="sb-section-heading">Chọn lane</div>
+          <div className="sb-sub-lane-list" aria-label={tr('Danh sách lane')}>
+            <div className="sb-section-heading">{tr('Chọn lane')}</div>
             {sortedLanes.map(l => {
               const attn = laneAttention(l);
               const isSelected = l.lane === selected;
@@ -165,9 +164,7 @@ export default function Sidebar({
                 </button>
               );
             })}
-            <Button variant="ghost" size="sm" icon={Plus} onClick={onAddLane} style={{ marginTop: 4 }}>
-              Thêm lane
-            </Button>
+            <Button variant="ghost" size="sm" icon={Plus} onClick={onAddLane} style={{ marginTop: 4 }}>{tr('Thêm lane')}</Button>
           </div>
         )}
 
@@ -175,9 +172,10 @@ export default function Sidebar({
 
         <div className="sb-foot sb-user">
           <span className="sb-user-email" title={user?.email}>{user?.email || ''}</span>
-          {!isAdmin(user) && <IconButton icon={Settings2} label="Nhà cung cấp AI" onClick={onProviders} />}
-          <IconButton icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? 'Giao diện sáng' : 'Giao diện tối'} onClick={onToggleTheme} />
-          {user && onLogout && <IconButton icon={LogOut} label="Đăng xuất" onClick={onLogout} />}
+          <LangSwitch />
+          {!isAdmin(user) && <IconButton icon={Settings2} label={tr('Nhà cung cấp AI')} onClick={onProviders} />}
+          <IconButton icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? tr('Giao diện sáng') : tr('Giao diện tối')} onClick={onToggleTheme} />
+          {user && onLogout && <IconButton icon={LogOut} label={tr('Đăng xuất')} onClick={onLogout} />}
         </div>
       </aside>
     </>

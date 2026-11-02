@@ -22,7 +22,7 @@ export function restoreProject(id, projects) {
   return (projects || []).some(p => p.id === id) ? id : 'ALL';
 }
 
-const VIEWS = ['board', 'inbox', 'projects', 'users', 'costs', 'studio', 'docs', 'lanes'];
+const VIEWS = ['board', 'inbox', 'projects', 'users', 'costs', 'studio', 'chat', 'hub', 'docs', 'lanes'];
 /** The screen to reopen: a review needs the item it was opened from, so it reopens the inbox. */
 export function restoreView(v) {
   if (v === 'review') return 'inbox';

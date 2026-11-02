@@ -130,3 +130,7 @@
 /* Review-step warnings: they do not block the import, so warning colours, not the error box. */
 .imp-warn { display: flex; gap: 8px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent); font-size: 13px; color: var(--text); overflow-wrap: anywhere }
 .imp-warn svg { flex: none; margin-top: 2px; color: var(--warn-text) }
+
+/* "Tạo dự án": attached documents and drafts to continue */
+.cp-files, .cp-drafts { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none }
+.cp-files li { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12.5px; color: var(--text) }

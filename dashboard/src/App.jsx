@@ -34,12 +34,16 @@ import LaneAiPanel from './components/LaneAiPanel.jsx';
 import ViewLoading from './components/ui/ViewLoading.jsx';
 import TopHeader from './components/TopHeader.jsx';
 import ErrorBoundary from './components/ui/ErrorBoundary.jsx';
+import { tr } from './lib/i18n.js';
 
 // Screens most sessions never open load on demand (separate chunks).
 const ReviewView = lazy(() => import('./components/ReviewView.jsx'));
 const NewProjectWizard = lazy(() => import('./components/NewProjectWizard.jsx'));
 const CostsView = lazy(() => import('./components/CostsView.jsx'));
 const StudioView = lazy(() => import('./components/StudioView.jsx'));
+const CreateProjectModal = lazy(() => import('./components/projects/CreateProjectModal.jsx'));
+const ProjectChatView = lazy(() => import('./components/ProjectChatView.jsx'));
+const ProjectHubView = lazy(() => import('./components/ProjectHubView.jsx'));
 const DocsView = lazy(() => import('./components/DocsView.jsx'));
 
 export default function App({ user, onLogout }) {
@@ -57,6 +61,9 @@ export default function App({ user, onLogout }) {
   const [addLane, setAddLane] = useState(false);
   const [providers, setProviders] = useState(false);
   const [wizard, setWizard] = useState(false);
+  // "Tạo dự án" (idea / template / git) and the creation chat it opens.
+  const [creating, setCreating] = useState(false);
+  const [studioSession, setStudioSession] = useRemembered('shipyard-studio-session', null);
   const [view, setView] = useRemembered('shipyard-view', 'board', restoreView);
   const [review, setReview] = useState(null);
   const inbox = useInbox();
@@ -153,7 +160,7 @@ export default function App({ user, onLogout }) {
   const handleCleanup = useCallback((n, payload, label, after) => {
     setConfirm({
       lane: n,
-      title: 'Delete screenshots?',
+      title: tr('Delete screenshots?'),
       message: `Permanently delete ${label}? This cannot be undone.`,
       confirmLabel: 'Delete',
       confirmCls: 'warn',
@@ -216,7 +223,7 @@ export default function App({ user, onLogout }) {
 
   return (
     <div className="app">
-      <a className="skip-link" href="#main-content">Bỏ qua tới nội dung</a>
+      <a className="skip-link" href="#main-content">{tr('Bỏ qua tới nội dung')}</a>
       <Sidebar
         lanes={lanes}
         projects={projects}
@@ -264,7 +271,7 @@ export default function App({ user, onLogout }) {
             onOpenProjectSettings={pid => { setActiveProjectId(pid); setView('projects'); }}
             onAssign={n => setAssign(n)}
             onAddLane={() => setAddLane(true)}
-            onOpenWizard={() => setWizard(true)}
+            onOpenWizard={() => setCreating(true)}
             canScaffold={canScaffold}
           />
         )}
@@ -280,17 +287,38 @@ export default function App({ user, onLogout }) {
             onOpenRun={runId => openReview({ runId })}
             subTab={projectSubTab}
             onTabChange={setProjectSubTab}
+            onCreateProject={() => setCreating(true)}
           />
         )}
         {view === 'users' && <UsersView user={user} onLogout={onLogout} />}
         {view === 'costs' && <Suspense fallback={<ViewLoading />}><CostsView /></Suspense>}
         {view === 'studio' && (
           <Suspense fallback={<ViewLoading />}>
-            <ErrorBoundary title="Không thể hiển thị Ý tưởng sản phẩm">
+            <ErrorBoundary title={tr('Không thể hiển thị Ý tưởng sản phẩm')}>
               <StudioView
+                sessionId={studioSession}
+                onSession={setStudioSession}
+                onBack={() => setView('hub')}
+                onOpenChat={async pid => { await loadProjects(); setActiveProjectId(pid); setView('chat'); }}
                 onProjectCreated={async pid => { await loadProjects(); setActiveProjectId(pid); }}
                 onOpenProject={async pid => { await loadProjects(); setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }}
               />
+            </ErrorBoundary>
+          </Suspense>
+        )}
+        {view === 'hub' && (
+          <Suspense fallback={<ViewLoading />}>
+            <ProjectHubView projects={projects} lanes={lanes} canScaffold={canScaffold} onCreate={() => setCreating(true)}
+              onOpenDraft={id => { setStudioSession(id); setView('studio'); }}
+              onOpenChat={pid => { setActiveProjectId(pid); setView('chat'); }}
+              onOpenSettings={pid => { setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }} />
+          </Suspense>
+        )}
+        {view === 'chat' && (
+          <Suspense fallback={<ViewLoading />}>
+            <ErrorBoundary title={tr('Không thể hiển thị chat dự án')}>
+              <ProjectChatView key={activeProjectId} pid={activeProjectId === 'ALL' ? null : activeProjectId}
+                project={projects.find(p => p.id === activeProjectId)} />
             </ErrorBoundary>
           </Suspense>
         )}
@@ -299,9 +327,9 @@ export default function App({ user, onLogout }) {
         {view === 'lanes' && (<>
         {!selectedLaneData ? (
           <div className="empty-state">
-            <h1>Chưa có lane nào</h1>
-            <p>Thêm lane để bắt đầu, rồi giao việc cho nó.</p>
-            <Button variant="primary" icon={Plus} onClick={() => setAddLane(true)}>Thêm lane</Button>
+            <h1>{tr('Chưa có lane nào')}</h1>
+            <p>{tr('Thêm lane để bắt đầu, rồi giao việc cho nó.')}</p>
+            <Button variant="primary" icon={Plus} onClick={() => setAddLane(true)}>{tr('Thêm lane')}</Button>
           </div>
         ) : (
           <>
@@ -322,10 +350,10 @@ export default function App({ user, onLogout }) {
             ) : (
               <>
                 <Tabs value={tab} onChange={setTab} items={[
-                  { id: 'overview', label: 'Tổng quan' },
+                  { id: 'overview', label: tr('Tổng quan') },
                   ...(viewingPast ? [] : [{ id: 'chat', label: 'Chat', dot: needsChat }]),
-                  { id: 'ai', label: 'AI & Chi phí' },
-                  { id: 'proof', label: 'Ảnh QC', badge: proofCount || null },
+                  { id: 'ai', label: tr('AI & Chi phí') },
+                  { id: 'proof', label: tr('Ảnh QC'), badge: proofCount || null },
                   ...(headLane.spec_dir ? [{ id: 'spec', label: 'Spec' }] : []),
                 ]} />
                 <div className="tabpanel" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
@@ -353,6 +381,12 @@ export default function App({ user, onLogout }) {
               refreshNow();
             }}
           />
+        </Suspense>
+      )}
+      {creating && (
+        <Suspense fallback={null}>
+          <CreateProjectModal onClose={() => setCreating(false)}
+            onStarted={id => { setCreating(false); setStudioSession(id); setView('studio'); }} />
         </Suspense>
       )}
       {confirm && (
