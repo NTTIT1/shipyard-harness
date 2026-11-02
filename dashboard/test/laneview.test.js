@@ -125,3 +125,19 @@ describe('lanes of the open project', () => {
     expect(laneInScope(undefined, 'ALL')).toBe(false);
   });
 });
+
+describe('project progress', () => {
+  it('counts the roadmap: built features, plus how far the lanes building one are', async () => {
+    const { projectProgress } = await import('../src/lib/laneview.js');
+    const list = [
+      { title: 'A', status: 'done' }, { title: 'B', status: 'done' },
+      { title: 'C', status: 'building', lane: 2 }, { title: 'D', status: 'waiting', position: 1 },
+      { title: 'E', status: 'planned' }, { title: 'F', status: 'dropped' },
+    ];
+    const lanes = [{ lane: 2, progress: 50 }];
+    expect(projectProgress(list, lanes)).toEqual({ total: 5, done: 2, building: 1, waiting: 1, planned: 1, dropped: 1, percent: 50 });
+    // (2 + 0.5) / 5 = 50%
+    expect(projectProgress([], lanes)).toBe(null);
+    expect(projectProgress([{ title: 'A', status: 'dropped' }], [])).toBe(null);
+  });
+});

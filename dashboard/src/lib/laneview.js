@@ -156,3 +156,17 @@ export function laneProjectOptions(local, reg, mainId) {
   }
   return [out[0], ...out.slice(1).sort((a, b) => a.name.localeCompare(b.name, 'vi'))];
 }
+
+/**
+ * A project's progress by its roadmap: built features count whole, a feature a lane is building counts by
+ * that lane's progress; dropped ones are left out. null when the project has no roadmap to measure.
+ */
+export function projectProgress(list, lanes = []) {
+  const live = (list || []).filter(f => f.status !== 'dropped');
+  if (!live.length) return null;
+  const n = s => live.filter(f => f.status === s).length;
+  const partial = live.filter(f => f.status === 'building')
+    .reduce((s, f) => s + Math.max(0, Math.min(100, Number((lanes || []).find(l => l.lane === f.lane)?.progress) || 0)) / 100, 0);
+  return { total: live.length, done: n('done'), building: n('building'), waiting: n('waiting'), planned: n('planned'),
+    dropped: (list || []).length - live.length, percent: Math.round(((n('done') + partial) / live.length) * 100) };
+}
