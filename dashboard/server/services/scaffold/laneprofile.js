@@ -75,7 +75,21 @@ function backendHooks(b, slug) {
   }
 }
 
+// A Flutter app: nothing to serve; the gate checks it and builds the APK the mobile QC installs on the
+// shared emulator, pointed at THIS lane's backend (the emulator reaches the host at 10.0.2.2).
+function flutterHooks(f) {
+  const test = f.options.tests === false ? '' : ' && flutter test';
+  return {
+    bootstrap: `( cd ${FE} && flutter pub get )\n`,
+    boot: '',
+    health: '',
+    gate: `"$HARNESS_ROOT/bin/with-lock.sh" build -- bash -c "cd '$LANE_DIR/$FRONTEND_DIR' && flutter pub get && flutter analyze${test} && flutter build apk --debug --dart-define=$MOBILE_API_DEFINE=http://10.0.2.2:$API_PORT"\n`,
+    image: IMAGE.node,
+  };
+}
+
 function frontendHooks(f) {
+  if (f.stack === 'flutter-android') return flutterHooks(f);
   if (f.stack !== 'ts-react-vite') throw new Error(`Chưa hỗ trợ lane cho frontend ${f.stack}`);
   const test = f.options.tests === false ? '' : ' && npm test';
   return {
@@ -119,6 +133,14 @@ export function laneProfileFiles(projectDir, { projectId = '', name = '' } = {})
       `OPENHANDS_BASE_IMAGE="\${OPENHANDS_BASE_IMAGE:-${parts[0].image}}"`,
       `OPENHANDS_EXTRA_PACKAGES="\${OPENHANDS_EXTRA_PACKAGES:-${extra}}"`,
       'IMPL_AGENTS="1"',
+      // A phone app: built to an APK, QC'd on the shared Android emulator (bin/mobile-qc.sh, qc-mobile agent).
+      ...(frontend?.stack === 'flutter-android' ? [
+        'APP_KIND="mobile"',
+        `MOBILE_DIR="${frontend.dir}"`,
+        `MOBILE_PACKAGE="${meta.mobile?.packageId || ''}"`,
+        `MOBILE_API_DEFINE="${meta.mobile?.apiDefine || 'API_URL'}"`,
+        `MOBILE_APK="${frontend.dir}/build/app/outputs/flutter-apk/app-debug.apk"`,
+      ] : []),
       '',
     ].join('\n'),
     'integrations.env': [
