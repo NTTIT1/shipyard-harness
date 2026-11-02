@@ -111,12 +111,13 @@ function injectPrototypeNavigation(html) {
 }
 
 // start / onIndex: open on a given screen and tell the owner which one is shown (the screen gallery's viewer).
-export function Mockups({ mockups, start = 0, onIndex }) {
+// defaultMode: 'mobile' for a phone app's screens.
+export function Mockups({ mockups, start = 0, onIndex, defaultMode = 'desktop' }) {
   const [i, setIState] = useState(start);
   const setI = k => { setIState(k); onIndex?.(k); };
   useEffect(() => { setIState(start); }, [start]);
   const m = mockups[Math.min(i, mockups.length - 1)];
-  const [screenMode, setScreenMode] = useState('desktop'); // desktop | mobile
+  const [screenMode, setScreenMode] = useState(defaultMode); // desktop | mobile
 
   // Intercept navigation events sent from inside the preview iframe
   useEffect(() => {

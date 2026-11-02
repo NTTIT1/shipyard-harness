@@ -568,6 +568,23 @@ describe('studio — a created project owns its chat', () => {
     expect(s.messages.at(-1).text).toMatch(/tự thêm một lane/);
   });
 
+  it('a project created as a phone app is remembered as one', async () => {
+    const f = fakes(), metas = [];
+    f.projectDocs.setMeta = (pid, m) => metas.push({ pid, ...m });
+    const jobs = { start: () => ({ id: 'scf_1' }), get: () => ({ id: 'scf_1', status: 'running', stages: {}, stageList: [], project: { id: 'proj_9' } }) };
+    const st = createStudio({ root: () => root, run: fakeClaude([]), tools: () => ({ ...ALL, flutter: { ok: true, major: 3 } }), route: claudeRoute,
+      claudeBin: '/x/claude', agentPrompt: n => n, jobs, ...f });
+    let s = st.start(me, { kind: 'template', text: 'App đặt lịch khám', template: { kind: 'fullstack', stack: 'java-spring', options: { db: 'postgresql' },
+      frontend: { stack: 'flutter-android', options: { org: 'com.x' } } } });
+    await until(() => !st.isBusy(s.id));
+    st.send(s.id, me, 'Chuỗi 5 cửa hàng, 1000 người dùng');
+    await until(() => !st.isBusy(s.id));
+    for (const stage of ['pm', 'system', 'ui']) { st.approve(s.id, me, stage); await until(() => !st.isBusy(s.id)); }
+    st.create(s.id, me, 'tok', { name: 'Đặt lịch', slug: 'dat-lich' });
+    st.get(s.id, me);
+    expect(metas).toEqual([{ pid: 'proj_9', appKind: 'mobile' }]);
+  });
+
   it('roadmap items already in the code are not queued', async () => {
     const f = fakes();
     const jobs = { start: () => ({ id: 'scf_1' }), get: () => ({ id: 'scf_1', status: 'done', stages: {}, stageList: [], project: { id: 'proj_9' } }) };

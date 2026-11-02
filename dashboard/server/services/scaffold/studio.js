@@ -442,6 +442,9 @@ export function createStudio({ root = () => path.join(HARNESS_ROOT, 'run', 'stud
     if (projectDocs && projectQueue) {
       const d = docs(s.id);
       projectDocs.seedDocs(pid, { brief: d.brief, architecture: d.architecture, design: d.design, mockups: d.mockups });
+      // A phone app (Flutter frontend): its screens are shown phone-sized from now on.
+      const fe = s.template?.frontend?.stack || d.advice?.frontend?.stack;
+      projectDocs.setMeta?.(pid, { appKind: fe === 'flutter-android' ? 'mobile' : 'web' });
       const used = new Set();
       for (const f of roadmap(d.architecture)) {
         if (/\(Đã có\)\s*$/.test(f.text)) continue;

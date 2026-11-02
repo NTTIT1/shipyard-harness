@@ -1675,5 +1675,8 @@
   "applicationId trong android/app/build.gradle — dùng để cài, gỡ và xoá dữ liệu app trên máy ảo.": "android/app/build.gradleのapplicationId — エミュレーター上でのインストール・アンインストール・データ消去に使います。",
   "Biến địa chỉ backend (--dart-define)": "バックエンドアドレスの変数（--dart-define）",
   "Lane build APK với biến này = backend của lane. Để trống nếu app dùng địa chỉ cố định.": "レーンはこの変数にレーンのバックエンドを設定してAPKをビルドします。アプリが固定アドレスを使う場合は空欄にします。",
-  "{0}: nhập package id của app Android, vd com.congty.app": "{0}：AndroidアプリのパッケージIDを入力してください（例：com.congty.app）"
+  "{0}: nhập package id của app Android, vd com.congty.app": "{0}：AndroidアプリのパッケージIDを入力してください（例：com.congty.app）",
+  "App điện thoại": "スマホアプリ",
+  "App mobile: backend + Flutter (Android)": "モバイルアプリ：バックエンド + Flutter（Android）",
+  "Backend/ và app Flutter trong mobile/; lane build APK và AI kiểm tra trên máy ảo Android": "backend/とmobile/のFlutterアプリ。レーンがAPKをビルドし、AIがAndroidエミュレーターで検証します"
 }

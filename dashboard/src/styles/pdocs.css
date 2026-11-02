@@ -128,3 +128,7 @@
   .pd-bar { background: var(--panel); backdrop-filter: none; box-shadow: 0 1px 0 var(--border-strong) }
   .pd-thumb, .pd-pane, .pd-rail { border-color: var(--border-strong) }
 }
+
+/* A phone app's screens: portrait cards, more of them per row */
+.pd-gallery.pd-phone { grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr)) }
+.pd-gallery.pd-phone .pd-thumb { aspect-ratio: 412 / 892; border-radius: 18px }

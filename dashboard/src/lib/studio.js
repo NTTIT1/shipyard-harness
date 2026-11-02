@@ -44,8 +44,10 @@ export function startBody(kind, f) {
   const text = String(f.text || '').trim();
   if (kind === 'template') {
     const t = f.template || {};
-    return { kind, text, template: { kind: t.kind === 'fullstack' ? 'fullstack' : 'single', stack: t.stack, options: t.options || {},
-      ...(t.kind === 'fullstack' ? { frontend: { stack: t.frontend?.stack, options: t.frontend?.options || {} } } : {}) } };
+    // "App mobile" is a fullstack project whose frontend is the Flutter app.
+    const two = t.kind === 'fullstack' || t.kind === 'mobile';
+    return { kind, text, template: { kind: two ? 'fullstack' : 'single', stack: t.stack, options: t.options || {},
+      ...(two ? { frontend: { stack: t.frontend?.stack, options: t.frontend?.options || {} } } : {}) } };
   }
   if (kind !== 'git') return { kind: 'idea', text };
   const branch = String(f.branch || '').trim();
@@ -60,7 +62,7 @@ export function startBody(kind, f) {
 export function startProblem(kind, f) {
   if (String(f.text || '').trim().length < 5) return tr('Mô tả thêm vài chữ');
   if (kind === 'template' && !f.template?.stack) return tr('Chọn backend (ngôn ngữ và framework)');
-  if (kind === 'template' && f.template.kind === 'fullstack' && !f.template.frontend?.stack) return tr('Chọn frontend');
+  if (kind === 'template' && (f.template.kind === 'fullstack' || f.template.kind === 'mobile') && !f.template.frontend?.stack) return tr('Chọn frontend');
   if (kind === 'git') {
     if (!String(f.source?.url || '').trim()) return tr('Nhập URL repo hoặc thư mục');
     if (!String(f.name || '').trim() || !String(f.slug || '').trim()) return tr('Nhập tên và slug dự án');
@@ -84,6 +86,9 @@ export function moveItem(items, i, dir) {
   [out[i], out[j]] = [out[j], out[i]];
   return out;
 }
+
+/** 'mobile' when the project's frontend is a phone app (Flutter), else 'web'. */
+export const appKindOf = advice => (advice?.frontend?.stack === 'flutter-android' ? 'mobile' : 'web');
 
 /** Where a feature of the project documents stands. */
 export const FEATURE_STATUS_LABEL = { approved: 'Đã duyệt — chưa làm', done: 'Đã có', dropped: 'Đã bỏ' };

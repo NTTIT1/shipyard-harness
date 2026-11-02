@@ -78,7 +78,7 @@ export default function ProjectDocsView({ pid, project, onOpenChat, embedded = f
           <div className="pd-pane">
             {section === 'brief' && <DocPane key="brief" title={tr('Yêu cầu sản phẩm')} md={docs.brief} />}
             {section === 'architecture' && <DocPane key="arch" title={tr('Thiết kế hệ thống')} md={docs.architecture} />}
-            {section === 'ui' && <UiPane docs={docs} />}
+            {section === 'ui' && <UiPane docs={docs} mobile={docs.appKind === 'mobile'} />}
             {section === 'features' && <FeaturesPane features={list} />}
           </div>
         </div>
@@ -108,7 +108,7 @@ function DocPane({ title, md }) {
 }
 
 /** Screens at a glance (live thumbnails), each opened large from where it sits; the design guide one switch away. */
-function UiPane({ docs }) {
+function UiPane({ docs, mobile = false }) {
   const [view, setView] = useState(docs.mockups.length ? 'screens' : 'guide');
   const [open, setOpen] = useState(null);           // { index, origin }
   return (
@@ -127,12 +127,12 @@ function UiPane({ docs }) {
         )}
       </div>
       {view === 'screens' && docs.mockups.length > 0 ? (
-        <ul className="pd-gallery">
+        <ul className={`pd-gallery${mobile ? ' pd-phone' : ''}`}>
           {docs.mockups.map((m, k) => (
             <li key={m.name}>
               <button type="button" className="pd-shot" aria-label={tr('Xem lớn màn {0}', [screenTitle(m)])}
                 onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setOpen({ index: k, origin: `${r.left + r.width / 2}px ${r.top + r.height / 2}px` }); }}>
-                <Thumb html={m.html} title={screenTitle(m)} />
+                <Thumb html={m.html} title={screenTitle(m)} width={mobile ? 412 : 1280} />
                 <span className="pd-shot-name"><span className="pd-shot-n">{k + 1}</span>{screenTitle(m)}</span>
               </button>
             </li>
@@ -141,31 +141,31 @@ function UiPane({ docs }) {
       ) : (
         <div className="pd-read">{docs.design ? <Markdown text={docs.design} /> : <p className="faint">{tr('Chưa có hướng dẫn thiết kế.')}</p>}</div>
       )}
-      {open && <ScreenSheet mockups={docs.mockups} start={open.index} origin={open.origin} onClose={() => setOpen(null)} />}
+      {open && <ScreenSheet mockups={docs.mockups} start={open.index} origin={open.origin} mobile={mobile} onClose={() => setOpen(null)} />}
     </div>
   );
 }
 
 /** A live, scaled-down render of a screen (it lays out at desktop width, then shrinks to the card). */
-function Thumb({ html, title }) {
+function Thumb({ html, title, width = 1280 }) {
   const box = useRef(null);
   const [scale, setScale] = useState(0.2);
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return undefined;
-    const ro = new ResizeObserver(([e]) => setScale(e.contentRect.width / 1280));
+    const ro = new ResizeObserver(([e]) => setScale(e.contentRect.width / width));
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [width]);
   return (
     <span className="pd-thumb" ref={box} aria-hidden="true">
-      <iframe title={title} srcDoc={html} sandbox="" loading="lazy" tabIndex={-1} style={{ transform: `scale(${scale})` }} />
+      <iframe title={title} srcDoc={html} sandbox="" loading="lazy" tabIndex={-1} style={{ width, height: width === 1280 ? 800 : 892, transform: `scale(${scale})` }} />
     </span>
   );
 }
 
 /** The large viewer: grows out of the card it came from, dims the page, ← → between screens, Esc closes. */
-function ScreenSheet({ mockups, start, origin, onClose }) {
+function ScreenSheet({ mockups, start, origin, onClose, mobile = false }) {
   const [i, setI] = useState(start);
   const [shown, setShown] = useState(false);
   const closeBtn = useRef(null);
@@ -191,7 +191,7 @@ function ScreenSheet({ mockups, start, origin, onClose }) {
           <button type="button" className="btn btn-sm btn-ghost" aria-label={tr('Màn sau')} disabled={i === mockups.length - 1} onClick={() => setI(i + 1)}><ChevronRight size={16} /></button>
           <button type="button" ref={closeBtn} className="btn btn-sm btn-ghost pd-sheet-x" aria-label={tr('Đóng')} onClick={onClose}><X size={16} /></button>
         </div>
-        <div className="pd-sheet-body"><Mockups mockups={mockups} start={i} onIndex={setI} /></div>
+        <div className="pd-sheet-body"><Mockups mockups={mockups} start={i} onIndex={setI} defaultMode={mobile ? 'mobile' : 'desktop'} /></div>
       </div>
       </div>
     </div>

@@ -113,5 +113,12 @@ describe('project features list', () => {
     D.setFeatureStatus('p8', 'dang-nhap', 'done', 'Đăng nhập');
     expect(D.readDocs('p8').architecture.match(/\(Đã có\)/g)).toHaveLength(2);
   });
+  it('remembers whether the project is a phone app', () => {
+    D.seedDocs('p9', { brief: '# B', architecture: '', design: '', mockups: [] });
+    expect(D.readDocs('p9').appKind).toBe('web');
+    D.setMeta('p9', { appKind: 'mobile' });
+    expect(D.readDocs('p9').appKind).toBe('mobile');
+    expect(() => D.setMeta('p9', { appKind: 'tv' })).toThrow();
+  });
 });
 

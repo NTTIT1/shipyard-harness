@@ -99,17 +99,26 @@ export const KINDS = [
   { id: 'fullstack', label: 'Fullstack: backend + frontend',
     desc: tr('Một repo gồm backend/ và frontend/, nối sẵn qua /api, chạy cả hai bằng ./dev.sh') },
 ];
+/** "Tạo dự án → Từ khung" also offers a phone app: backend + Flutter, sent as a fullstack project. */
+export const TEMPLATE_KINDS = [...KINDS,
+  { id: 'mobile', label: tr('App mobile: backend + Flutter (Android)'),
+    desc: tr('Backend/ và app Flutter trong mobile/; lane build APK và AI kiểm tra trên máy ảo Android') },
+];
+const MOBILE = ['flutter-android'];
 
 /** Languages offered at the language step: a fullstack project picks its BACKEND language there. */
 export function languagesFor(catalog, kind) {
   const langs = catalog?.languages || [];
-  if (kind !== 'fullstack') return langs;
+  // A phone app never stands alone; with one, the language step picks the backend's.
+  if (kind !== 'fullstack' && kind !== 'mobile') {
+    return langs.map(l => ({ ...l, stacks: l.stacks.filter(s => !MOBILE.includes(s.id)) })).filter(l => l.stacks.length);
+  }
   return langs.map(l => ({ ...l, stacks: l.stacks.filter(s => s.role === 'backend') })).filter(l => l.stacks.length);
 }
 
 /** Frontend frameworks for the fullstack frontend step. */
-export function frontendStacks(catalog) {
-  return (catalog?.languages || []).flatMap(l => l.stacks.filter(s => s.role === 'frontend')
+export function frontendStacks(catalog, kind = 'fullstack') {
+  return (catalog?.languages || []).flatMap(l => l.stacks.filter(s => s.role === 'frontend' && MOBILE.includes(s.id) === (kind === 'mobile'))
     .map(s => ({ ...s, language: l.id, languageLabel: l.label })));
 }
 
