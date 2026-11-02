@@ -139,3 +139,20 @@ export function mergeSteps(steps) {
 
 /** A lane is shown under the project it works on (or when every project is in view). */
 export const laneInScope = (lane, activeProjectId) => !!lane && (!activeProjectId || activeProjectId === 'ALL' || lane.run_project_id === activeProjectId);
+
+/**
+ * Projects a lane can be added for. The platform is the source of truth: a project folder left on this
+ * machine after its project was deleted is not offered. The install's main project (lanes without a
+ * profile work on it) comes first, by its own name.
+ * local: [{ slug, name, stack, supported, reason }] (folders here) · reg: platform projects · mainId: its id.
+ */
+export function laneProjectOptions(local, reg, mainId) {
+  const main = (reg || []).find(r => r.id === mainId);
+  const out = [{ slug: '', name: main?.name || 'Dự án chính của máy này', projectId: main?.id || '', main: true, supported: true, stack: '' }];
+  for (const p of local || []) {
+    const r = (reg || []).find(x => x.slug === p.slug);
+    if (!r || r.id === mainId) continue;
+    out.push({ ...p, name: r.name || p.name, projectId: r.id, main: false });
+  }
+  return [out[0], ...out.slice(1).sort((a, b) => a.name.localeCompare(b.name, 'vi'))];
+}

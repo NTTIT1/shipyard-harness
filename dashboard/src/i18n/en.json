@@ -1542,5 +1542,21 @@
   "Thiết kế hệ thống chưa có mục “Lộ trình tính năng”.": "The system design has no “Feature roadmap” section yet.",
   "{0} chưa có lane nào": "{0} has no lane yet",
   "Dự án này": "This project",
-  "Thêm một lane cho dự án: lane tự nhận lần lượt các tính năng đang chờ trong hàng chờ của dự án.": "Add a lane for the project: it takes the features waiting in the project's queue one after another."
+  "Thêm một lane cho dự án: lane tự nhận lần lượt các tính năng đang chờ trong hàng chờ của dự án.": "Add a lane for the project: it takes the features waiting in the project's queue one after another.",
+  "Không thêm được lane": "Could not add the lane",
+  "Đang thêm…": "Adding…",
+  "Thêm lane cho {0}": "Add a lane for {0}",
+  "Lane là một chỗ làm việc riêng của đội AI: nó làm lần lượt từng tính năng của dự án, tự nhận tính năng tiếp theo trong hàng chờ khi xong.": "A lane is the AI team's own workspace: it builds the project's features one at a time and takes the next one in the queue when done.",
+  "Cho dự án nào?": "For which project?",
+  "Đang tải dự án…": "Loading projects…",
+  "Dự án chính của máy": "This machine's main project",
+  "Cài đặt sẵn của Shipyard trên máy này": "Shipyard's own setup on this machine",
+  "Lane sẽ làm gì": "What the lane will do",
+  "Mất vài phút. Trong lúc đó lane hiện \"đang chuẩn bị\" kèm tiến độ, chỉ chuyển sang sẵn sàng khi xong hết.": "It takes a few minutes. Meanwhile the lane shows \"provisioning\" with its progress and turns ready only when everything is done.",
+  "Tài khoản kiểm thử (dev-QC)": "Test account (dev-QC)",
+  "tuỳ chọn": "optional",
+  "email tài khoản QA": "QA account email",
+  "Dùng để AI đăng nhập kiểm tra trên trang dev. Để trống cũng được — đặt sau ở nút khoá của lane.": "Lets the AI sign in to check the dev site. Can be left blank — set it later with the lane's key button.",
+  "Clone dự án": "Clone the project",
+  "Cài thư viện": "Install packages"
 }

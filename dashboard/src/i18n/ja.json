@@ -1609,5 +1609,21 @@
   "Thiết kế hệ thống chưa có mục “Lộ trình tính năng”.": "システム設計に「機能ロードマップ」の項目がまだありません。",
   "{0} chưa có lane nào": "{0}にはまだレーンがありません",
   "Dự án này": "このプロジェクト",
-  "Thêm một lane cho dự án: lane tự nhận lần lượt các tính năng đang chờ trong hàng chờ của dự án.": "プロジェクトにレーンを追加すると、待ち行列の機能を順番に担当します。"
+  "Thêm một lane cho dự án: lane tự nhận lần lượt các tính năng đang chờ trong hàng chờ của dự án.": "プロジェクトにレーンを追加すると、待ち行列の機能を順番に担当します。",
+  "Không thêm được lane": "レーンを追加できませんでした",
+  "Đang thêm…": "追加中…",
+  "Thêm lane cho {0}": "{0}にレーンを追加",
+  "Lane là một chỗ làm việc riêng của đội AI: nó làm lần lượt từng tính năng của dự án, tự nhận tính năng tiếp theo trong hàng chờ khi xong.": "レーンはAIチーム専用の作業場です。プロジェクトの機能を1つずつ実装し、終わると待ち行列の次の機能を自動で担当します。",
+  "Cho dự án nào?": "どのプロジェクト用？",
+  "Đang tải dự án…": "プロジェクトを読み込み中…",
+  "Dự án chính của máy": "このマシンのメインプロジェクト",
+  "Cài đặt sẵn của Shipyard trên máy này": "このマシンのShipyard標準設定",
+  "Lane sẽ làm gì": "レーンが行うこと",
+  "Mất vài phút. Trong lúc đó lane hiện \"đang chuẩn bị\" kèm tiến độ, chỉ chuyển sang sẵn sàng khi xong hết.": "数分かかります。その間レーンは進捗付きで「準備中」と表示され、すべて完了してから準備完了になります。",
+  "Tài khoản kiểm thử (dev-QC)": "テスト用アカウント（dev-QC）",
+  "tuỳ chọn": "任意",
+  "email tài khoản QA": "QAアカウントのメール",
+  "Dùng để AI đăng nhập kiểm tra trên trang dev. Để trống cũng được — đặt sau ở nút khoá của lane.": "AIがdevサイトにログインして確認するために使います。空欄でも構いません。後でレーンの鍵ボタンから設定できます。",
+  "Clone dự án": "プロジェクトをクローン",
+  "Cài thư viện": "ライブラリをインストール"
 }
