@@ -229,13 +229,24 @@ function AppCard({ role, title, app, onChange, onImage }) {
             {field('dir', tr('Thư mục trong repo'), role === 'backend' ? tr('. hoặc backend') : 'frontend', tr('Để trống = gốc repo'))}
             {field('tech', tr('Công nghệ'), role === 'backend' ? 'vd Laravel 11 / PHP 8.3' : 'vd Vue 3 + Vite')}
           </div>
+          {role === 'frontend' && (
+            <label className="wz-check">
+              <input type="checkbox" checked={!!app.mobile} onChange={e => onChange({ mobile: e.target.checked, ...(e.target.checked && !app.apiDefine ? { apiDefine: 'API_URL' } : {}) })} />
+              <span>{tr('Đây là app Flutter (Android) — kiểm tra trên máy ảo Android')}</span>
+            </label>
+          )}
           {field('install', tr('Lệnh cài thư viện'), 'vd composer install')}
-          {field('run', tr('Lệnh chạy (dev)'), 'vd php artisan serve --port=$PORT', tr('Chạy nền trên lane; $PORT = cổng của lane cho ứng dụng này.'))}
+          {app.mobile ? (
+            <div className="imp-grid">
+              {field('packageId', tr('Package id của app'), 'com.congty.app', tr('applicationId trong android/app/build.gradle — dùng để cài, gỡ và xoá dữ liệu app trên máy ảo.'))}
+              {field('apiDefine', tr('Biến địa chỉ backend (--dart-define)'), 'API_URL', tr('Lane build APK với biến này = backend của lane. Để trống nếu app dùng địa chỉ cố định.'))}
+            </div>
+          ) : field('run', tr('Lệnh chạy (dev)'), 'vd php artisan serve --port=$PORT', tr('Chạy nền trên lane; $PORT = cổng của lane cho ứng dụng này.'))}
           <div className="imp-grid">
             {field('build', tr('Lệnh build (không bắt buộc)'), 'vd npm run build')}
             {field('test', tr('Lệnh test'), 'vd php artisan test')}
           </div>
-          {field('healthPath', tr('Đường dẫn kiểm tra đang chạy'), '/health', tr('Lane coi ứng dụng đã lên khi đường dẫn này trả 2xx.'))}
+          {!app.mobile && field('healthPath', tr('Đường dẫn kiểm tra đang chạy'), '/health', tr('Lane coi ứng dụng đã lên khi đường dẫn này trả 2xx.'))}
         </>
       )}
     </section>

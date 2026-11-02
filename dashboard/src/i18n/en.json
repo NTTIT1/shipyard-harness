@@ -1603,5 +1603,11 @@
   "QC trên dev": "dev QC",
   "xong": "done",
   "sửa trên nhánh": "fix on branch",
-  "ticket": "ticket"
+  "ticket": "ticket",
+  "Đây là app Flutter (Android) — kiểm tra trên máy ảo Android": "This is a Flutter (Android) app — QC'd on the Android emulator",
+  "Package id của app": "App package id",
+  "applicationId trong android/app/build.gradle — dùng để cài, gỡ và xoá dữ liệu app trên máy ảo.": "applicationId in android/app/build.gradle — used to install, uninstall and clear the app's data on the emulator.",
+  "Biến địa chỉ backend (--dart-define)": "Backend address variable (--dart-define)",
+  "Lane build APK với biến này = backend của lane. Để trống nếu app dùng địa chỉ cố định.": "The lane builds the APK with this variable set to the lane's backend. Leave blank if the app uses a fixed address.",
+  "{0}: nhập package id của app Android, vd com.congty.app": "{0}: enter the Android app's package id, e.g. com.congty.app"
 }

@@ -72,6 +72,14 @@ function validateApp(a, role) {
     healthPath: oneLine(a.healthPath || '/', 200, `${label} — đường dẫn kiểm tra`),
   };
   if (!app.tech) throw bad(`${label}: ghi công nghệ (vd Laravel 11 / PHP 8.3)`);
+  // A Flutter (Android) app: built to an APK and QC'd on the shared emulator — nothing to run or probe.
+  if (role === 'frontend' && a.mobile === true) {
+    const packageId = oneLine(a.packageId, 150, `${label} — package id`);
+    if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test(packageId)) throw bad(`${label}: nhập package id của app Android, vd com.congty.app`);
+    const apiDefine = oneLine(a.apiDefine, 40, `${label} — biến địa chỉ backend`);
+    if (apiDefine && !/^[A-Z][A-Z0-9_]{0,39}$/.test(apiDefine)) throw bad(`${label}: tên biến địa chỉ backend dạng API_URL (chữ hoa, số, _)`);
+    return { ...app, run: '', healthPath: '', mobile: true, packageId, apiDefine };
+  }
   if (!app.run) throw bad(`${label}: nhập lệnh chạy ứng dụng`);
   if (!/^\/[A-Za-z0-9._~/?=&%:-]*$/.test(app.healthPath)) throw bad(`${label}: đường dẫn kiểm tra bắt đầu bằng /, vd /health`);
   return app;
@@ -197,6 +205,12 @@ export function importProfileFiles(spec, { projectId = '' } = {}) {
   const workDir = be ? be.dir : fe.dir;
   const techLine = apps.map(([role, a]) => `${role} ${a.dir}: ${a.tech}`).join(' + ');
   const health = (url, p) => `curl -fsS --retry 90 --retry-delay 2 --retry-connrefused --max-time 5 -o /dev/null "${url}"${sq(p)}\n`;
+  const mobile = fe?.mobile ? fe : null;
+  // The APK points at THIS lane's backend (the emulator reaches the host at 10.0.2.2), when the app reads one.
+  const apkBuild = a => `${a.build || 'flutter build apk --debug'}${a.apiDefine ? ` --dart-define=${a.apiDefine}=http://10.0.2.2:$API_PORT` : ''}`;
+  const gateCmds = a => (a.mobile
+    ? inDir(a.dir, [a.install, 'flutter analyze', a.test, apkBuild(a)].filter(Boolean).join(' && '))
+    : [a.build && inDir(a.dir, a.build), a.test && inDir(a.dir, a.test)].filter(Boolean).join(''));
   return {
     'profile.env': [
       `# Harness profile for ${spec.name} (${techLine}), from the import form in Shipyard.`,
@@ -217,6 +231,8 @@ export function importProfileFiles(spec, { projectId = '' } = {}) {
       `OPENHANDS_BASE_IMAGE="\${OPENHANDS_BASE_IMAGE:-${spec.image || 'debian:bookworm-slim'}}"`,
       'OPENHANDS_EXTRA_PACKAGES="${OPENHANDS_EXTRA_PACKAGES:-}"',
       'IMPL_AGENTS="1"',
+      ...(mobile ? ['APP_KIND="mobile"', `MOBILE_DIR="${mobile.dir}"`, `MOBILE_PACKAGE="${mobile.packageId}"`,
+        `MOBILE_API_DEFINE="${mobile.apiDefine}"`, `MOBILE_APK="${mobile.dir === '.' ? '' : `${mobile.dir}/`}build/app/outputs/flutter-apk/app-debug.apk"`] : []),
       '',
     ].join('\n'),
     'integrations.env': [
@@ -231,13 +247,13 @@ export function importProfileFiles(spec, { projectId = '' } = {}) {
     // Where this project keeps what its people approved; bin/project_docs.py hands it to every lane step.
     ...(hasDocs(spec.docs) ? { 'project-docs.json': `${JSON.stringify({ ...spec.docs, other: spec.docs.other }, null, 2)}\n` } : {}),
     'hooks/bootstrap.sh': HEAD('bootstrap: install dependencies') + (each((_, a) => a.install && inDir(a.dir, a.install)) || 'echo "bootstrap: no install command"\n'),
-    'hooks/boot.sh': HEAD('boot: start this lane\'s apps in the background, then return') + each((role, a) => (role === 'backend'
+    'hooks/boot.sh': HEAD('boot: start this lane\'s apps in the background, then return') + each((role, a) => (a.mobile ? '' : role === 'backend'
       ? `harness_spawn api ${at(a.dir)} env PORT="$API_PORT" bash -c ${sq(runLine(a.run))}\n`
       : `harness_spawn fe ${at(a.dir)} env PORT="$FE_PORT" BACKEND_PORT="$API_PORT" BACKEND_URL="$API_URL" bash -c ${sq(runLine(a.run))}\n`)),
-    'hooks/health.sh': HEAD('health: exit 0 when the lane\'s apps answer') + each((role, a) => health(role === 'backend' ? 'http://localhost:$API_PORT' : 'http://localhost:$FE_PORT', a.healthPath)),
+    'hooks/health.sh': HEAD('health: exit 0 when the lane\'s apps answer') + each((role, a) => a.mobile ? '' : health(role === 'backend' ? 'http://localhost:$API_PORT' : 'http://localhost:$FE_PORT', a.healthPath)),
     'hooks/ci-gate.sh': `${HEAD('ci-gate: build + tests before a push (TEST_DATABASE_URL = an isolated DB)')
       .replace('source "$PROFILE_DIR/hooks/_env.sh"', 'DB_NAME_OVERRIDE="${TEST_DATABASE_URL##*/}"\n# shellcheck disable=SC1091\nsource "$PROFILE_DIR/hooks/_env.sh"')}${
-      each((_, a) => [a.build && inDir(a.dir, a.build), a.test && inDir(a.dir, a.test)].filter(Boolean).join('')) || 'echo "ci-gate: no build or test command in the import form"\n'}`,
+      each((_, a) => gateCmds(a)) || 'echo "ci-gate: no build or test command in the import form"\n'}`,
     'hooks/migrate.sh': HEAD('migrate') + (spec.migrate ? inDir(workDir, spec.migrate) : 'echo "migrate: no migration command (the app manages its schema)"\n'),
     'hooks/seed.sh': HEAD('seed') + (spec.seed ? inDir(workDir, spec.seed) : 'echo "seed: no seed command"\n'),
     'hooks/e2e.sh': HEAD('e2e') + 'echo "e2e: no end-to-end suite configured — skipped"\n',
