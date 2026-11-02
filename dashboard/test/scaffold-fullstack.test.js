@@ -4,6 +4,9 @@ import path from 'path';
 import { validateRequest, publicCatalog, stackById } from '../server/services/scaffold/catalog.js';
 import { partsOf, withApiProxy, fullstackRootFiles, fullstackCiFiles, fullstackStarterRules, HEALTH_PATH, isMobileStack, mobilePackageId } from '../server/services/scaffold/fullstack.js';
 import { probeTools } from '../server/services/scaffold/util.js';
+import { frontendWiring, pubspecWithHttp, debugManifestCleartext } from '../server/services/scaffold/fullstack.js';
+import fs from 'fs';
+import os from 'os';
 
 const tools = { node: { ok: true, major: 22 }, npm: { ok: true, major: 10 }, git: { ok: true }, java: { ok: true }, unzip: { ok: true }, uv: { ok: true } };
 const req = (over = {}) => ({ name: 'Kho hàng', slug: 'kho-hang', kind: 'fullstack', stack: 'java-spring', options: { db: 'postgresql' },
@@ -110,3 +113,63 @@ describe('Flutter (Android) stack', () => {
     expect(t.maestro).toMatchObject({ ok: true, version: '1.39.0' });
   });
 });
+
+describe('backend + Flutter app in one repo', () => {
+  const spec = { kind: 'fullstack', stack: 'java-spring', options: { db: 'postgresql', docker: true, build: 'maven', javaVersion: '21', groupId: 'com.acme', auth: 'none' },
+    frontend: { stack: 'flutter-android', options: { tests: true, org: 'com.example' } } };
+  const ctx = { name: 'Bán hàng', slug: 'ban-hang', description: 'POS' };
+  const parts = partsOf(spec, '/x/ban-hang', id => stackById(id));
+  const [b, f] = parts;
+
+  it('puts the app in mobile/, next to backend/', () => {
+    expect(parts.map(p => [p.role, p.sub])).toEqual([['backend', 'backend'], ['frontend', 'mobile']]);
+    expect(f.dir).toBe(path.join('/x/ban-hang', 'mobile'));
+  });
+
+  it('wires the app to the backend through API_URL (the emulator reaches the host at 10.0.2.2)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'flutter-'));
+    fs.writeFileSync(path.join(dir, 'pubspec.yaml'), 'name: ban_hang\ndependencies:\n  flutter:\n    sdk: flutter\n\ndev_dependencies:\n  flutter_test:\n    sdk: flutter\n');
+    fs.mkdirSync(path.join(dir, 'android/app/src/debug'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'android/app/src/debug/AndroidManifest.xml'), '<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n    <uses-permission android:name="android.permission.INTERNET"/>\n</manifest>\n');
+    const w = frontendWiring(ctx, b, { ...f, dir });
+    expect(w['lib/api.dart']).toContain("String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:8080')");
+    expect(w['lib/backend_status.dart']).toContain('/actuator/health');
+    expect(w['lib/main.dart']).toContain('BackendStatus');
+    expect(w['test/widget_test.dart']).toContain('testWidgets');
+    expect(w['test/widget_test.dart']).toContain('package:ban_hang/backend_status.dart');
+    expect(w['pubspec.yaml']).toMatch(/dependencies:\n  http: \^1\.2\.2\n  flutter:/);
+    expect(w['android/app/src/debug/AndroidManifest.xml']).toContain('android:usesCleartextTraffic="true"');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('pubspec and manifest edits are idempotent', () => {
+    const once = pubspecWithHttp('dependencies:\n  flutter:\n    sdk: flutter\n');
+    expect(pubspecWithHttp(once)).toBe(once);
+    const m = debugManifestCleartext('<manifest>\n</manifest>\n');
+    expect(debugManifestCleartext(m)).toBe(m);
+  });
+
+  it('root: project.json knows the app, dev.sh runs the backend only, no frontend container, no remote Flutter CI', () => {
+    const root = fullstackRootFiles(ctx, b, f, '2026-01-01T00:00:00.000Z');
+    const meta = JSON.parse(root['.shipyard/project.json']);
+    expect(meta.frontend).toMatchObject({ dir: 'mobile', stack: 'flutter-android' });
+    expect(meta.mobile).toEqual({ packageId: 'com.example.ban_hang', apiDefine: 'API_URL' });
+    expect(root['dev.sh']).not.toContain('cd frontend');
+    expect(root['dev.sh']).toContain('flutter run --dart-define=API_URL=http://10.0.2.2:');
+    expect(root['docker-compose.yml']).not.toContain('frontend:');
+    expect(root['README.md']).toContain('`mobile/`');
+    expect(fullstackCiFiles('gitlab', parts)['.gitlab-ci.yml']).not.toContain('frontend:');
+    expect(fullstackCiFiles('github', parts)['.github/workflows/ci.yml']).not.toContain('flutter');
+    expect(fullstackStarterRules(ctx, b, f)['rules/project.md']).toContain('lib/api.dart');
+  });
+
+  it('a web project comes out exactly as before', () => {
+    const want = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/fullstack-web.json'), 'utf8'));
+    const web = { ...spec, frontend: { stack: 'ts-react-vite', options: { tests: true, docker: true } } };
+    const wp = partsOf(web, '/x/kho-hang', id => stackById(id));
+    const c = { name: 'Kho hàng', slug: 'kho-hang', description: 'Quản lý kho' };
+    expect(JSON.parse(JSON.stringify({ parts: wp.map(p => [p.role, p.sub, p.dir]), root: fullstackRootFiles(c, wp[0], wp[1], '2026-01-01T00:00:00.000Z'),
+      github: fullstackCiFiles('github', wp), gitlab: fullstackCiFiles('gitlab', wp), rules: fullstackStarterRules(c, wp[0], wp[1]) }))).toEqual(want);
+  });
+});
+
