@@ -1379,3 +1379,6 @@
 .pc-queue-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .pc-queue-actions { display: inline-flex; flex: none }
 .pc-readonly { padding: 8px 16px }
+
+/* Opened from the project list: no list column — the chat takes the whole width (a 0px first column would swallow it). */
+.st.st-solo { grid-template-columns: minmax(0, 1fr); gap: 0 }

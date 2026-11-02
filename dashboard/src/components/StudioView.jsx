@@ -67,7 +67,7 @@ export default function StudioView({ onOpenProject, onProjectCreated, onOpenChat
   };
 
   return (
-    <div className={`st${sidebarOpen && !onBack ? '' : ' sidebar-collapsed'}`}>
+    <div className={`st${onBack ? ' st-solo' : sidebarOpen ? '' : ' sidebar-collapsed'}`}>
       {/* Collapsible Left Idea List */}
       {!onBack && <aside className="st-list" aria-label={tr('Danh sách ý tưởng')}>
         <div className="st-list-head">

@@ -86,6 +86,12 @@ export function moveItem(items, i, dir) {
 
 /** Where a feature of the project documents stands. */
 export const FEATURE_STATUS_LABEL = { approved: 'Đã duyệt — chưa làm', done: 'Đã có', dropped: 'Đã bỏ' };
+/** Where a roadmap feature stands, as the project documents show it. */
+export function featureState(f) {
+  if (f.status === 'building') return tr('Lane {0} đang làm', [f.lane]);
+  if (f.status === 'waiting') return tr('Chờ lane · thứ {0}', [f.position]);
+  return tr({ done: 'Đã có', dropped: 'Đã bỏ', planned: 'Chưa xếp lịch' }[f.status] || f.status);
+}
 
 /** A creation chat not yet tied to a project (shown under "Tiếp tục bản nháp"). */
 export const isDraft = s => !s.projectId;

@@ -3,7 +3,7 @@ import { FileText, MessagesSquare, ClipboardList, Network, LayoutTemplate, ListC
 import Button from './ui/Button.jsx';
 import Markdown from './Markdown.jsx';
 import { Mockups } from './studio/MockupViewer.jsx';
-import { projectChat, FEATURE_STATUS_LABEL } from '../lib/studio.js';
+import { projectChat, featureState } from '../lib/studio.js';
 import { docOutline, screenTitle, docSummary } from '../lib/projectdocs.js';
 import '../styles/studio.css';
 import '../styles/hub.css';
@@ -41,12 +41,13 @@ export default function ProjectDocsView({ pid, project, onOpenChat, embedded = f
     );
   }
   const empty = docs && !docs.brief && !docs.architecture;
-  const count = { ui: docs?.mockups.length || 0, features: docs?.features.length || 0 };
+  const list = docs?.list || [];
+  const count = { ui: docs?.mockups.length || 0, features: list.length };
   const meta = {
     brief: docSummary(docs?.brief),
     architecture: tr('{0} mục', [docOutline(docs?.architecture).length]),
     ui: docs?.mockups.length ? tr('{0} màn hình', [docs.mockups.length]) : docs?.design ? tr('Hướng dẫn thiết kế') : tr('Chưa có'),
-    features: docs?.features.length ? tr('{0} đã có · {1} chờ làm', [docs.features.filter(f => f.status === 'done').length, docs.features.filter(f => f.status === 'approved').length]) : tr('Chưa có'),
+    features: list.length ? tr('{0} đã có · {1} chờ làm', [list.filter(f => f.status === 'done').length, list.filter(f => f.status !== 'done' && f.status !== 'dropped').length]) : tr('Chưa có'),
   };
 
   return (
@@ -78,7 +79,7 @@ export default function ProjectDocsView({ pid, project, onOpenChat, embedded = f
             {section === 'brief' && <DocPane key="brief" title={tr('Yêu cầu sản phẩm')} md={docs.brief} />}
             {section === 'architecture' && <DocPane key="arch" title={tr('Thiết kế hệ thống')} md={docs.architecture} />}
             {section === 'ui' && <UiPane docs={docs} />}
-            {section === 'features' && <FeaturesPane features={docs.features} />}
+            {section === 'features' && <FeaturesPane features={list} />}
           </div>
         </div>
       )}
@@ -197,22 +198,25 @@ function ScreenSheet({ mockups, start, origin, onClose }) {
   );
 }
 
+/** The roadmap — the first MVP list and every feature added in the chat — with where each one is. */
 function FeaturesPane({ features }) {
   return (
     <div className="pd-doc">
       <div className="pd-bar"><h2 className="pd-title">{tr('Tính năng')}</h2></div>
       {features.length ? (
-        <ul className="hub-list pd-features">
-          {features.map(f => (
-            <li key={f.slug} className="hub-row">
-              <span className="hub-main" style={{ cursor: 'default' }}>
-                <span className="hub-text"><span className="hub-name">{f.title}</span></span>
-                <span className={`pc-chip pc-${f.status === 'approved' ? 'waiting' : f.status}`}>{tr(FEATURE_STATUS_LABEL[f.status] || f.status)}</span>
+        <ol className="pd-features">
+          {features.map((f, k) => (
+            <li key={k} className={`pd-feat st-${f.status}`}>
+              <span className="pd-feat-n">{k + 1}</span>
+              <span className="pd-feat-text">
+                <span className="pd-feat-title">{f.title}</span>
+                {f.text && <span className="pd-feat-desc">{f.text}</span>}
               </span>
+              <span className={`pc-chip pc-${f.status}`}>{featureState(f)}</span>
             </li>
           ))}
-        </ul>
-      ) : <p className="faint pd-read">{tr('Chưa có tính năng nào được thêm qua chat dự án.')}</p>}
+        </ol>
+      ) : <p className="faint pd-read">{tr('Thiết kế hệ thống chưa có mục “Lộ trình tính năng”.')}</p>}
     </div>
   );
 }

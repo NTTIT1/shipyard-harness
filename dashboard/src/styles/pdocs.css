@@ -98,7 +98,15 @@
 .pd-sheet-body .st-mockups-wrap { flex: 1; min-height: 0; margin: 0; border: 0; border-radius: 0 }
 .pd-sheet-body .st-mock-canvas { flex: 1; height: auto }
 
-.pd-features { margin: 8px 24px 24px }
+.pd-features { margin: 0; padding: 8px 24px 24px; list-style: none; display: grid; gap: 2px }
+.pd-feat { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border-radius: var(--radius-sm) }
+.pd-feat:hover { background: var(--panel-hover) }
+.pd-feat-n { flex: none; width: 22px; font-size: 12px; font-weight: 600; color: var(--text-faint); font-variant-numeric: tabular-nums; padding-top: 1px }
+.pd-feat-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px }
+.pd-feat-title { font-size: 14px; font-weight: 600; color: var(--text); letter-spacing: -.005em }
+.pd-feat-desc { font-size: 12.5px; line-height: 1.45; color: var(--text-muted) }
+.pd-feat.st-dropped .pd-feat-title { text-decoration: line-through; color: var(--text-muted) }
+.pd-feat .pc-chip { margin-left: 0; margin-top: 1px }
 
 @media (max-width: 860px) {
   .pd-layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); height: auto }

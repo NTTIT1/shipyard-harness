@@ -71,16 +71,28 @@ export function addFeature(pid, { slug, title, brief, architecture, design, mock
   write(featuresFile(pid), JSON.stringify([...readFeatures(pid).filter(f => f.slug !== slug), { slug, title, status: 'approved' }], null, 2));
 }
 
-export function setFeatureStatus(pid, slug, status) {
+/**
+ * A feature is built, dropped… Features added in the chat are tracked in features.json; a feature of the
+ * first roadmap is known by its title only: its roadmap line gets the label (replaced, or added at the end).
+ */
+export function setFeatureStatus(pid, slug, status, title = '') {
   if (!LABEL[status]) throw bad(`trạng thái không hợp lệ: ${status}`);
   const list = readFeatures(pid);
   const f = list.find(x => x.slug === slug);
-  if (!f) return;
-  f.status = status;
-  write(featuresFile(pid), JSON.stringify(list, null, 2));
+  if (f) {
+    f.status = status;
+    write(featuresFile(pid), JSON.stringify(list, null, 2));
+  }
+  const name = f?.title || title;
+  if (!name) return;
   const arch = path.join(docsDir(pid), 'architecture.md');
-  const esc = f.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  write(arch, read(arch).replace(new RegExp(`(\\*\\*${esc}\\*\\* — )\\((?:Đã duyệt — chưa làm|Đã có|Đã bỏ)\\)`), `$1${LABEL[status]}`));
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const lines = read(arch).split('\n');
+  const k = lines.findIndex(l => new RegExp(`^\\s*(?:\\d+[.)]|[-*])\\s+\\*\\*${esc}\\*\\*`).test(l));
+  if (k < 0) return;
+  const had = /\((?:Đã duyệt — chưa làm|Đã có|Đã bỏ)\)/;
+  lines[k] = had.test(lines[k]) ? lines[k].replace(had, LABEL[status]) : `${lines[k].replace(/\s+$/, '')} ${LABEL[status]}`;
+  write(arch, lines.join('\n'));
 }
 
 // Where a lane keeps its copy of the master documents: untracked and git-ignored (.git/info/exclude),
@@ -138,4 +150,28 @@ export function seedFromRepo(pid, repoDir) {
   if (!brief && !architecture) return;
   seedDocs(pid, { brief: brief || '# Yêu cầu sản phẩm\n', architecture, design: read(path.join(d, 'design', 'design.md')),
     mockups: mockupsIn(path.join(d, 'design', 'mockups')) });
+}
+
+/**
+ * Every feature of the project: the roadmap in the architecture (the first MVP list and every feature added
+ * in the chat since), each with where it stands — built, a lane building it, waiting in the queue (its
+ * place), not scheduled yet, or dropped.
+ */
+export function featureList(architecture, queue = { items: [], assigned: [] }) {
+  const m = String(architecture || '').match(/^##\s+Lộ trình tính năng[^\n]*\n([\s\S]*?)(?=^##\s|(?![\s\S]))/m);
+  if (!m) return [];
+  const same = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+  return m[1].split('\n').map(l => l.match(/^\s*(?:\d+[.)]|[-*])\s+(.+)$/)?.[1]?.trim()).filter(Boolean).map(t => {
+    const title = (t.match(/^\*\*(.+?)\*\*/)?.[1] || t.split(/\s+[—–-]\s+/)[0]).replace(/\*\*/g, '').trim();
+    const text = t.replace(/^\*\*.+?\*\*/, '').replace(title, '').replace(/^\s*[—–-]\s*/, '')
+      .replace(/\((Đã có|Đã bỏ|Đã duyệt — chưa làm)\)/g, '').replace(/xem features\/\S*/g, '').replace(/\s+/g, ' ').trim();
+    const f = { title, text };
+    if (/\(Đã có\)/.test(t)) return { ...f, status: 'done' };
+    if (/\(Đã bỏ\)/.test(t)) return { ...f, status: 'dropped' };
+    const a = (queue.assigned || []).find(x => same(x.title, title));
+    if (a) return { ...f, status: 'building', lane: a.lane };
+    const k = (queue.items || []).findIndex(x => same(x.title, title));
+    if (k >= 0) return { ...f, status: 'waiting', position: k + 1 };
+    return { ...f, status: 'planned' };
+  });
 }

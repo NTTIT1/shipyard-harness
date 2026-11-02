@@ -1537,5 +1537,7 @@
   "Xem lớn màn {0}": "View screen {0} large",
   "Chưa có hướng dẫn thiết kế.": "No design guide yet.",
   "Màn trước": "Previous screen",
-  "Màn sau": "Next screen"
+  "Màn sau": "Next screen",
+  "Chưa xếp lịch": "Not scheduled",
+  "Thiết kế hệ thống chưa có mục “Lộ trình tính năng”.": "The system design has no “Feature roadmap” section yet."
 }

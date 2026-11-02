@@ -91,3 +91,27 @@ describe('project docs', () => {
     expect(() => D.docsDir('../x')).toThrow(expect.objectContaining({ status: 400 }));
   });
 });
+
+describe('project features list', () => {
+  it('lists the roadmap with where each feature stands', () => {
+    const arch = '## Lộ trình tính năng\n1. **Đăng nhập** — tài khoản (Đã có)\n2. **Khoá học** — danh sách\n3. **Bài giảng** — video\n4. **Thanh toán** — online\n5. **Xuất Excel** — (Đã duyệt — chưa làm) xem features/xuat-excel/\n6. **Chat** — (Đã bỏ) xem features/chat/\n\n## Rủi ro\n- x';
+    const queue = { items: [{ slug: 'bai-giang', title: 'Bài giảng' }, { slug: 'xuat-excel', title: 'Xuất Excel' }], assigned: [{ slug: 'khoa-hoc', title: 'Khoá học', lane: 3 }] };
+    expect(D.featureList(arch, queue)).toEqual([
+      { title: 'Đăng nhập', text: 'tài khoản', status: 'done' },
+      { title: 'Khoá học', text: 'danh sách', status: 'building', lane: 3 },
+      { title: 'Bài giảng', text: 'video', status: 'waiting', position: 1 },
+      { title: 'Thanh toán', text: 'online', status: 'planned' },
+      { title: 'Xuất Excel', text: '', status: 'waiting', position: 2 },
+      { title: 'Chat', text: '', status: 'dropped' },
+    ]);
+    expect(D.featureList('', { items: [], assigned: [] })).toEqual([]);
+  });
+  it('a roadmap feature from the first architecture is marked built by its title', () => {
+    D.seedDocs('p8', { brief: '# B', architecture: '## Lộ trình tính năng\n1. **Đăng nhập** — tài khoản\n2. **Khoá học** — danh sách (Đã có)\n', design: '', mockups: [] });
+    D.setFeatureStatus('p8', 'dang-nhap', 'done', 'Đăng nhập');
+    expect(D.readDocs('p8').architecture).toContain('1. **Đăng nhập** — tài khoản (Đã có)');
+    D.setFeatureStatus('p8', 'dang-nhap', 'done', 'Đăng nhập');
+    expect(D.readDocs('p8').architecture.match(/\(Đã có\)/g)).toHaveLength(2);
+  });
+});
+

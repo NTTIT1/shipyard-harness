@@ -160,7 +160,11 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
   }));
   router.post('/api/projects/:pid/chat/features', admin, member, wrapS(req => chat.startFeature(req.user, req.params.pid, req.body?.text)));
   // The project's approved documents (brief, architecture with the roadmap, design, mockups, features).
-  router.get('/api/projects/:pid/docs', member, wrapS(req => { chat.ensureProjectDocs(req.params.pid); return projectDocs.readDocs(req.params.pid); }));
+  router.get('/api/projects/:pid/docs', member, wrapS(req => {
+    chat.ensureProjectDocs(req.params.pid);
+    const d = projectDocs.readDocs(req.params.pid);
+    return { ...d, list: projectDocs.featureList(d.architecture, projectQueue.readProjectQueue(req.params.pid)) };
+  }));
   router.get('/api/projects/:pid/queue', member, wrapS(req => projectQueue.readProjectQueue(req.params.pid)));
   router.put('/api/projects/:pid/queue', admin, member, wrapS(req => projectQueue.writeProjectQueue(req.params.pid, req.body || {})));
 

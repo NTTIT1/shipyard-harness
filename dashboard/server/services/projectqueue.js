@@ -65,8 +65,9 @@ export function writeProjectQueue(pid, op, docs = projectDocs) {
   const q = readProjectQueue(pid);
   if (typeof op.remove === 'string') {
     if (!q.items.some(x => x.slug === op.remove)) throw Object.assign(new Error('tính năng không còn trong hàng chờ'), { status: 409 });
+    const title = q.items.find(x => x.slug === op.remove)?.title;
     q.items = q.items.filter(x => x.slug !== op.remove);
-    docs.setFeatureStatus(pid, op.remove, 'dropped');
+    docs.setFeatureStatus(pid, op.remove, 'dropped', title);
   } else {
     const rank = new Map(op.order.map((slug, i) => [String(slug), i]));
     q.items = [...q.items].sort((a, b) => (rank.has(a.slug) ? rank.get(a.slug) : Infinity) - (rank.has(b.slug) ? rank.get(b.slug) : Infinity));
@@ -126,7 +127,7 @@ export async function tickProjectQueues(d) {
       return l && l.status === 'passed' && l.stage === 'done' && Date.parse(l.stage_since || '') > Date.parse(a.at);
     });
     if (built.length) {
-      for (const a of built) d.docs.setFeatureStatus(pid, a.slug, 'done');
+      for (const a of built) d.docs.setFeatureStatus(pid, a.slug, 'done', a.title);
       update(pid, q => { q.assigned = q.assigned.filter(a => !built.some(b => b.slug === a.slug && b.lane === a.lane)); });
     }
     // Every free lane of the project reads the current documents, whoever gives it its next feature.
