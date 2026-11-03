@@ -9,20 +9,29 @@ import { mergeGitignore } from './common.js';
 import { plan } from './ci.js';
 import { STACK_RULES } from './team.js';
 import { readText } from './util.js';
+import { dartName } from './stacks/flutter-android.js';
 
 export const BACKEND_STACKS = ['java-spring', 'python-fastapi', 'ts-nestjs'];
-export const FRONTEND_STACKS = ['ts-react-vite'];
+export const FRONTEND_STACKS = ['ts-react-vite', 'flutter-android'];
+/** Frontends that are a phone app (built to an APK and QC'd on the Android emulator, not served on a port). */
+export const MOBILE_STACKS = ['flutter-android'];
+export const isMobileStack = id => MOBILE_STACKS.includes(id);
+/** The Android application id of a generated app: <org>.<project as a Dart name>. */
+export const mobilePackageId = (org, slug) => `${org}.${dartName(slug)}`;
 export const FRONTEND_DEV_PORT = 5173;
 
 /** Where each backend answers a cheap "are you up" request (the frontend's status badge calls it). */
 export const HEALTH_PATH = { 'java-spring': '/actuator/health', 'python-fastapi': '/health', 'ts-nestjs': '/' };
 
-/** The parts of a project: one app at the root, or backend/ + frontend/. */
+/** Folder of the frontend half: frontend/ for a web app, mobile/ for a phone app. */
+export const subOf = stackId => (isMobileStack(stackId) ? 'mobile' : 'frontend');
+
+/** The parts of a project: one app at the root, or backend/ + frontend/ (or mobile/). */
 export function partsOf(spec, root, stackById) {
   if (spec.kind !== 'fullstack') return [{ role: 'app', sub: '', stack: stackById(spec.stack), options: spec.options, dir: root }];
   return [
     { role: 'backend', sub: 'backend', stack: stackById(spec.stack), options: spec.options, dir: path.join(root, 'backend') },
-    { role: 'frontend', sub: 'frontend', stack: stackById(spec.frontend.stack), options: spec.frontend.options, dir: path.join(root, 'frontend') },
+    { role: 'frontend', sub: subOf(spec.frontend.stack), stack: stackById(spec.frontend.stack), options: spec.frontend.options, dir: path.join(root, subOf(spec.frontend.stack)) },
   ];
 }
 
@@ -115,8 +124,103 @@ const nginxWithApi = backendPort => `server {
 }
 `;
 
+// ── Flutter app wiring ───────────────────────────────────────────────────────────────────────────
+
+const apiDart = port => `// Backend address: --dart-define=API_URL=... when building (each lane builds against its own backend).
+// Default: the backend on this machine as seen from the Android emulator (10.0.2.2 is the host).
+import 'package:http/http.dart' as http;
+
+const apiBase = String.fromEnvironment('API_URL', defaultValue: 'http://10.0.2.2:${port}');
+
+Future<http.Response> apiGet(String path) =>
+    http.get(Uri.parse('$apiBase${'${'}path.startsWith('/') ? path : '/$path'}'));
+`;
+const statusDart = health => `import 'package:flutter/material.dart';
+import 'api.dart';
+
+/// First screen: says whether the app reaches the backend.
+class BackendStatus extends StatefulWidget {
+  const BackendStatus({super.key, this.check});
+  final Future<bool> Function()? check;
+  @override
+  State<BackendStatus> createState() => _BackendStatusState();
+}
+
+class _BackendStatusState extends State<BackendStatus> {
+  bool? ok;
+  @override
+  void initState() {
+    super.initState();
+    (widget.check ?? () async => (await apiGet('${health}')).statusCode < 500)()
+        .then((v) => setState(() => ok = v), onError: (_) => setState(() => ok = false));
+  }
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Text(ok == null ? 'Đang kiểm tra backend…' : ok! ? 'Đã nối backend' : 'Chưa nối được backend',
+            key: const Key('backend-status')),
+      );
+}
+`;
+/** A Dart single-quoted string literal ($ and quotes escaped, so any project name compiles). */
+const dartString = s => `'${String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\$/g, '\\$').replace(/\n/g, ' ')}'`;
+const mainDart = name => `import 'package:flutter/material.dart';
+import 'backend_status.dart';
+
+void main() => runApp(const App());
+
+class App extends StatelessWidget {
+  const App({super.key});
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        title: ${dartString(name)},
+        home: Scaffold(appBar: AppBar(title: const Text(${dartString(name)})), body: const BackendStatus()),
+      );
+}
+`;
+const statusTestDart = slug => `import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:${dartName(slug)}/backend_status.dart';
+
+void main() {
+  testWidgets('shows when the backend answers', (tester) async {
+    await tester.pumpWidget(MaterialApp(home: BackendStatus(check: () async => true)));
+    await tester.pump();
+    expect(find.text('Đã nối backend'), findsOneWidget);
+  });
+}
+`;
+
+/** pubspec.yaml with the http package (the app calls the backend); unchanged when already there. */
+export function pubspecWithHttp(text) {
+  if (/^\s+http:/m.test(text)) return text;
+  return text.replace(/^dependencies:\n/m, 'dependencies:\n  http: ^1.2.2\n');
+}
+
+/** Debug builds talk plain http to the lane's backend (10.0.2.2): allow cleartext there only. */
+export function debugManifestCleartext(text) {
+  if (text.includes('usesCleartextTraffic')) return text;
+  return text.replace('</manifest>', '    <application android:usesCleartextTraffic="true" />\n</manifest>');
+}
+
+function flutterWiring(ctx, backend, frontend) {
+  const dir = frontend.dir;
+  const files = {
+    'lib/api.dart': apiDart(backend.stack.appPort),
+    'lib/backend_status.dart': statusDart(HEALTH_PATH[backend.stack.id] || '/'),
+    'lib/main.dart': mainDart(ctx.name),
+    'pubspec.yaml': pubspecWithHttp(readText(path.join(dir, 'pubspec.yaml'))),
+  };
+  const manifest = readText(path.join(dir, 'android/app/src/debug/AndroidManifest.xml'));
+  if (manifest) files['android/app/src/debug/AndroidManifest.xml'] = debugManifestCleartext(manifest);
+  // Replaces flutter create's sample test, which points at the counter app main.dart no longer is
+  // (left alone it would break flutter analyze); written whether or not tests were asked for.
+  files['test/widget_test.dart'] = statusTestDart(ctx.slug);
+  return files;
+}
+
 /** Files that make the frontend part talk to the backend part (written after both overlays). */
 export function frontendWiring(ctx, backend, frontend) {
+  if (isMobileStack(frontend.stack.id)) return flutterWiring(ctx, backend, frontend);
   const port = backend.stack.appPort;
   const dir = frontend.dir;
   const cfgName = fs.existsSync(path.join(dir, 'vite.config.ts')) ? 'vite.config.ts' : 'vite.config.js';
@@ -166,6 +270,7 @@ function compose(ctx, backend, frontend) {
 
 function devSh(backend, frontend, backendCmds, frontendCmds) {
   const db = dbService(backend.options.db, 'x');
+  if (isMobileStack(frontend.stack.id)) return devShMobile(backend, backendCmds, db);
   // uvicorn ignores $PORT; the others read it (Spring server.port=${PORT}, Nest process.env.PORT).
   const beDev = backend.stack.id === 'python-fastapi' ? `${backendCmds.dev} --port "$BACKEND_PORT"` : backendCmds.dev;
   return `#!/usr/bin/env bash
@@ -185,7 +290,26 @@ wait
 `;
 }
 
+// A phone app has no dev server: dev.sh runs db + backend and says how to run the app against it.
+function devShMobile(backend, backendCmds, db) {
+  const beDev = backend.stack.id === 'python-fastapi' ? `${backendCmds.dev} --port "$BACKEND_PORT"` : backendCmds.dev;
+  return `#!/usr/bin/env bash
+# Chạy backend trên máy: ${db ? 'database (docker compose) + ' : ''}backend. App Flutter chạy riêng trên máy ảo Android. Ctrl+C dừng tất cả.
+set -euo pipefail
+cd "$(dirname "$0")"
+[ -f .env ] || cp .env.example .env
+set -a; . ./.env; set +a
+export BACKEND_PORT="\${BACKEND_PORT:-${backend.stack.appPort}}" PORT="\${BACKEND_PORT:-${backend.stack.appPort}}"
+${db ? 'docker compose up -d db\n' : ''}trap 'trap - EXIT; kill 0' EXIT INT TERM
+(cd backend && ${backendCmds.install ? `${backendCmds.install} && ` : ''}${beDev}) &
+echo "Backend:  http://localhost:$BACKEND_PORT"
+echo "App:      cd mobile && flutter run --dart-define=API_URL=http://10.0.2.2:$BACKEND_PORT   (máy ảo Android đang chạy)"
+wait
+`;
+}
+
 function readme(ctx, backend, frontend, bc, fc) {
+  if (isMobileStack(frontend.stack.id)) return readmeMobile(ctx, backend, frontend, bc, fc);
   const db = backend.options.db;
   const dockerAny = backend.options.docker || frontend.options.docker;
   return `# ${ctx.name}
@@ -233,6 +357,46 @@ _Khởi tạo bằng Shipyard (fullstack: ${backend.stack.id} + ${frontend.stack
 `;
 }
 
+function readmeMobile(ctx, backend, frontend, bc, fc) {
+  const db = backend.options.db;
+  return `# ${ctx.name}
+
+${ctx.description || ''}
+
+## Cấu trúc
+
+| Thư mục | Công nghệ |
+|---|---|
+| \`backend/\` | ${backend.stack.languageLabel} · ${backend.stack.label}${db && db !== 'none' ? ` · ${DB_LABEL[db]}` : ''} |
+| \`mobile/\` | ${frontend.stack.languageLabel} · ${frontend.stack.label} |
+
+App gọi backend qua \`lib/api.dart\`; địa chỉ đặt lúc build bằng \`--dart-define=API_URL=...\` (trên máy ảo Android, máy chủ là \`10.0.2.2\`).
+
+## Chạy thử trên máy
+
+\`\`\`bash
+cp .env.example .env    # rồi sửa các giá trị change-me
+./dev.sh                # ${db && db !== 'none' && db !== 'sqlite' ? 'database + ' : ''}backend
+cd mobile && flutter run --dart-define=API_URL=http://10.0.2.2:${backend.stack.appPort}
+\`\`\`
+
+## Kiểm thử và build
+
+\`\`\`bash
+cd backend && ${bc.test || bc.build}
+cd mobile  && flutter analyze && ${fc.test} && ${fc.build}
+\`\`\`
+
+## Quy ước
+
+- Nhánh tích hợp: \`development\`. Mọi thay đổi đi qua pull request.
+- Biến môi trường mẫu nằm trong \`.env.example\`; **không commit \`.env\`**.
+- Kiểm tra app Flutter chạy trên lane của Shipyard (máy ảo Android); CI từ xa chỉ kiểm tra backend.
+
+_Khởi tạo bằng Shipyard (backend ${backend.stack.id} + app ${frontend.stack.id})._
+`;
+}
+
 const EDITORCONFIG = `root = true
 
 [*]
@@ -266,7 +430,8 @@ export function fullstackRootFiles(ctx, backend, frontend, generatedAt = new Dat
     '.shipyard/project.json': JSON.stringify({
       name: ctx.name, slug: ctx.slug, description: ctx.description, kind: 'fullstack',
       backend: { dir: 'backend', stack: backend.stack.id, options: backend.options },
-      frontend: { dir: 'frontend', stack: frontend.stack.id, options: frontend.options },
+      frontend: { dir: subOf(frontend.stack.id), stack: frontend.stack.id, options: frontend.options },
+      ...(isMobileStack(frontend.stack.id) ? { mobile: { packageId: mobilePackageId(frontend.options.org || 'com.example', ctx.slug), apiDefine: 'API_URL' } } : {}),
       generatedAt, generator: 'shipyard-scaffold/2',
     }, null, 2) + '\n',
   };
@@ -282,7 +447,9 @@ const SETUP = p => ({
     '          cache: npm', '          cache-dependency-path: SUB/package-lock.json'],
 }[p.kind]);
 
-export function fullstackCiFiles(provider, parts) {
+export function fullstackCiFiles(provider, allParts) {
+  // The Flutter app is checked on the lanes of this machine only (a remote runner may not pull a Flutter image).
+  const parts = allParts.filter(p => !isMobileStack(p.stack.id));
   if (provider === 'github') {
     const lines = ['name: CI', '', 'on:', '  push:', '    branches: [main, development]', '  pull_request:', '', 'jobs:'];
     for (const part of parts) {
@@ -320,14 +487,16 @@ export function fullstackStarterRules(ctx, backend, frontend) {
   const db = backend.options.db;
   const banner = '> Bản khởi đầu do Shipyard sinh cho dự án fullstack. AI Manager sẽ soạn lại cùng người duyệt; sửa trực tiếp file này cũng được.\n';
   const bTest = `cd backend && ${bc.test || bc.build}`;
-  const fTest = `cd frontend && ${fc.test || fc.build}`;
+  const fTest = `cd ${subOf(frontend.stack.id)} && ${isMobileStack(frontend.stack.id) ? 'flutter analyze && ' : ''}${fc.test || fc.build}`;
   return {
     'rules/project.md': `# Luật chung — ${ctx.name}
 
 ${banner}
 ## Cấu trúc
 - \`backend/\`: ${backend.stack.languageLabel} · ${backend.stack.label}${db && db !== 'none' ? ` · database ${db}` : ''}.
-- \`frontend/\`: ${frontend.stack.languageLabel} · ${frontend.stack.label}; gọi backend qua \`/api\` (\`src/api.ts\`), không gọi thẳng cổng backend.
+${isMobileStack(frontend.stack.id)
+    ? `- \`mobile/\`: app ${frontend.stack.label}; gọi backend qua \`lib/api.dart\` (địa chỉ từ \`--dart-define=API_URL\`), không viết cứng địa chỉ.`
+    : `- \`frontend/\`: ${frontend.stack.languageLabel} · ${frontend.stack.label}; gọi backend qua \`/api\` (\`src/api.ts\`), không gọi thẳng cổng backend.`}
 - Hợp đồng API (đường dẫn, request/response) thay đổi thì sửa **cả hai phía trong cùng pull request**.
 
 ## Quy ước code — backend

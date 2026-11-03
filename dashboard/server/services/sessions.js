@@ -27,6 +27,9 @@ let deps = {
   laneStatus: () => '',
   readPlan,
   now: () => new Date(),
+  quotaGate: () => '',          // (n, model) -> refusal when the lane is over its quota ('' = go on)
+  quotaCheck: () => {},         // (n, turnUsage?) -> holds the lane when over its quota
+  quotaEvery: 15000,            // ms between live checks while a turn runs
 };
 
 /** bin/team_rules.py output for a lane checkout ('' when the project has no AI team or on error). */
@@ -135,6 +138,8 @@ async function canUseTool(n, name, input, { signal }) {
 
 export function startSession(n, { model, effort, prompt, resume }) {
   if (live.has(n)) throw new Error('busy');
+  const refusal = deps.quotaGate(n, model);
+  if (refusal) throw Object.assign(new Error(refusal), { status: 409, quota: true });
   cancelLimitWake(n);
   const input = new InputQueue();
   if (prompt) input.push(prompt);
@@ -175,6 +180,7 @@ export function startSession(n, { model, effort, prompt, resume }) {
           fs.writeFileSync(sessionFile(n), JSON.stringify({ session_id: m.session_id, model, effort: effort || '', started_at: new Date().toISOString() }) + '\n');
         }
         try { trackUsage(n, m); } catch { /* accounting must never break the lane */ }
+        try { watchQuota(n, m); } catch { /* the quota check must never break the lane */ }
         if (m.type === 'result' && m.is_error) keyFailed(m.result);
         if (m.type === 'result') onTurnEnd(n, m);
         track(n, m);
@@ -190,6 +196,27 @@ export function startSession(n, { model, effort, prompt, resume }) {
     }
   })().catch(() => {});
 }
+
+/** The turn's usage so far (one entry per API call; a call's content blocks repeat its usage). */
+function watchQuota(n, m) {
+  const s = live.get(n);
+  if (!s) return;
+  if (m.type === 'result') { s.turn = null; s.quotaAt = deps.now().getTime(); deps.quotaCheck(n); return; }
+  const u = m.type === 'assistant' && m.message?.usage;
+  if (!u) return;
+  s.turn ||= new Map();
+  s.turn.set(m.message.id || `${s.turn.size}`, { in: +u.input_tokens || 0, out: +u.output_tokens || 0,
+    cacheRead: +u.cache_read_input_tokens || 0, cacheWrite: +u.cache_creation_input_tokens || 0 });
+  const t = deps.now().getTime();
+  if (t - (s.quotaAt || 0) < deps.quotaEvery) return;
+  s.quotaAt = t;
+  const sum = { in: 0, out: 0, cacheRead: 0, cacheWrite: 0 };
+  for (const v of s.turn.values()) for (const k of Object.keys(sum)) sum[k] += v[k];
+  deps.quotaCheck(n, sum);
+}
+
+/** Post an event to lane n's chat (the quota guard's cards). */
+export function notify(n, ev) { emit(n, ev); }
 
 function trackUsage(n, m) {
   if (m.type === 'rate_limit_event') recordRateLimit(m.rate_limit_info);
@@ -264,9 +291,13 @@ export function restoreLimitWakes() {
   }
 }
 
-export function sendMessage(n, text) {
+export function sendMessage(n, text, { force = false } = {}) {
   const s = live.get(n);
   if (!s) throw new Error('no session');
+  if (!force) {
+    const refusal = deps.quotaGate(n);
+    if (refusal) throw Object.assign(new Error(refusal), { status: 409, quota: true });
+  }
   if (text !== WAKE_MSG) cancelLimitWake(n);
   s.input.push(text);
   emit(n, { kind: 'user', text });

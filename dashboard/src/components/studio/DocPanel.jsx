@@ -5,7 +5,7 @@ import Markdown from '../Markdown.jsx';
 import { AdviceCard, Mockups } from './MockupViewer.jsx';
 import CreateProject from './CreateProject.jsx';
 import Build from './Build.jsx';
-import { APPROVE_LABEL, studio } from '../../lib/studio.js';
+import { APPROVE_LABEL, studio, appKindOf } from '../../lib/studio.js';
 import { STEP_LABEL, ROLE_LABEL, defaultApproverRole } from '../../lib/review.js';
 import { configSummary, modelLabel } from '../../lib/workflow.js';
 import { tr } from '../../lib/i18n.js';
@@ -32,7 +32,7 @@ export default function DocPanel({ s, tab, act, onOpenProject, onOpenChat, chatO
         )}
         {tab === 'ui' && (
           <DocStage s={s} stage="ui" act={act} readOnly={readOnly} chatOpen={chatOpen} onToggleChat={onToggleChat} empty={s?.skippedUi ? tr('Đã bỏ qua thiết kế giao diện.') : tr('AI thiết kế đang vẽ các màn hình mẫu.')}>
-            <UiStageView docs={docs} />
+            <UiStageView docs={docs} mobile={appKindOf(docs.advice) === 'mobile'} />
           </DocStage>
         )}
         {/* CreateProject renders its scrolling form and its bottom bar (same layout as DocStage). */}
@@ -53,7 +53,7 @@ export default function DocPanel({ s, tab, act, onOpenProject, onOpenChat, chatO
   );
 }
 
-function UiStageView({ docs }) {
+function UiStageView({ docs, mobile = false }) {
   const hasMockups = Array.isArray(docs?.mockups) && docs.mockups.length > 0;
   const hasDesign = Boolean(docs?.design);
   // Follow what exists (mockups first) until the person picks a tab: mockups often land after the
@@ -85,7 +85,7 @@ function UiStageView({ docs }) {
       )}
 
       {viewMode === 'mockups' && hasMockups ? (
-        <Mockups mockups={docs.mockups} />
+        <Mockups mockups={docs.mockups} defaultMode={mobile ? 'mobile' : 'desktop'} />
       ) : hasDesign ? (
         <div className="st-ui-spec-wrap">
           <Markdown text={docs.design} />

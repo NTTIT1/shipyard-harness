@@ -113,3 +113,8 @@ export const sendChat = (n, text) => send(`/api/lane/${n}/chat/message`, 'POST',
 export const answerChat = (n, id, payload) => send(`/api/lane/${n}/chat/answer`, 'POST', { id, ...payload });
 export const stopSession = n => send(`/api/lane/${n}/session/stop`, 'POST', {});
 export const resumeSession = n => send(`/api/lane/${n}/session/resume`, 'POST', {});
+// Quota guard: where lane n stands; admins grant more, reset a counter, or let the lane go on.
+export const fetchLaneQuota = n => send(`/api/lane/${n}/quota`, 'GET');
+export const grantLaneQuota = (n, id, add) => send(`/api/lane/${n}/quota/grant`, 'POST', { id, add });
+export const resetLaneQuota = (n, id) => send(`/api/lane/${n}/quota/reset`, 'POST', { id });
+export const continueLaneQuota = n => send(`/api/lane/${n}/quota/continue`, 'POST', {});

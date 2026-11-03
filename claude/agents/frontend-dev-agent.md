@@ -39,3 +39,11 @@ You are the **Frontend Developer**. You build the client-side user interface, st
 ROLE-STEP: DONE frontend
 ROLE-STEP: BLOCKED <reason>
 ```
+
+## Dự án Flutter (Android)
+When the lane's `profile.env` has `APP_KIND="mobile"`, the frontend is a **Flutter app in `$MOBILE_DIR`** (usually `mobile/`), not React/Vue/Svelte:
+- Dart with null-safety; one screen per file in `lib/screens/`, small widgets in `lib/widgets/`; simple state (`setState` / Provider).
+- Call the backend only through `lib/api.dart` (`apiBase` from `--dart-define=API_URL`); never hard-code a host.
+- Give every button, field and list item the QC must reach `Semantics(identifier: '<name>', child: …)` (Flutter 3.19+): the emulator QC (Maestro) only sees widgets through accessibility — by their text or that identifier, never by a `Key`.
+- Each new screen gets a widget test in `test/`.
+- Before submitting, `cd mobile && flutter analyze && flutter test` must pass, and `flutter build apk --debug` must build.

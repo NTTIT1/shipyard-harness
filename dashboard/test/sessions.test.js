@@ -244,3 +244,36 @@ describe('project AI-team rules', () => {
     S.stopAll();
   });
 });
+
+describe('quota guard hooks', () => {
+  it('a lane over its quota cannot start a session or take a message', async () => {
+    S.configureSessions({ query: fakeQuery([{ waitInput: true }]), quotaGate: () => 'Lane 7 hết hạn mức' });
+    expect(() => S.startSession(7, { model: 'claude-opus-5-5', prompt: 'go' })).toThrow(/hết hạn mức/);
+    S.configureSessions({ quotaGate: () => '' });
+    S.startSession(7, { model: 'claude-opus-5-5' });
+    await tick();
+    S.configureSessions({ quotaGate: () => 'Lane 7 hết hạn mức' });
+    expect(() => S.sendMessage(7, 'làm tiếp')).toThrow(/hết hạn mức/);
+    S.sendMessage(7, 'resume', { force: true });   // the guard's own resume after an admin's grant
+    await tick();
+    expect(S.history(7).some(e => e.kind === 'assistant' && e.text === 'got:resume')).toBe(true);
+    S.configureSessions({ quotaGate: () => '' });
+    S.stopSession(7);
+  });
+
+  it("checks the quota during a turn with that turn's usage (each API call counted once) and at its end", async () => {
+    const seen = [];
+    let t = 0;
+    const msg = (id, inT, outT) => ({ type: 'assistant', message: { id, content: [{ type: 'text', text: 'x' }], usage: { input_tokens: inT, output_tokens: outT, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } } });
+    S.configureSessions({
+      query: fakeQuery([msg('a', 10, 5), msg('a', 10, 5), msg('b', 20, 1), { type: 'result', result: 'done' }]),
+      quotaCheck: (n, turn) => seen.push(turn ? { ...turn } : 'end'), quotaEvery: 0, now: () => new Date(++t * 1000),
+    });
+    S.startSession(8, { model: 'claude-opus-5-5' });
+    await tick();
+    expect(seen.at(-1)).toBe('end');
+    expect(seen.at(-2)).toEqual({ in: 30, out: 6, cacheRead: 0, cacheWrite: 0 });
+    S.configureSessions({ quotaCheck: () => {}, quotaEvery: 15000, now: () => new Date() });
+    S.stopSession(8);
+  });
+});

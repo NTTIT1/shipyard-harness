@@ -47,7 +47,7 @@ describe('validateRequest', () => {
 describe('publicCatalog', () => {
   it('groups stacks by language and reports missing tools with a hint', () => {
     const c = publicCatalog({ ...ALL, uv: { ok: false } });
-    expect(c.languages.map(l => l.id)).toEqual(['java', 'python', 'typescript']);
+    expect(c.languages.map(l => l.id)).toEqual(['java', 'python', 'typescript', 'dart']);
     const ts = c.languages.find(l => l.id === 'typescript');
     expect(ts.stacks.map(s => s.label)).toEqual(['React + Vite', 'NestJS']);
     const py = c.languages.find(l => l.id === 'python').stacks[0];

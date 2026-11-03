@@ -63,10 +63,12 @@ export const TEMPLATES = {
     { id: 'next', label: 'Next.js', tech: 'Next.js', install: 'npm ci', run: 'npx next dev -p $PORT', build: 'npm run build', test: '', healthPath: '/' },
     { id: 'angular', label: 'Angular', tech: 'Angular', install: 'npm ci', run: 'npx ng serve --host 0.0.0.0 --port $PORT', build: 'npx ng build', test: '', healthPath: '/' },
     { id: 'nuxt', label: 'Nuxt', tech: 'Nuxt', install: 'npm ci', run: 'npx nuxi dev --host 0.0.0.0 --port $PORT', build: 'npm run build', test: '', healthPath: '/' },
+    // A phone app: built to an APK and QC'd on the shared Android emulator (needs its package id).
+    { id: 'flutter', label: 'Flutter (Android)', tech: 'Flutter / Dart', install: 'flutter pub get', run: '', build: 'flutter build apk --debug', test: 'flutter test', healthPath: '', mobile: true, apiDefine: 'API_URL' },
   ],
 };
 
-export const emptyApp = enabled => ({ enabled, dir: '', tech: '', install: '', run: '', build: '', test: '', healthPath: '/' });
+export const emptyApp = enabled => ({ enabled, dir: '', tech: '', install: '', run: '', build: '', test: '', healthPath: '/', mobile: false, packageId: '', apiDefine: '' });
 export const emptyForm = () => ({
   name: '', slug: '', slugTouched: false, source: { provider: 'url', url: '' }, branch: '', branches: null,
   backend: emptyApp(true), frontend: emptyApp(false), db: 'postgresql', migrate: '', seed: '', env: '', image: '', testPaths: '',
@@ -77,7 +79,7 @@ export const emptyForm = () => ({
 /** A template fills only the command fields (folder and anything typed by hand in other fields stay). */
 export function applyTemplate(app, t) {
   const { id, label, image, ...fields } = t;
-  return { ...app, build: '', ...fields, enabled: true };
+  return { ...app, build: '', mobile: false, ...fields, enabled: true };
 }
 
 export function toBody(f) {
@@ -103,6 +105,10 @@ const SLUG_RE = /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/;
 const appProblem = (a, label) => {
   if (!a.enabled) return '';
   if (!a.tech.trim()) return tr('{0}: ghi công nghệ (vd Laravel 11 / PHP 8.3)', [label]);
+  if (a.mobile) {
+    if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/.test((a.packageId || '').trim())) return tr('{0}: nhập package id của app Android, vd com.congty.app', [label]);
+    return a.dir && (a.dir.startsWith('/') || a.dir.split('/').includes('..')) ? tr('{0}: thư mục là đường dẫn tương đối trong repo', [label]) : '';
+  }
   if (!a.run.trim()) return tr('{0}: nhập lệnh chạy', [label]);
   if (a.dir && (a.dir.startsWith('/') || a.dir.split('/').includes('..'))) return tr('{0}: thư mục là đường dẫn tương đối trong repo', [label]);
   if (a.healthPath && !a.healthPath.startsWith('/')) return tr('{0}: đường dẫn kiểm tra bắt đầu bằng /', [label]);

@@ -56,6 +56,9 @@ export async function assignLane(n, body, d) {
   if (!lane) throw new HttpError(404, `lane ${n} không tồn tại`);
   if (d.isRunning(n) || !FREE_STATUS.has(lane.status))
     throw new HttpError(409, `lane ${n} đang bận (${lane.status} · ${lane.stage})`);
+  // A lane over its quota (its own, its model's, its project's, the month's) takes no new feature.
+  const overQuota = d.quotaGate ? d.quotaGate(n, models.main) : '';
+  if (overQuota) throw new HttpError(409, overQuota);
 
   if (usesGateway(models)) {
     const gw = await d.ensureGateway();

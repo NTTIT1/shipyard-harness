@@ -1,6 +1,6 @@
 import React from 'react';
 import { Choice } from './WizardSteps.jsx';
-import { KINDS, languagesFor, frontendStacks, findStack, defaultOptions } from '../../lib/scaffold.js';
+import { TEMPLATE_KINDS, languagesFor, frontendStacks, findStack, defaultOptions } from '../../lib/scaffold.js';
 import { tr } from '../../lib/i18n.js';
 
 /**
@@ -12,7 +12,8 @@ export default function TemplatePicker({ catalog, value, onChange }) {
   const t = value;
   const set = patch => onChange({ ...t, ...patch });
   const stack = findStack(catalog, t.stack);
-  const fstack = t.kind === 'fullstack' ? findStack(catalog, t.frontend?.stack) : null;
+  const two = t.kind === 'fullstack' || t.kind === 'mobile';
+  const fstack = two ? findStack(catalog, t.frontend?.stack) : null;
   const backends = languagesFor(catalog, t.kind).flatMap(l => l.stacks.map(s => ({ ...s, languageLabel: l.label })));
   const db = stack?.options.find(o => o.id === 'db');
 
@@ -20,18 +21,18 @@ export default function TemplatePicker({ catalog, value, onChange }) {
     <div className="wz-fields tp">
       <fieldset className="wz-grid">
         <legend className="form-label">{tr('Dự án gồm những gì?')}</legend>
-        {KINDS.map(k => (
+        {TEMPLATE_KINDS.map(k => (
           <Choice key={k.id} name="tp-kind" value={k.id} current={t.kind} title={k.label} desc={k.desc}
             onPick={v => {
               if (v === t.kind) return;
-              const fe = v === 'fullstack' ? frontendStacks(catalog)[0] : null;
+              const fe = v === 'fullstack' || v === 'mobile' ? frontendStacks(catalog, v)[0] : null;
               onChange({ kind: v, stack: '', options: {}, frontend: { stack: fe?.id || '', options: fe ? defaultOptions(fe) : {} } });
             }} />
         ))}
       </fieldset>
 
       <div className="form-field">
-        <label className="form-label" htmlFor="tp-stack">{t.kind === 'fullstack' ? tr('Backend') : tr('Ngôn ngữ & framework')}</label>
+        <label className="form-label" htmlFor="tp-stack">{two ? tr('Backend') : tr('Ngôn ngữ & framework')}</label>
         <select id="tp-stack" className="msel" value={t.stack} onChange={e => set({ stack: e.target.value, options: defaultOptions(findStack(catalog, e.target.value)) })}>
           <option value="">{tr('— chọn —')}</option>
           {backends.map(s => (
@@ -53,14 +54,14 @@ export default function TemplatePicker({ catalog, value, onChange }) {
       {stack && <Options options={stack.options.filter(o => o.id !== 'db')} values={t.options} idPrefix="tp-o"
         onChange={(k, v) => set({ options: { ...t.options, [k]: v } })} />}
 
-      {t.kind === 'fullstack' && (
+      {two && (
         <>
           <div className="form-field">
-            <label className="form-label" htmlFor="tp-fe">{tr('Frontend')}</label>
+            <label className="form-label" htmlFor="tp-fe">{t.kind === 'mobile' ? tr('App điện thoại') : tr('Frontend')}</label>
             <select id="tp-fe" className="msel" value={t.frontend?.stack || ''}
               onChange={e => set({ frontend: { stack: e.target.value, options: defaultOptions(findStack(catalog, e.target.value)) } })}>
               <option value="">{tr('— chọn —')}</option>
-              {frontendStacks(catalog).map(s => (
+              {frontendStacks(catalog, t.kind).map(s => (
                 <option key={s.id} value={s.id} disabled={!s.available}>{s.languageLabel} · {s.label}{s.available ? '' : ` (${tr('máy chưa cài đủ công cụ')})`}</option>
               ))}
             </select>

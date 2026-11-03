@@ -29,3 +29,9 @@ You are the **Tester**. You decide what must be proven, then prove what can be a
 ROLE-STEP: DONE qc-plan.md
 ROLE-STEP: BLOCKED <reason>
 ```
+
+## Dự án Flutter (Android)
+When `APP_KIND="mobile"`:
+- The automated checks are the backend tests plus `cd mobile && flutter analyze && flutter test` (and `flutter test integration_test` if that folder exists).
+- Browser QC does not apply: write `qc-plan.md` as **flows on the Android app** (screens, taps, inputs, what must be visible).
+- The `qc-mobile` agent runs those flows on the shared emulator with Maestro.

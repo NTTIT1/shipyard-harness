@@ -80,3 +80,33 @@ describe('lane profile', () => {
     ]);
   });
 });
+
+describe('lane profile — backend + Flutter app', () => {
+  const mobileProject = () => project('ban-hang', { kind: 'fullstack', backend: { dir: 'backend', stack: 'java-spring', options: { db: 'postgresql', build: 'maven' } },
+    frontend: { dir: 'mobile', stack: 'flutter-android', options: { tests: true, org: 'com.example' } }, mobile: { packageId: 'com.example.ban_hang', apiDefine: 'API_URL' } });
+  it('says the lane builds a phone app and where it is', () => {
+    const { files } = laneProfileFiles(mobileProject(), { projectId: 'proj_9', name: 'Bán hàng' });
+    expect(files['profile.env']).toContain('APP_KIND="mobile"');
+    expect(files['profile.env']).toContain('MOBILE_DIR="mobile"');
+    expect(files['profile.env']).toContain('MOBILE_PACKAGE="com.example.ban_hang"');
+    expect(files['profile.env']).toContain('MOBILE_API_DEFINE="API_URL"');
+    expect(files['profile.env']).toContain('MOBILE_APK="mobile/build/app/outputs/flutter-apk/app-debug.apk"');
+  });
+  it('the gate analyses, tests and builds the APK against this lane\'s backend; nothing serves the app', () => {
+    const { files } = laneProfileFiles(mobileProject(), {});
+    expect(files['hooks/bootstrap.sh']).toContain('flutter pub get');
+    expect(files['hooks/ci-gate.sh']).toContain('flutter analyze');
+    expect(files['hooks/ci-gate.sh']).toContain('flutter test');
+    expect(files['hooks/ci-gate.sh']).toContain('--dart-define=$MOBILE_API_DEFINE=http://10.0.2.2:$API_PORT');
+    expect(files['hooks/boot.sh']).not.toContain('vite');
+    expect(files['hooks/health.sh']).not.toContain('FE_URL');
+    for (const f of Object.values(files)) expect(bashOk(f)).toBe(true);
+  });
+  it('a web project\'s profile is exactly as before', () => {
+    const dir = project('kho-hang', { name: 'Kho', kind: 'fullstack', backend: { dir: 'backend', stack: 'java-spring', options: { db: 'postgresql', build: 'maven' } },
+      frontend: { dir: 'frontend', stack: 'ts-react-vite', options: { tests: true } } });
+    const want = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/laneprofile-web.json'), 'utf8'));
+    expect(laneProfileFiles(dir, { projectId: 'proj_1', name: 'Kho' })).toEqual(want);
+  });
+});
+

@@ -195,4 +195,21 @@ A="$(cat "$HARNESS_ROOT/claude.args")"
 assert_contains "$A" "--append-system-prompt" "rules flag passed for a project with an AI team"
 assert_contains "$A" "CHECK SQL INJECTION FIRST" "the REVIEW role's rule file reaches the senior gate"
 
+# Quota: over the month's budget the step does not start, the lane is held for an admin (exit 2, no FAIL_RUN).
+NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo '{"monthlyBudgetUsd":1,"monthlyTokenLimit":0}' > "$HARNESS_ROOT/config/costs.json"
+mkdir -p "$HARNESS_ROOT/run/lane2"
+echo "{\"at\":\"$NOW\",\"lane\":2,\"step\":\"main\",\"model\":\"claude-opus-5-5\",\"in\":1,\"out\":1,\"cacheRead\":0,\"cacheWrite\":0,\"usd\":3}" >> "$HARNESS_ROOT/run/lane2/usage.jsonl"
+rm -f "$HARNESS_ROOT/claude.args"
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" > "$TMPH/out"; rc=$?
+assert_eq "2" "$rc" "over quota → exit 2 (waits for a person)"
+assert_contains "$(cat "$TMPH/out")" "ROLE-STEP: BLOCKED hết hạn mức" "says the quota stopped it"
+assert_eq "absent" "$([ -f "$HARNESS_ROOT/claude.args" ] && echo ran || echo absent)" "the AI step never ran"
+assert_eq "yes" "$([ -f "$HARNESS_ROOT/run/lane2/quota-hold.json" ] && echo yes)" "the lane is held"
+assert_eq "blocked" "$(st 2 get status)" "lane state is blocked"
+# A second step while held: refused at once.
+FAKE_RESULT='VERDICT: GO' rs 2 senior-gate "$P" > "$TMPH/out"; rc=$?
+assert_eq "2" "$rc" "still held → exit 2"
+rm -f "$HARNESS_ROOT/run/lane2/quota-hold.json" "$HARNESS_ROOT/config/costs.json"
+
 finish

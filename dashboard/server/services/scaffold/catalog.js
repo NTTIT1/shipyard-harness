@@ -2,13 +2,14 @@ import javaSpring from './stacks/java-spring.js';
 import pythonFastapi from './stacks/python-fastapi.js';
 import tsReactVite from './stacks/ts-react-vite.js';
 import tsNestjs from './stacks/ts-nestjs.js';
+import flutterAndroid from './stacks/flutter-android.js';
 import { DB_LABEL } from './dbs.js';
 import { SLUG_RE } from './util.js';
 import { normalizePipeline } from '../../../src/lib/pipeline.js';
 import { ROLE_META, SKILL_CATALOG, defaultRoleSkillsForStack } from './team.js';
-import { BACKEND_STACKS, FRONTEND_STACKS } from './fullstack.js';
+import { BACKEND_STACKS, FRONTEND_STACKS, isMobileStack } from './fullstack.js';
 
-export const STACKS = [javaSpring, pythonFastapi, tsReactVite, tsNestjs];
+export const STACKS = [javaSpring, pythonFastapi, tsReactVite, tsNestjs, flutterAndroid];
 
 const TOOL_HINT = {
   java: 'Cài JDK (ví dụ: sudo apt install openjdk-21-jdk)',
@@ -17,6 +18,7 @@ const TOOL_HINT = {
   uv: 'Cài uv: curl -LsSf https://astral.sh/uv/install.sh | sh',
   git: 'Cài git (sudo apt install git)',
   unzip: 'Cài unzip (sudo apt install unzip)',
+  flutter: 'Cài Flutter + Android SDK: bin/android-setup.sh (khoảng 8–10 GB, chạy một lần)',
 };
 
 export const choiceOf = c => (typeof c === 'string' ? { id: c, label: DB_LABEL[c] || c } : c);
@@ -80,6 +82,7 @@ export function validateRequest(body, tools, stacks = STACKS) {
   if (!stack) throw bad('Framework không hợp lệ');
 
   const kind = b.kind === 'fullstack' ? 'fullstack' : 'single';
+  if (kind === 'single' && isMobileStack(stack.id)) throw bad('App Flutter đi cùng một backend: chọn "App mobile: backend + Flutter (Android)"');
   const options = validateOptions(stack, b.options);
   let frontend = null;
   if (kind === 'fullstack') {

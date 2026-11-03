@@ -60,3 +60,28 @@ describe('project documents', () => {
     expect(FEATURE_STATUS_LABEL).toEqual({ approved: 'Đã duyệt — chưa làm', done: 'Đã có', dropped: 'Đã bỏ' });
   });
 });
+
+describe('a Flutter mobile app', () => {
+  it('"App mobile" is sent as a fullstack project with a Flutter frontend', async () => {
+    const { startBody, appKindOf } = await import('../src/lib/studio.js');
+    const template = { kind: 'mobile', stack: 'ts-nestjs', options: { auth: 'jwt' }, frontend: { stack: 'flutter-android', options: { org: 'com.x' } } };
+    expect(startBody('template', { text: 'App đặt lịch khám', template }).template)
+      .toEqual({ kind: 'fullstack', stack: 'ts-nestjs', options: { auth: 'jwt' }, frontend: { stack: 'flutter-android', options: { org: 'com.x' } } });
+    expect(appKindOf({ frontend: { stack: 'flutter-android' } })).toBe('mobile');
+    expect(appKindOf({ frontend: { stack: 'ts-react-vite' } })).toBe('web');
+    expect(appKindOf(null)).toBe('web');
+  });
+  it('each kind of project offers only the frameworks that fit it', async () => {
+    const { languagesFor, frontendStacks } = await import('../src/lib/scaffold.js');
+    const catalog = { languages: [
+      { id: 'java', label: 'Java', stacks: [{ id: 'java-spring', role: 'backend' }] },
+      { id: 'typescript', label: 'TypeScript', stacks: [{ id: 'ts-react-vite', role: 'frontend' }, { id: 'ts-nestjs', role: 'backend' }] },
+      { id: 'dart', label: 'Dart', stacks: [{ id: 'flutter-android', role: 'frontend' }] },
+    ] };
+    expect(languagesFor(catalog, 'single').map(l => l.id)).toEqual(['java', 'typescript']);
+    expect(languagesFor(catalog, 'mobile').map(l => l.id)).toEqual(['java', 'typescript']);
+    expect(frontendStacks(catalog, 'fullstack').map(s => s.id)).toEqual(['ts-react-vite']);
+    expect(frontendStacks(catalog, 'mobile').map(s => s.id)).toEqual(['flutter-android']);
+  });
+});
+

@@ -41,10 +41,18 @@ export function seedDocs(pid, docs) {
   writeSet(docsDir(pid), docs);
 }
 
+const metaFile = pid => path.join(path.dirname(docsDir(pid)), 'meta.json');
+/** What kind of app the project is ({ appKind: 'web' | 'mobile' }): screens are shown at its size. */
+export function setMeta(pid, { appKind }) {
+  if (!['web', 'mobile'].includes(appKind)) throw bad(`loại app không hợp lệ: ${appKind}`);
+  write(metaFile(pid), JSON.stringify({ appKind }, null, 2));
+}
+
 export function readDocs(pid) {
   const dir = docsDir(pid);
   return { brief: read(path.join(dir, 'product-brief.md')), architecture: read(path.join(dir, 'architecture.md')),
-    design: read(path.join(dir, 'design.md')), mockups: mockupsIn(path.join(dir, 'mockups')), features: readFeatures(pid) };
+    design: read(path.join(dir, 'design.md')), mockups: mockupsIn(path.join(dir, 'mockups')), features: readFeatures(pid),
+    appKind: (() => { try { return JSON.parse(read(metaFile(pid))).appKind || 'web'; } catch { return 'web'; } })() };
 }
 
 /** Add one item to the architecture's roadmap section (created when missing), numbered after the last. */

@@ -197,3 +197,43 @@ describe('import job', () => {
     expect(r.defaultBranch).toBe('main');
   });
 });
+
+describe('import — a Flutter (Android) app', () => {
+  const flutter = (over = {}) => ({ ...FORM, frontend: { dir: 'app', tech: 'Flutter / Dart', install: 'flutter pub get', run: '', healthPath: '',
+    build: 'flutter build apk --debug', test: 'flutter test', mobile: true, packageId: 'com.congty.app', apiDefine: 'API_URL', ...over } });
+  it('needs the app\'s package id; the run command is not needed', () => {
+    expect(() => validateImport(flutter({ packageId: '' }))).toThrow(/package id/);
+    expect(() => validateImport(flutter({ packageId: 'Com.X' }))).toThrow(/package id/);
+    expect(() => validateImport(flutter({ apiDefine: 'api url' }))).toThrow(/biến/);
+    expect(validateImport(flutter()).frontend).toMatchObject({ mobile: true, packageId: 'com.congty.app', apiDefine: 'API_URL', run: '' });
+  });
+  it('the lane builds the APK against its backend and QCs it on the emulator; nothing serves the app', () => {
+    const f = importProfileFiles(validateImport(flutter()), {});
+    expect(f['profile.env']).toContain('APP_KIND="mobile"');
+    expect(f['profile.env']).toContain('MOBILE_PACKAGE="com.congty.app"');
+    expect(f['profile.env']).toContain('MOBILE_DIR="app"');
+    expect(f['profile.env']).toContain('MOBILE_APK="app/build/app/outputs/flutter-apk/app-debug.apk"');
+    expect(f['hooks/ci-gate.sh']).toContain('flutter analyze');
+    expect(f['hooks/ci-gate.sh']).toContain('--dart-define=API_URL=http://10.0.2.2:$API_PORT');
+    expect(f['hooks/boot.sh']).not.toContain('harness_spawn fe');
+    expect(f['hooks/health.sh']).not.toContain('FE_PORT');
+  });
+  it('an app with a fixed address is built as it is', () => {
+    expect(importProfileFiles(validateImport(flutter({ apiDefine: '' })), {})['hooks/ci-gate.sh']).not.toContain('--dart-define');
+  });
+  it('a web import is unchanged', () => {
+    const f = importProfileFiles(validateImport(FORM), {});
+    expect(f['profile.env']).not.toContain('APP_KIND');
+    expect(f['hooks/boot.sh']).toContain('harness_spawn fe');
+  });
+  it('the form: a Flutter template, and its checks', async () => {
+    const { TEMPLATES, importStepProblem, emptyForm, applyTemplate, emptyApp } = await import('../src/lib/importer.js');
+    const t = TEMPLATES.frontend.find(x => x.id === 'flutter');
+    expect(t).toMatchObject({ mobile: true, install: 'flutter pub get', test: 'flutter test', build: 'flutter build apk --debug' });
+    const fe = { ...applyTemplate(emptyApp(true), t), dir: 'app' };
+    const form = { ...emptyForm(), backend: emptyApp(false), frontend: fe };
+    expect(importStepProblem('apps', form)).toMatch(/package id/);
+    expect(importStepProblem('apps', { ...form, frontend: { ...fe, packageId: 'com.congty.app' } })).toBe('');
+  });
+});
+

@@ -49,6 +49,12 @@ case "$ACTION" in
     mkdir -p "$HARNESS_ROOT/locks"
     start=$(now); waited=0; announced=""
     while :; do
+      # Already ours (a retried step): renew the hold instead of waiting on ourselves.
+      if [ -f "$OWNER" ] && grep -q "^lane$N " "$OWNER"; then
+        echo "lane$N $(now)" > "$OWNER"
+        echo "harness: '$NAME' lock already held by lane $N — renewed"
+        exit 0
+      fi
       if mkdir "$D" 2>/dev/null; then
         echo "lane$N $(now)" > "$OWNER"
         echo "harness: '$NAME' lock acquired by lane $N (auto-expires after $(max_hold)s if not released)"

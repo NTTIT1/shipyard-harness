@@ -1,32 +1,28 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Save, Cpu, Gauge, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import Button from './ui/Button.jsx';
-import Badge from './ui/Badge.jsx';
 import Tabs from './ui/Tabs.jsx';
 import {
-  Tile, DayBars, Meter, FeatureItem, LaneItem, ModelItem, CostSettingsForm,
-  PLAN_LABEL, fmtTime, pctTone
+  Tile, DayBars, FeatureItem, LaneItem, CostSettingsForm, pctTone
 } from './costs/CostRows.jsx';
-import { fetchCosts, saveCostSettings, fetchProviders } from '../lib/api.js';
+import QuotaBoard from './quota/QuotaBoard.jsx';
+import { fetchCosts, fetchProviders } from '../lib/api.js';
 import { fmtVnd, fmtTokens, fmtUsd, sumTokens, featureView, featureLanes, FEATURE_SORTS } from '../lib/costs.js';
 import '../styles/costs.css';
 import { tr } from '../lib/i18n.js';
 
-export default function CostsView() {
+export default function CostsView({ projects = [], onOpenLane }) {
   const [month, setMonth] = useState('');
   const [data, setData] = useState(null);
   const [provInfo, setProvInfo] = useState(null);
-  const [modelLimitsEdit, setModelLimitsEdit] = useState({});
-  const [modelMsg, setModelMsg] = useState('');
   const [err, setErr] = useState('');
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useState('quota');
   const [find, setFind] = useState({ q: '', lane: 'all', sort: 'cost' });
 
   const load = useCallback(() => {
     fetchCosts(month).then(d => {
       if (d.ok === false) throw new Error(d.error);
       setData(d);
-      setModelLimitsEdit(d.settings?.modelLimits || {});
       setErr('');
     }).catch(e => setErr(e.message));
     fetchProviders().then(setProvInfo).catch(() => {});
@@ -38,9 +34,6 @@ export default function CostsView() {
 
   const t = data.totals;
   const qMonth = data.quotas?.month || { quotaPct: 0, usdPct: 0, tokenPct: 0, limitUsd: 100, limitTokens: 10000000 };
-  const pct5h = data.plan?.five_hour?.utilization != null ? Math.round(data.plan.five_hour.utilization) : Math.round(data.quotas?.five_hour?.pct || 0);
-  const pct7d = data.plan?.seven_day?.utilization != null ? Math.round(data.plan.seven_day.utilization) : Math.round(data.quotas?.seven_day?.pct || 0);
-  const extraPlan = Object.entries(data.plan || {}).filter(([k, v]) => k !== 'five_hour' && k !== 'seven_day' && v.utilization != null);
   const over = data.features.filter(f => f.ratio != null && f.ratio >= 1).length;
   const months = data.months.includes(data.month) ? data.months : [data.month, ...data.months];
   const projProg = data.project_progress;
@@ -74,15 +67,8 @@ export default function CostsView() {
     };
   });
 
-  const saveModelQuotas = async () => {
-    try {
-      await saveCostSettings({ modelLimits: modelLimitsEdit });
-      setModelMsg(tr('Đã lưu hạn mức cho các model.'));
-      load();
-    } catch (e) {
-      setModelMsg(tr('Lỗi: {0}', [e.message]));
-    }
-  };
+  const board = data.quota_board;
+  const heldCount = board?.held?.length || 0;
 
   return (
     <section className="rv-page ct-page" aria-labelledby="ct-title">
@@ -98,9 +84,20 @@ export default function CostsView() {
         <Tile
           label={tr('Chi phí tháng này')}
           value={fmtVnd(t.vnd)}
+          sub={data.settings.planFeeVnd > 0 ? tr('phân bổ từ phí gói') : tr('{0} quy đổi API · {1} token', [fmtUsd(t.usd), fmtTokens(sumTokens(t.tokens))])}
+        />
+        <Tile
+          label={tr('Hạn mức chung tháng')}
+          value={`${Math.round(qMonth.usdPct)}%`}
           pct={qMonth.usdPct}
           tone={pctTone(qMonth.usdPct)}
-          sub={data.settings.planFeeVnd > 0 ? tr('phân bổ từ phí gói · {0}% hạn mức', [qMonth.usdPct]) : tr('đã dùng {0}% hạn mức tháng ({1})', [qMonth.usdPct, fmtUsd(qMonth.limitUsd)])}
+          sub={tr('{0} / {1}', [fmtUsd(t.usd), fmtUsd(qMonth.limitUsd)])}
+        />
+        <Tile
+          label={tr('Lane đang dừng vì hạn mức')}
+          value={String(heldCount)}
+          tone={heldCount ? 'danger' : 'ok'}
+          sub={heldCount ? tr('chờ quản trị viên cấp thêm') : tr('không lane nào bị chặn')}
         />
         <Tile
           label={tr('Tiến độ trung bình')}
@@ -110,138 +107,26 @@ export default function CostsView() {
           sub={activeLanesCount > 0 ? tr('TB cộng từ {0} lane đang có việc', [activeLanesCount]) : tr('chưa có lane nào có việc')}
         />
         <Tile
-          label={tr('Giá trị quy đổi API')}
-          value={fmtUsd(t.usd)}
-          pct={qMonth.usdPct}
-          tone={pctTone(qMonth.usdPct)}
-          sub={tr('{0}% hạn mức {1} / tháng', [qMonth.usdPct, fmtUsd(qMonth.limitUsd)])}
-        />
-        <Tile
-          label={tr('Token đã dùng')}
-          value={fmtTokens(sumTokens(t.tokens))}
-          pct={qMonth.tokenPct}
-          tone={pctTone(qMonth.tokenPct)}
-          sub={tr('{0}% hạn mức · vào {1} · ra {2} · cache {3}', [qMonth.tokenPct, fmtTokens(t.tokens.in), fmtTokens(t.tokens.out), fmtTokens(t.tokens.cacheRead + t.tokens.cacheWrite)])}
-        />
-        <Tile
-          label={tr('Hạn mức 5 giờ')}
-          value={`${pct5h}%`}
-          pct={pct5h}
-          tone={pctTone(pct5h)}
-          sub={data.plan?.five_hour?.resetsAt ? tr('làm mới {0}', [fmtTime(data.plan.five_hour.resetsAt)]) : `${fmtUsd(data.quotas?.five_hour?.usd || 0)} / ${fmtUsd(data.quotas?.five_hour?.limitUsd || 15)} trong 5h qua`}
-        />
-        <Tile
-          label={tr('Hạn mức 7 ngày')}
-          value={`${pct7d}%`}
-          pct={pct7d}
-          tone={pctTone(pct7d)}
-          sub={data.plan?.seven_day?.resetsAt ? tr('làm mới {0}', [fmtTime(data.plan.seven_day.resetsAt)]) : tr('{0} / {1} trong 7 ngày qua', [fmtUsd(data.quotas?.seven_day?.usd || 0), fmtUsd(data.quotas?.seven_day?.limitUsd || 60)])}
-        />
-        <Tile
           label={tr('Tính năng AI tốn hơn người')}
           value={String(over)}
           tone={over ? 'danger' : 'ok'}
           sub={tr('trên {0} tính năng', [data.features.length])}
         />
-        {extraPlan.map(([k, v]) => (
-          <Tile
-            key={k}
-            label={PLAN_LABEL[k] || k}
-            value={`${Math.round(v.utilization)}%`}
-            pct={v.utilization}
-            tone={pctTone(v.utilization)}
-            sub={v.resetsAt ? tr('làm mới {0}', [fmtTime(v.resetsAt)]) : ''}
-          />
-        ))}
       </div>
 
       <Tabs value={tab} onChange={setTab} items={[
-        { id: 'overview', label: tr('Tổng quan & % Hạn mức') },
+        { id: 'quota', label: heldCount ? tr('Hạn mức ({0} lane dừng)', [heldCount]) : tr('Hạn mức') },
+        { id: 'overview', label: tr('Chi phí theo ngày') },
         { id: 'features', label: tr('Tính năng') },
-        { id: 'lanes', label: tr('Lane & Model riêng') },
-        { id: 'models', label: tr('Model & % Quota') },
+        { id: 'lanes', label: tr('Model AI theo lane') },
         { id: 'settings', label: tr('Cài đặt') },
       ]} />
 
       <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        {tab === 'quota' && <QuotaBoard board={board} settings={data.settings} projects={projects} onSaved={load} onOpenLane={onOpenLane} />}
+
         {tab === 'overview' && (
           <div className="stack-16">
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
-              <div className="card-panel">
-                <div className="card-header">
-                  <div className="card-header-title">
-                    <Gauge size={16} className="ic-accent" />
-                    <span>{tr('% Hạn mức đã dùng theo từng Model')}</span>
-                  </div>
-                </div>
-                <div className="card-body stack-10">
-                  {data.byModel.length === 0 ? (
-                    <p className="muted-empty u-m0">{tr('Chưa có model nào phát sinh token trong tháng này.')}</p>
-                  ) : (
-                    data.byModel.map(m => {
-                      const mTone = pctTone(m.quotaPct || 0);
-                      return (
-                        <div key={m.model} className="stack-4">
-                          <div className="row-between">
-                            <span className="mono u-strong">{m.model}</span>
-                            <div className="row-6">
-                              <Badge tone="neutral">{tr('Tỷ trọng {0}%', [m.sharePct])}</Badge>
-                              <Badge tone={mTone}>{tr('Đã dùng {0}% hạn mức', [m.quotaPct])}</Badge>
-                            </div>
-                          </div>
-                          <Meter value={m.quotaPct || 0} max={100} tone={mTone} />
-                          <div className="faint caption-row">
-                            <span>{fmtUsd(m.usd)} / {fmtUsd(m.limitUsd)} ({m.usdPct}%)</span>
-                            <span>{fmtTokens(sumTokens(m.tokens))} / {fmtTokens(m.limitTokens)} token ({m.tokenPct}%)</span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-              <div className="card-panel">
-                <div className="card-header">
-                  <div className="card-header-title">
-                    <Cpu size={16} className="ic-accent" />
-                    <span>{tr('Tiến độ & Chi phí theo từng Lane')}</span>
-                  </div>
-                  {projProg != null && (
-                    <Badge tone="accent">{tr('TB Tiến độ: {0}%', [projProg])}</Badge>
-                  )}
-                </div>
-                <div className="card-body stack-10">
-                  {allLaneRows.map(l => {
-                    const lTone = pctTone(l.quotaPct || 0);
-                    const hasCustom = !!(data.lane_defaults && data.lane_defaults[String(l.lane)]);
-                    return (
-                      <div key={l.lane} className="stack-4">
-                        <div className="row-between">
-                          <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <span>Lane {l.lane}</span>
-                            {l.progress != null && <Badge tone="ok">{tr('Tiến độ {0}%', [l.progress])}</Badge>}
-                            <Badge tone={hasCustom ? 'accent' : 'neutral'}>
-                              {hasCustom ? tr('Model riêng') : tr('Mặc định')}
-                            </Badge>
-                          </span>
-                          <div className="row-6">
-                            <Badge tone="neutral">{tr('Tỷ trọng {0}%', [l.sharePct])}</Badge>
-                            <Badge tone={lTone}>{tr('Đã dùng {0}% hạn mức', [l.quotaPct])}</Badge>
-                          </div>
-                        </div>
-                        <Meter value={l.quotaPct || 0} max={100} tone={lTone} />
-                        <div className="faint caption-row">
-                          <span>{fmtVnd(l.vnd)} ({fmtUsd(l.usd)} / {fmtUsd(l.limitUsd)})</span>
-                          <span>{l.feature_title ? `${l.feature_title} · ` : ''}{fmtTokens(sumTokens(l.tokens))} token</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
             <DayBars days={data.byDay} />
             <p className="rv-sub">{tr('Số liệu là ước tính theo bảng giá niêm yết của Claude (không phải hoá đơn), chỉ tính từ khi bật theo dõi. Với gói thuê bao, chi phí thật là phí gói chia theo tỷ lệ token mỗi tính năng dùng.')}</p>
           </div>
@@ -287,35 +172,13 @@ export default function CostsView() {
 
         {tab === 'lanes' && (
           <div className="ct-listview">
-            <p className="ct-intro">{tr('Chi phí và hạn mức của từng lane trong tháng. Bấm vào một lane để đổi hạn mức hoặc model AI cho từng bước.')}</p>
+            <p className="ct-intro">{tr('Model AI cho từng bước của mỗi lane. Hạn mức của lane đặt ở tab Hạn mức.')}</p>
             <div className="ct-list-head ct-list-head-lane" aria-hidden="true">
-              <span>Lane</span><span>{tr('Chi phí AI')}</span><span>{tr('Hạn mức lane')}</span><span />
+              <span>Lane</span><span>{tr('Chi phí AI')}</span><span>{tr('Hạn mức')}</span><span />
             </div>
             <ul className="ct-list">
               {allLaneRows.map(l => <LaneItem key={l.lane} laneObj={l} provInfo={provInfo} onSaved={load} />)}
             </ul>
-          </div>
-        )}
-
-        {tab === 'models' && (
-          <div className="ct-listview">
-            <p className="ct-intro">{tr('Token và chi phí của từng model trong tháng. Để trống hạn mức thì model dùng hạn mức chung.')}</p>
-            {data.byModel.length ? (<>
-              <div className="ct-list-head ct-list-head-model" aria-hidden="true">
-                <span>Model</span><span>{tr('Quy đổi API')}</span><span>{tr('Đã dùng hạn mức')}</span><span>{tr('Hạn mức riêng')}</span>
-              </div>
-              <ul className="ct-list">
-                {data.byModel.map(m => (
-                  <ModelItem key={m.model} m={m} limit={modelLimitsEdit[m.model] || {}}
-                    onLimit={v => setModelLimitsEdit(prev => ({ ...prev, [m.model]: v }))} />
-                ))}
-              </ul>
-              <div className="ct-save-bar">
-                <Button size="sm" variant="primary" icon={Save} onClick={saveModelQuotas}>{tr('Lưu hạn mức các model')}</Button>
-                {modelMsg && <span className="ct-msg" role="status">{modelMsg}</span>}
-              </div>
-            </>) : <p className="muted-empty">{tr('Chưa có model nào phát sinh token trong tháng này.')}</p>}
-            <p className="ct-hint">{tr('Gợi ý: bước tốn nhiều mà việc đơn giản (ticket, phản biện plan, QC) có thể chuyển sang Sonnet/Haiku hoặc hạ effort ở từng lane hoặc nhà cung cấp.')}</p>
           </div>
         )}
 

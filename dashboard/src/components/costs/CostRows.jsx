@@ -5,7 +5,7 @@ import Badge from '../ui/Badge.jsx';
 import StepModels from '../StepModels.jsx';
 import {
   saveCostSettings, saveFeatureHours,
-  saveLaneModelDefaults, saveFeatureModels, saveLaneLimit
+  saveLaneModelDefaults, saveFeatureModels
 } from '../../lib/api.js';
 import { PHASE_LABEL, PHASE_ORDER, ROLE_LABEL, EFFORT_LABEL, fmtVnd, fmtTokens, fmtUsd, sumTokens, ratioTone } from '../../lib/costs.js';
 import { tr, locale } from '../../lib/i18n.js';
@@ -204,7 +204,6 @@ export const Quota = ({ pct, used, limit }) => {
 export function LaneItem({ laneObj, provInfo, onSaved }) {
   const [open, setOpen] = useState(false);
   const [laneDef, setLaneDef] = useState(null);
-  const [lim, setLim] = useState({ usd: laneObj.limitUsd ?? 100, tokens: laneObj.limitTokens ?? 10000000 });
   const [msg, setMsg] = useState('');
   const n = laneObj.lane;
   const hasCustom = !!(provInfo && (provInfo.lane_defaults || {})[String(n)]);
@@ -214,15 +213,10 @@ export function LaneItem({ laneObj, provInfo, onSaved }) {
     setLaneDef((provInfo.lane_defaults || {})[String(n)] || provInfo.defaults);
   }, [provInfo, n]);
 
-  useEffect(() => {
-    setLim({ usd: laneObj.limitUsd ?? 100, tokens: laneObj.limitTokens ?? 10000000 });
-  }, [laneObj.limitUsd, laneObj.limitTokens]);
-
   const saveAll = async () => {
     try {
-      await saveLaneLimit(n, { usd: Number(lim.usd), tokens: Number(lim.tokens) });
       if (laneDef) await saveLaneModelDefaults(n, laneDef);
-      setMsg(tr('Đã lưu model và hạn mức Lane {0}.', [n]));
+      setMsg(tr('Đã lưu model Lane {0}.', [n]));
       onSaved();
     } catch (e) {
       setMsg(tr('Lỗi: {0}', [e.message]));
@@ -267,16 +261,6 @@ export function LaneItem({ laneObj, provInfo, onSaved }) {
       </button>
       {open && (
         <div className="ct-panel" id={panelId}>
-          <section className="ct-sec" aria-label={tr('Hạn mức Lane {0}', [n])}>
-            <h3 className="ct-sec-title">{tr('Hạn mức tháng')}</h3>
-            <div className="ct-hours-grid">
-              <label className="ct-field">{tr('Ngân sách')}<span className="ct-input-unit"><input type="number" min="0" value={lim.usd} onChange={e => setLim({ ...lim, usd: e.target.value })} /><span>USD</span></span>
-              </label>
-              <label className="ct-field">Token
-                <span className="ct-input-unit"><input type="number" min="0" step="100000" value={lim.tokens} onChange={e => setLim({ ...lim, tokens: e.target.value })} /><span>token</span></span>
-              </label>
-            </div>
-          </section>
           {provInfo && laneDef && (
             <section className="ct-sec" aria-label={`Model AI Lane ${n}`}>
               <h3 className="ct-sec-title">{tr('Model AI cho từng bước')}</h3>
@@ -292,43 +276,6 @@ export function LaneItem({ laneObj, provInfo, onSaved }) {
           </div>
         </div>
       )}
-    </li>
-  );
-}
-
-export function ModelItem({ m, limit, onLimit }) {
-  return (
-    <li className="ct-item">
-      <div className="ct-row ct-row-model">
-        <span className="ct-cell-main">
-          <span className="ct-title mono">{m.model}</span>
-          <span className="ct-meta ct-tokens">
-            <span>{tr('vào')}{' '}<b>{fmtTokens(m.tokens.in)}</b></span>
-            <span>ra <b>{fmtTokens(m.tokens.out)}</b></span>
-            <span>{tr('đọc cache')}{' '}<b>{fmtTokens(m.tokens.cacheRead)}</b></span>
-            <span>ghi cache <b>{fmtTokens(m.tokens.cacheWrite)}</b></span>
-          </span>
-        </span>
-        <span className="ct-cell-num">
-          <span className="ct-num-strong">{fmtUsd(m.usd)}</span>
-          <span className="ct-num-sub">{tr('{0}% tháng', [m.sharePct ?? 0])}</span>
-        </span>
-        <span className="ct-cell-quota">
-          <Quota pct={m.quotaPct} used={`${m.usdPct ?? 0}% $`} limit={`${m.tokenPct ?? 0}% token`} />
-        </span>
-        <span className="ct-cell-limits">
-          <label className="ct-input-unit" title={tr('Hạn mức USD mỗi tháng')}>
-            <input type="number" min="0" placeholder={String(m.limitUsd)} aria-label={tr('Hạn mức USD cho {0}', [m.model])}
-              value={limit.usd ?? ''} onChange={e => onLimit({ ...limit, usd: e.target.value })} />
-            <span>USD</span>
-          </label>
-          <label className="ct-input-unit" title={tr('Hạn mức token mỗi tháng')}>
-            <input type="number" min="0" step="100000" placeholder={fmtTokens(m.limitTokens)} aria-label={tr('Hạn mức token cho {0}', [m.model])}
-              value={limit.tokens ?? ''} onChange={e => onLimit({ ...limit, tokens: e.target.value })} />
-            <span>token</span>
-          </label>
-        </span>
-      </div>
     </li>
   );
 }
@@ -359,12 +306,6 @@ export function CostSettingsForm({ settings, onSaved }) {
       {group(tr('Gói Claude & tỷ giá'), tr('Phí gói được chia cho từng tính năng theo tỷ lệ token. Để 0 thì tính theo giá API niêm yết.'), <>
         {field(tr('Phí gói mỗi tháng'), s.planFeeVnd, v => setS({ ...s, planFeeVnd: v }), 'VND')}
         {field(tr('Tỷ giá USD → VND'), s.usdToVnd, v => setS({ ...s, usdToVnd: v }), 'VND')}
-      </>)}
-      {group(tr('Hạn mức sử dụng'), tr('Dùng để tính % đã dùng trên màn Chi phí: tháng, từng model, cửa sổ 5 giờ và 7 ngày.'), <>
-        {field(tr('Ngân sách tháng'), s.monthlyBudgetUsd ?? 100, v => setS({ ...s, monthlyBudgetUsd: v }), 'USD')}
-        {field(tr('Token mỗi tháng'), s.monthlyTokenLimit ?? 10000000, v => setS({ ...s, monthlyTokenLimit: v }), 'token')}
-        {field(tr('Cửa sổ 5 giờ'), s.fiveHourUsdLimit ?? 15, v => setS({ ...s, fiveHourUsdLimit: v }), 'USD')}
-        {field(tr('Cửa sổ 7 ngày'), s.sevenDayUsdLimit ?? 60, v => setS({ ...s, sevenDayUsdLimit: v }), 'USD')}
       </>)}
       {group(tr('Lương mỗi giờ'), tr('Giá một giờ của từng vai trò, để so chi phí AI với chi phí người làm.'), <>
         {Object.keys(s.rates).map(r => <React.Fragment key={r}>{field(ROLE_LABEL[r] || r, s.rates[r], v => setS({ ...s, rates: { ...s.rates, [r]: v } }), 'VND')}</React.Fragment>)}

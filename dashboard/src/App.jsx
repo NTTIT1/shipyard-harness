@@ -208,7 +208,8 @@ export default function App({ user, onLogout }) {
   const menuBtn = useRef(null);
   const [tab, setTab] = useState('overview');
   const attn = selectedLaneData ? laneAttention(selectedLaneData) : null;
-  const needsChat = !viewingPast && (attn === 'question' || attn === 'approve');
+  // A lane stopped by its quota opens on its chat: that is where it says why and how to go on.
+  const needsChat = !viewingPast && (attn === 'question' || attn === 'approve' || !!selectedLaneData?.quota_hold);
   const prevNeeds = useRef(false);
   useEffect(() => { setTab(needsChat ? 'chat' : 'overview'); prevNeeds.current = needsChat; }, [selectedLane]);
   useEffect(() => {
@@ -292,7 +293,7 @@ export default function App({ user, onLogout }) {
           />
         )}
         {view === 'users' && <UsersView user={user} onLogout={onLogout} />}
-        {view === 'costs' && <Suspense fallback={<ViewLoading />}><CostsView /></Suspense>}
+        {view === 'costs' && <Suspense fallback={<ViewLoading />}><CostsView projects={projects} onOpenLane={n => { setSelectedLane(n); setView('lanes'); }} /></Suspense>}
         {view === 'studio' && (
           <Suspense fallback={<ViewLoading />}>
             <ErrorBoundary title={tr('Không thể hiển thị Ý tưởng sản phẩm')}>

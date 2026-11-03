@@ -1,3 +1,4 @@
+import { readHold } from './quota.js';
 import fs from 'fs';
 import path from 'path';
 import { LANES_ROOT, STATE_DIR, FE_BASE_PORT, API_BASE_PORT, DEAD_SEC } from './config.js';
@@ -124,6 +125,9 @@ async function readLane(n) {
     if (!isNaN(ts.getTime())) stageAge = Math.round((Date.now() - ts.getTime()) / 1000);
   }
   lane.stage_age_sec = stageAge;
+  // Stopped by the quota guard until an admin grants more (run/laneN/quota-hold.json).
+  const hold = readHold(n);
+  if (hold) lane.quota_hold = { at: hold.at, checks: hold.checks };
 
   const cfg = harnessConfig();
   // A lane bound to another project (multi-project lanes) belongs to that project.
