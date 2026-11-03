@@ -82,50 +82,112 @@ p.qt-hold-foot { justify-content: flex-start }
 .ev-quota-released { background: var(--ok-soft); color: var(--text) }
 .ev-quota-released svg { color: var(--ok-text) }
 
-/* ---- the admin's board ---- */
-.qb { display: grid; gap: 20px; min-width: 0 }
-.qb-lead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px }
-.qb-lead p { margin: 0; font-size: 13px; line-height: 1.55; color: var(--text-muted); max-width: 72ch }
-.qb-warn { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted) }
-.qb-warn input { width: 64px; min-height: 32px; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text); font: 13px var(--font); text-align: right; font-variant-numeric: tabular-nums }
-.qb-warn input:focus { outline: none; border-color: var(--accent) }
+/* ---- the admin's board: month first, stopped lanes, then one aligned list ---- */
+.qb { display: grid; gap: 18px; min-width: 0 }
 
-.qb-held { display: grid; gap: 10px }
-.qb-held-title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.012em; color: var(--danger-text) }
-.qb-held-card { padding: 4px 16px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); box-shadow: inset 3px 0 0 var(--danger) }
-.qb-held-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; padding-top: 10px }
-.qb-held-head b { font-size: 14px; color: var(--text) }
-.qb-held-head span { font-size: 12.5px; color: var(--text-muted) }
-.qb-held-head .btn { margin-left: auto }
+/* Stopped lanes: one calm alert surface, a row per limit hit */
+.qb-alert { display: grid; gap: 2px; padding: 6px 18px 8px; border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border)); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--danger-soft) 55%, var(--panel)) }
+.qb-alert-title { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 0 6px; font-size: 14px; font-weight: 650; letter-spacing: -.01em; color: var(--danger-text) }
+.qb-alert-row { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(140px, auto) auto auto; align-items: center; gap: 10px 18px; padding: 10px 0; border-top: 1px solid color-mix(in srgb, var(--danger) 18%, var(--border)) }
+.qb-alert-who, .qb-alert-why { display: grid; gap: 2px; min-width: 0 }
+.qb-alert-who b { font-size: 14px; color: var(--text) }
+.qb-alert-who span, .qb-alert-why span { font-size: 12.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.qb-alert-why b { font-size: 13px; color: var(--danger-text); font-variant-numeric: tabular-nums }
+.qb-alert-row .qt-actions { padding: 0; flex-wrap: nowrap }
+.qb-alert-row .qt-reset-note { display: none }
+.qb-alert-row .qt-grant { flex-wrap: nowrap }
+.qb-alert-row .qt-reset { white-space: nowrap }
+.qb-alert-row .qt-custom input { width: 84px }   /* the tooltip says how wide a reset reaches */
 
-.qb-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 16px; align-items: start }
-.qb-group { padding: 4px 16px 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); min-width: 0 }
-.qb-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 12px 0 4px }
-.qb-group-head h3 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: -.01em; color: var(--text) }
-.qb-group-head p { margin: 0; font-size: 12px; color: var(--text-faint); text-align: right }
-.qb-empty { margin: 0; padding: 10px 0 12px; font-size: 13px; color: var(--text-faint) }
-.qb-sub { font-size: 12px; font-weight: 400; color: var(--text-faint); overflow-wrap: anywhere }
+/* Month: the one number that matters, big; Claude's plan beside it */
+.qb-hero { display: grid; grid-template-columns: minmax(0, 1fr) 300px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: hidden }
+.qb-month { display: grid; gap: 10px; padding: 20px 22px 18px; min-width: 0 }
+.qb-month-top { display: flex; align-items: center; gap: 10px }
+.qb-month-label { font-size: 13px; font-weight: 600; color: var(--text-muted) }
+.qb-month-top .qb-edit { margin-left: auto }
+.qb-month-figure { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap }
+.qb-month-figure b { font-size: 44px; font-weight: 700; line-height: 1; letter-spacing: -.03em; color: var(--text); font-variant-numeric: tabular-nums }
+.qb-month-figure b small { font-size: 22px; font-weight: 600; margin-left: 2px; color: var(--text-muted) }
+.qb-month-figure > span { font-size: 15px; color: var(--text-muted); font-variant-numeric: tabular-nums }
+.qt-warn .qb-month-figure b { color: var(--warn-text) }
+.qt-danger .qb-month-figure b { color: var(--danger-text) }
+.qb-month-meter { position: relative; padding: 4px 0 }
+.qb-month-meter .qt-meter { height: 10px; border-radius: 5px }
+.qb-mark { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text-faint); opacity: .7 }
+.qb-month-foot { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--text-muted); font-variant-numeric: tabular-nums }
+.qb-month-foot span + span::before { content: ''; display: inline-block; width: 3px; height: 3px; margin: 0 10px 2px -10px; border-radius: 50%; background: var(--text-faint); vertical-align: middle }
 
-/* Inline limit editor on a row */
-.qb-edit { flex: none; padding: 2px 6px; border: 0; border-radius: 6px; background: none; font: 500 12px var(--font); color: var(--accent-text); cursor: pointer }
+.qb-plan { display: grid; align-content: start; gap: 14px; padding: 18px 20px; background: var(--bg-subtle); border-left: 1px solid var(--border) }
+.qb-plan-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; font-weight: 650; color: var(--text) }
+.qb-plan-head span { flex-basis: 100%; font-size: 11.5px; font-weight: 400; color: var(--text-faint) }
+.qb-plan-row { display: grid; gap: 6px }
+.qb-plan-top { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted) }
+.qb-plan-top b { color: var(--text); font-variant-numeric: tabular-nums }
+.qb-plan-row.qt-warn .qb-plan-top b { color: var(--warn-text) }
+.qb-plan-row.qt-danger .qb-plan-top b { color: var(--danger-text) }
+.qb-plan-reset { font-size: 11.5px; color: var(--text-faint); font-variant-numeric: tabular-nums }
+
+/* Own limits: one list, columns aligned, a segmented switch for its scope */
+.qb-list { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); overflow: hidden }
+.qb-list-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; padding: 18px 20px 14px; border-bottom: 1px solid var(--border) }
+.qb-list-head h3 { margin: 0; font-size: 16px; font-weight: 650; letter-spacing: -.012em; color: var(--text) }
+.qb-list-head p { margin: 4px 0 0; font-size: 12.5px; color: var(--text-muted); max-width: 60ch }
+.qb-seg { display: inline-flex; padding: 3px; border-radius: 10px; background: var(--bg-subtle) }
+.qb-seg button { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 14px; border: 0; border-radius: 8px; background: none;
+  font: 500 13px var(--font); color: var(--text-muted); cursor: pointer; transition: background-color .15s var(--ease, ease-out), color .15s var(--ease, ease-out) }
+.qb-seg button span { font-size: 11px; font-weight: 600; padding: 0 6px; border-radius: 999px; background: var(--border); color: var(--text-muted); font-variant-numeric: tabular-nums }
+.qb-seg button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow-sm) }
+.qb-seg button.on span { background: var(--accent-soft); color: var(--accent-text) }
+.qb-seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+.qb-rows { margin: 0; padding: 0; list-style: none }
+.qb-row + .qb-row { border-top: 1px solid var(--border) }
+.qb-row-main { display: grid; grid-template-columns: minmax(0, 1fr) 220px 150px 92px 56px; align-items: center; gap: 18px; padding: 13px 20px; transition: background-color .15s var(--ease, ease-out) }
+.qb-row:hover .qb-row-main, .qb-row.open .qb-row-main { background: var(--panel-hover) }
+.qb-row-name { display: grid; gap: 2px; min-width: 0 }
+.qb-row-name b { font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.qb-row-name b.mono { font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; font-weight: 500 }
+.qb-row-name span { font-size: 12.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.qb-row-none { font-size: 12.5px; color: var(--text-faint) }
+.qb-row-amt { display: grid; justify-items: end; gap: 1px; font-variant-numeric: tabular-nums }
+.qb-row-amt b { font-size: 14px; font-weight: 650; color: var(--text) }
+.qb-row-amt span { font-size: 12px; color: var(--text-muted); white-space: nowrap }
+.qb-row.qt-warn .qb-row-amt b { color: var(--warn-text) }
+.qb-row.qt-danger .qb-row-amt b { color: var(--danger-text) }
+.qb-row.unset .qb-row-name b { color: var(--text-muted); font-weight: 500 }
+.qb-row-state { display: flex; justify-content: flex-start }
+.qb-row .qb-editor { padding: 2px 20px 14px; background: var(--panel-hover) }
+.qb-empty { margin: 0; padding: 18px 20px; font-size: 13px; color: var(--text-faint) }
+
+/* Edit link + inline editor (shared) */
+.qb-edit { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: none;
+  font: 500 12.5px var(--font); color: var(--accent-text); cursor: pointer; transition: background-color .15s var(--ease, ease-out), transform .1s ease-out }
 .qb-edit:hover { background: var(--accent-soft) }
+.qb-edit:active { transform: scale(.96) }
 .qb-edit:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
-.qb-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 4px }
+.qb-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 4px }
 .qb-editor label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-muted) }
 .qb-editor input { width: 110px; min-height: 32px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text); font: 13px var(--font); font-variant-numeric: tabular-nums }
 .qb-editor input:focus { outline: none; border-color: var(--accent) }
-.qb-editor .m-err { flex-basis: 100%; margin: 0 }
 
+@media (max-width: 900px) {
+  .qb-hero { grid-template-columns: 1fr }
+  .qb-plan { border-left: 0; border-top: 1px solid var(--border) }
+  .qb-row-main { grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: 'name amt edit' 'meter meter state'; gap: 8px 14px }
+  .qb-row-name { grid-area: name } .qb-row-meter { grid-area: meter } .qb-row-amt { grid-area: amt } .qb-row-state { grid-area: state; justify-content: flex-end } .qb-row-main > .qb-edit { grid-area: edit }
+  .qb-alert-row { grid-template-columns: 1fr auto }
+  .qb-alert-row .qt-actions { grid-column: 1 / -1 }
+}
 @media (max-width: 640px) {
   .qt-hold-body { padding-left: 0 }
   .qt-custom input { width: 80px }
 }
 @media (prefers-reduced-motion: reduce) {
   .qt-hold { animation: none }
-  .qt-meter > span, .qt-pill { transition: none }
+  .qt-meter > span, .qt-pill, .qb-seg button, .qb-row-main { transition: none }
   .qt-pill:active:not(:disabled) { transform: none }
 }
 @media (prefers-contrast: more) {
-  .qt-hold, .qb-group, .qb-held-card { border-color: var(--border-strong) }
+  .qt-hold, .qb-list, .qb-hero, .qb-alert { border-color: var(--border-strong) }
   .qt-meter { outline: 1px solid var(--border-strong) }
 }

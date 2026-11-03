@@ -52,7 +52,7 @@ describe('quota components', () => {
     expect(html.indexOf('1 lane đang dừng vì hết hạn mức')).toBeGreaterThan(-1);
     expect(html.indexOf('1 lane đang dừng')).toBeLessThan(html.indexOf('Hạn mức chung tháng'));
     expect(html).toContain('Chưa có dự án nào dùng AI tháng này.');
-    expect(html).toContain('value="80"');
+    expect(html).toContain('Cảnh báo ở 80%');
   });
 });
 

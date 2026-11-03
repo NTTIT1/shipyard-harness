@@ -1,139 +1,209 @@
 import React, { useEffect, useState } from 'react';
-import { OctagonPause, ArrowUpRight, Layers, FolderKanban, Rows3, Cpu, Sparkles } from 'lucide-react';
+import { OctagonPause, ArrowUpRight, Sparkles, Pencil, X } from 'lucide-react';
 import Button from '../ui/Button.jsx';
-import { QuotaRow, GrantActions } from './QuotaParts.jsx';
+import { GrantActions } from './QuotaParts.jsx';
 import { saveCostSettings, grantLaneQuota, resetLaneQuota } from '../../lib/api.js';
-import { tr } from '../../lib/i18n.js';
+import { quotaAmounts, quotaTitle, quotaState, meterPct } from '../../lib/quota.js';
+import { fmtUsd } from '../../lib/costs.js';
+import { tr, locale } from '../../lib/i18n.js';
+
+const fmtWhen = iso => (iso ? new Date(iso).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '');
 
 /**
- * "Hạn mức": every limit on the machine in one place, the lanes it has stopped first. A limit reached stops
- * the lane (chat card, no new AI call, no new feature) until an admin grants more here or in the lane.
+ * "Hạn mức": one screen read top to bottom — the month's shared limit (and Claude's plan beside it), the lanes
+ * a limit has stopped, then every own limit in one aligned list switched between projects, lanes and models.
  */
 export default function QuotaBoard({ board, settings, projects = [], onSaved, onOpenLane }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState({ ok: '', err: '' });
+  const [scope, setScope] = useState('project');
   const projectName = id => projects.find(p => p.id === id)?.name || id;
   if (!board) return null;
   const { rows, held } = board;
+  const month = rows.month[0];
 
   const run = async (fn, ok) => {
     setBusy(true); setMsg({ ok: '', err: '' });
     try { await fn(); setMsg({ ok, err: '' }); await onSaved(); } catch (e) { setMsg({ ok: '', err: e.message }); }
     setBusy(false);
   };
+  const scopes = [
+    { id: 'project', label: tr('Dự án'), list: rows.project, empty: tr('Chưa có dự án nào dùng AI tháng này.') },
+    { id: 'lane', label: tr('Lane'), list: rows.lane, empty: tr('Chưa có lane nào.') },
+    { id: 'model', label: tr('Model'), list: rows.model, empty: tr('Chưa có model nào dùng tháng này.') },
+  ];
+  const cur = scopes.find(s => s.id === scope);
+  const save = (c, v) => {
+    const map = { project: 'projectLimits', lane: 'laneLimits', model: 'modelLimits' }[c.scope];
+    return run(() => saveCostSettings({ [map]: { [c.key]: v } }), tr('Đã lưu hạn mức.'));
+  };
 
   return (
     <div className="qb">
-      <div className="qb-lead">
-        <p>{tr('Lane nào chạm 100% một hạn mức áp lên nó sẽ dừng ngay: báo trong chat của lane, không gọi AI và không nhận tính năng mới, chờ quản trị viên cấp thêm. Từ mức cảnh báo, lane vẫn làm nhưng chat của lane được báo trước.')}</p>
-        <WarnPct value={board.warnPct} disabled={busy} onSave={v => run(() => saveCostSettings({ quotaWarnPct: v }), tr('Đã lưu mức cảnh báo.'))} />
-      </div>
-      {(msg.ok || msg.err) && <p className={msg.err ? 'm-err' : 'qt-ok'} role={msg.err ? 'alert' : 'status'}>{msg.err || msg.ok}</p>}
-
       {held.length > 0 && (
-        <section className="qb-held" aria-labelledby="qb-held-title">
-          <h2 id="qb-held-title" className="qb-held-title"><OctagonPause size={16} aria-hidden="true" />{tr('{0} lane đang dừng vì hết hạn mức', [held.length])}</h2>
-          {held.map(h => (
-            <article key={h.lane} className="qb-held-card" aria-label={tr('Lane {0}', [h.lane])}>
-              <div className="qb-held-head">
+        <section className="qb-alert" aria-labelledby="qb-held-title">
+          <h2 id="qb-held-title" className="qb-alert-title"><OctagonPause size={16} aria-hidden="true" />{tr('{0} lane đang dừng vì hết hạn mức', [held.length])}</h2>
+          {held.map(h => h.checks.map(c => (
+            <div key={`${h.lane}-${c.id}`} className="qb-alert-row">
+              <div className="qb-alert-who">
                 <b>{tr('Lane {0}', [h.lane])}</b>
                 <span>{[h.feature, h.projectId && projectName(h.projectId)].filter(Boolean).join(' · ')}</span>
-                {onOpenLane && <Button size="sm" variant="ghost" icon={ArrowUpRight} onClick={() => onOpenLane(h.lane)}>{tr('Mở lane')}</Button>}
               </div>
-              {h.checks.map(c => (
-                <QuotaRow key={c.id} c={c} projectName={projectName}>
-                  <GrantActions c={c} busy={busy}
-                    onGrant={(x, add) => run(() => grantLaneQuota(h.lane, x.id, add), tr('Đã cấp thêm cho lane {0}.', [h.lane]))}
-                    onReset={x => run(() => resetLaneQuota(h.lane, x.id), tr('Đã đặt lại bộ đếm.'))} />
-                </QuotaRow>
-              ))}
-            </article>
-          ))}
+              <div className="qb-alert-why">
+                <span>{c.scope === 'lane' ? tr('Hạn mức của lane') : quotaTitle(c, projectName)}</span>
+                <b>{quotaAmounts(c)}</b>
+              </div>
+              <GrantActions c={c} busy={busy}
+                onGrant={(x, add) => run(() => grantLaneQuota(h.lane, x.id, add), tr('Đã cấp thêm cho lane {0}.', [h.lane]))}
+                onReset={x => run(() => resetLaneQuota(h.lane, x.id), tr('Đã đặt lại bộ đếm.'))} />
+              {onOpenLane && <Button size="sm" variant="ghost" icon={ArrowUpRight} onClick={() => onOpenLane(h.lane)}>{tr('Mở lane')}</Button>}
+            </div>
+          )))}
         </section>
       )}
 
-      <div className="qb-groups">
-        <Group icon={Layers} title={tr('Chung')} hint={tr('Áp cho mọi lane')}>
-          {rows.month.map(c => <LimitRow key={c.id} c={c} disabled={busy} required
-            onSave={v => run(() => saveCostSettings({ monthlyBudgetUsd: v.usd ?? 0, monthlyTokenLimit: v.tokens ?? 0 }), tr('Đã lưu hạn mức chung.'))} />)}
-        </Group>
-        <Group icon={FolderKanban} title={tr('Dự án')} hint={tr('Mọi lane của dự án cộng chung')} empty={tr('Chưa có dự án nào dùng AI tháng này.')}>
-          {rows.project.map(c => <LimitRow key={c.id} c={c} projectName={projectName} disabled={busy}
-            sub={c.lanes?.length ? tr('Lane {0}', [c.lanes.join(', ')]) : ''}
-            onSave={v => run(() => saveCostSettings({ projectLimits: { [c.key]: v } }), tr('Đã lưu hạn mức dự án.'))} />)}
-        </Group>
-        <Group icon={Rows3} title={tr('Lane')} hint={tr('Riêng từng lane')} empty={tr('Chưa có lane nào.')}>
-          {rows.lane.map(c => <LimitRow key={c.id} c={c} disabled={busy}
-            sub={[c.feature, c.projectId && projectName(c.projectId)].filter(Boolean).join(' · ')}
-            onSave={v => run(() => saveCostSettings({ laneLimits: { [c.key]: v } }), tr('Đã lưu hạn mức lane {0}.', [c.key]))} />)}
-        </Group>
-        <Group icon={Cpu} title={tr('Model')} hint={tr('Mọi lane dùng model đó cộng chung')} empty={tr('Chưa có model nào dùng tháng này.')}>
-          {rows.model.map(c => <LimitRow key={c.id} c={c} disabled={busy}
-            onSave={v => run(() => saveCostSettings({ modelLimits: { [c.key]: v } }), tr('Đã lưu hạn mức model.'))} />)}
-        </Group>
+      <section className="qb-hero" aria-label={tr('Hạn mức chung tháng')}>
+        <MonthLimit c={month} warnPct={board.warnPct} monthKey={board.month} disabled={busy}
+          onSave={v => run(() => saveCostSettings(v), tr('Đã lưu hạn mức chung.'))} />
         {rows.plan.length > 0 && (
-          <Group icon={Sparkles} title={tr('Gói Claude')} hint={tr('Do Anthropic đặt — tự hồi')}>
-            {rows.plan.map(c => <QuotaRow key={c.id} c={c} />)}
-          </Group>
+          <aside className="qb-plan" aria-label={tr('Gói Claude')}>
+            <div className="qb-plan-head"><Sparkles size={14} aria-hidden="true" />{tr('Gói Claude')}<span>{tr('Do Anthropic đặt — tự hồi')}</span></div>
+            {rows.plan.map(c => {
+              const st = quotaState(c);
+              return (
+                <div key={c.id} className={`qb-plan-row qt-${st.tone}`}>
+                  <div className="qb-plan-top"><span>{quotaTitle(c).replace(/^.*·\s*/, '')}</span><b>{c.level === 'blocked' ? st.label : `${Math.round(c.pct)}%`}</b></div>
+                  <span className="qt-meter" aria-hidden="true"><span style={{ transform: `scaleX(${meterPct(c) / 100})` }} /></span>
+                  {c.resetsAt && <span className="qb-plan-reset">{tr('hồi lúc {0}', [fmtWhen(c.resetsAt)])}</span>}
+                </div>
+              );
+            })}
+          </aside>
         )}
-      </div>
+      </section>
+
+      {(msg.ok || msg.err) && <p className={msg.err ? 'm-err' : 'qt-ok'} role={msg.err ? 'alert' : 'status'}>{msg.err || msg.ok}</p>}
+
+      <section className="qb-list" aria-labelledby="qb-list-title">
+        <header className="qb-list-head">
+          <div>
+            <h3 id="qb-list-title">{tr('Hạn mức riêng')}</h3>
+            <p>{tr('Chạm 100% là lane dừng và chờ quản trị viên. Mục chưa đặt riêng chỉ theo hạn mức chung.')}</p>
+          </div>
+          <div className="qb-seg" role="tablist" aria-label={tr('Loại hạn mức')}>
+            {scopes.map(s => (
+              <button key={s.id} type="button" role="tab" aria-selected={scope === s.id} className={scope === s.id ? 'on' : ''} onClick={() => setScope(s.id)}>
+                {s.label}<span>{s.list.length}</span>
+              </button>
+            ))}
+          </div>
+        </header>
+        {cur.list.length ? (
+          <ul className="qb-rows">
+            {cur.list.map(c => (
+              <LimitRow key={c.id} c={c} disabled={busy} onSave={v => save(c, v)}
+                title={c.scope === 'project' ? projectName(c.key) : c.scope === 'lane' ? tr('Lane {0}', [c.key]) : c.key}
+                sub={c.scope === 'project' ? (c.lanes?.length ? tr('Lane {0}', [c.lanes.join(', ')]) : '')
+                  : c.scope === 'lane' ? [c.feature, c.projectId && projectName(c.projectId)].filter(Boolean).join(' · ') : ''} />
+            ))}
+          </ul>
+        ) : <p className="qb-empty">{cur.empty}</p>}
+      </section>
     </div>
   );
 }
 
-function Group({ icon: Icon, title, hint, empty, children }) {
-  const list = React.Children.toArray(children);
+/** The month's shared limit: big figure, a meter with the warning mark, what is left and when it renews. */
+function MonthLimit({ c, warnPct, monthKey, onSave, disabled }) {
+  const [edit, setEdit] = useState(false);
+  const [v, setV] = useState({ usd: c.limitUsd || '', warn: warnPct });
+  useEffect(() => setV({ usd: c.limitUsd || '', warn: warnPct }), [c.limitUsd, warnPct, edit]);
+  const st = quotaState(c);
+  const [y, m] = String(monthKey || '').split('-').map(Number);
+  const renew = y && m ? new Date(y, m, 1).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' }) : '';
+  const left = Math.max(0, (c.limitUsd || 0) - (c.usd || 0));
+  const submit = e => {
+    e.preventDefault();
+    const patch = { monthlyBudgetUsd: Number(v.usd) || 0 };
+    if (Number(v.warn) > 0 && Number(v.warn) < 100) patch.quotaWarnPct = Number(v.warn);
+    onSave(patch); setEdit(false);
+  };
   return (
-    <section className="qb-group" aria-label={title}>
-      <div className="qb-group-head">
-        <h3><Icon size={14} aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6, color: 'var(--text-muted)' }} />{title}</h3>
-        {hint && <p>{hint}</p>}
+    <div className={`qb-month qt-${st.tone}`}>
+      <div className="qb-month-top">
+        <span className="qb-month-label">{tr('Hạn mức chung tháng')}</span>
+        <span className={`qt-chip qt-chip-${st.tone}`}>{st.label}</span>
+        <button type="button" className="qb-edit" aria-expanded={edit} onClick={() => setEdit(x => !x)}>
+          {edit ? <X size={13} aria-hidden="true" /> : <Pencil size={13} aria-hidden="true" />}{edit ? tr('Đóng') : tr('Sửa')}
+        </button>
       </div>
-      {list.length ? list : <p className="qb-empty">{empty}</p>}
-    </section>
+      <div className="qb-month-figure">
+        <b>{Math.round(c.pct || 0)}<small>%</small></b>
+        <span>{quotaAmounts(c)}</span>
+      </div>
+      <div className="qb-month-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(meterPct(c))} aria-label={tr('Hạn mức chung tháng')}>
+        <span className="qt-meter"><span style={{ transform: `scaleX(${meterPct(c) / 100})` }} /></span>
+        <i className="qb-mark" style={{ left: `${warnPct}%` }} title={tr('Cảnh báo ở {0}%', [warnPct])} />
+      </div>
+      <div className="qb-month-foot">
+        <span>{tr('Còn {0}', [fmtUsd(left)])}</span>
+        {renew && <span>{tr('Làm mới {0}', [renew])}</span>}
+        <span>{tr('Cảnh báo ở {0}%', [warnPct])}</span>
+      </div>
+      {edit && (
+        <form className="qb-editor" onSubmit={submit}>
+          <label>{tr('Ngân sách tháng')}<input type="number" min="0" step="any" inputMode="decimal" value={v.usd} onChange={e => setV({ ...v, usd: e.target.value })} />USD</label>
+          <label>{tr('Cảnh báo khi đạt')}<input type="number" min="1" max="99" value={v.warn} onChange={e => setV({ ...v, warn: e.target.value })} />%</label>
+          <Button size="sm" variant="primary" type="submit" disabled={disabled}>{tr('Lưu')}</Button>
+        </form>
+      )}
+    </div>
   );
 }
 
-/** A limit with its own editor: USD and/or tokens; clearing an optional one hands it back to the shared limit. */
-function LimitRow({ c, projectName, sub, onSave, disabled, required = false }) {
+/** One own limit in the aligned list; an unset one shows only what was used. */
+function LimitRow({ c, title, sub, onSave, disabled }) {
   const [open, setOpen] = useState(false);
   const [v, setV] = useState({ usd: '', tokens: '' });
   useEffect(() => { setV({ usd: c.limitUsd || '', tokens: c.limitTokens || '' }); }, [c.limitUsd, c.limitTokens, open]);
+  const st = quotaState(c);
   const save = e => {
     e.preventDefault();
     const out = {};
     if (String(v.usd).trim() !== '') out.usd = Number(v.usd);
     if (String(v.tokens).trim() !== '') out.tokens = Number(v.tokens);
-    onSave(required || Object.keys(out).length ? out : null);
+    onSave(Object.keys(out).length ? out : null);
     setOpen(false);
   };
   return (
-    <QuotaRow c={c} projectName={projectName}
-      aside={<button type="button" className="qb-edit" aria-expanded={open} onClick={() => setOpen(o => !o)}>{open ? tr('Đóng') : c.enforced ? tr('Sửa') : tr('Đặt hạn mức')}</button>}>
-      {sub && <span className="qb-sub">{sub}</span>}
+    <li className={`qb-row qt-${st.tone}${c.enforced ? '' : ' unset'}${open ? ' open' : ''}`}>
+      <div className="qb-row-main">
+        <div className="qb-row-name">
+          <b className={c.scope === 'model' ? 'mono' : ''}>{title}</b>
+          {sub && <span>{sub}</span>}
+        </div>
+        {c.enforced ? (
+          <div className="qb-row-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(meterPct(c))} aria-label={title}>
+            <span className="qt-meter"><span style={{ transform: `scaleX(${meterPct(c) / 100})` }} /></span>
+          </div>
+        ) : <div className="qb-row-meter qb-row-none">{tr('Theo hạn mức chung')}</div>}
+        <div className="qb-row-amt">
+          {c.enforced ? <><b>{Math.round(c.pct || 0)}%</b><span>{quotaAmounts(c)}</span></> : <span>{tr('đã dùng {0}', [fmtUsd(c.usd || 0)])}</span>}
+        </div>
+        <div className="qb-row-state">{c.enforced && <span className={`qt-chip qt-chip-${st.tone}`}>{st.label}</span>}</div>
+        <button type="button" className="qb-edit" aria-expanded={open} aria-label={tr('Sửa hạn mức {0}', [title])} onClick={() => setOpen(o => !o)}>
+          {open ? tr('Đóng') : c.enforced ? tr('Sửa') : tr('Đặt')}
+        </button>
+      </div>
       {open && (
         <form className="qb-editor" onSubmit={save}>
-          <label>USD<input type="number" min="0" step="any" inputMode="decimal" value={v.usd} placeholder={required ? '0' : tr('trống')} onChange={e => setV({ ...v, usd: e.target.value })} /></label>
-          <label>{tr('Token')}<input type="number" min="0" step="100000" value={v.tokens} placeholder={required ? '0' : tr('trống')} onChange={e => setV({ ...v, tokens: e.target.value })} /></label>
+          <label>USD<input type="number" min="0" step="any" inputMode="decimal" value={v.usd} placeholder={tr('trống')} onChange={e => setV({ ...v, usd: e.target.value })} /></label>
+          <label>{tr('Token')}<input type="number" min="0" step="100000" value={v.tokens} placeholder={tr('trống')} onChange={e => setV({ ...v, tokens: e.target.value })} /></label>
           <Button size="sm" variant="primary" type="submit" disabled={disabled}>{tr('Lưu')}</Button>
-          {!required && c.enforced && (
-            <Button size="sm" variant="ghost" type="button" disabled={disabled} onClick={() => { onSave(null); setOpen(false); }}>{tr('Bỏ hạn mức riêng')}</Button>
-          )}
+          {c.enforced && <Button size="sm" variant="ghost" type="button" disabled={disabled} onClick={() => { onSave(null); setOpen(false); }}>{tr('Bỏ hạn mức riêng')}</Button>}
           <span className="qt-note">{tr('Token chỉ tính cho model miễn phí (qua gateway); model có giá tính theo USD.')}</span>
         </form>
       )}
-    </QuotaRow>
-  );
-}
-
-function WarnPct({ value, onSave, disabled }) {
-  const [v, setV] = useState(value);
-  useEffect(() => setV(value), [value]);
-  const commit = () => { const n = Number(v); if (n > 0 && n < 100 && n !== value) onSave(n); else setV(value); };
-  return (
-    <label className="qb-warn">{tr('Cảnh báo khi đạt')}
-      <input type="number" min="1" max="99" value={v} disabled={disabled} onChange={e => setV(e.target.value)}
-        onBlur={commit} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } }} />%
-    </label>
+    </li>
   );
 }
