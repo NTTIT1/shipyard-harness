@@ -1748,5 +1748,10 @@
   "Bỏ bước {0} khỏi quy trình": "Remove step {0} from the workflow",
   "Bỏ bước này": "Remove this step",
   "Thêm bước vào quy trình": "Add a step to the workflow",
-  "Thêm bước": "Add a step"
+  "Thêm bước": "Add a step",
+  "Sáng": "Light",
+  "Tối": "Dark",
+  "Ngôn ngữ giao diện: {0}": "Interface language: {0}",
+  "Tài khoản: {0}": "Account: {0}",
+  "Tài khoản": "Account"
 }

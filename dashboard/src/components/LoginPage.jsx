@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Ship, LogIn, Eye, EyeOff, X } from 'lucide-react';
+import { LogIn, Eye, EyeOff, X } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import { login } from '../lib/api.js';
 import { useTheme } from '../hooks/useTheme.js';
@@ -27,7 +27,12 @@ export default function LoginPage({ onLogin, notice }) {
   return (
     <main className="login">
       <form className="login-card" onSubmit={submit} aria-labelledby="login-title">
-        <div className="login-brand"><Ship size={22} strokeWidth={1.75} aria-hidden="true" /> <b>Shipyard</b><LangSwitch className="login-lang" /></div>
+        <div className="login-brand">
+          <span className="sb-logo login-logo" role="img" aria-label="GM AI Factory">
+            <img src="/logo.png" alt="" className="sb-logo-img on-light" /><img src="/logo-light.png" alt="" className="sb-logo-img on-dark" />
+          </span>
+          <LangSwitch className="login-lang" />
+        </div>
         <h1 id="login-title">{tr('Đăng nhập')}</h1>
         <p className="login-sub">{tr('Dùng tài khoản Shipyard Platform để vào dashboard.')}</p>
         {notice && !error && <div className="login-note">{notice}</div>}
