@@ -137,7 +137,7 @@ describe('quota percentages per lane, model, and time windows', () => {
     const a = aggregate(recs, s, { month: '2026-10' });
     expect(a.quotas.month.usdPct).toBeCloseTo(50); // 20 / 40 = 50%
     expect(a.quotas.month.tokenPct).toBeCloseTo(75); // 750 / 1000 = 75%
-    expect(a.quotas.month.quotaPct).toBeCloseTo(75);
+    expect(a.quotas.month.quotaPct).toBeCloseTo(50); // priced usage is measured in USD
 
     const lane1 = a.byLane.find(l => l.lane === 1);
     expect(lane1.sharePct).toBeCloseTo(75); // 15 / 20 = 75%

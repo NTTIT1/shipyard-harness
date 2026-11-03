@@ -79,7 +79,7 @@ export function workflowTrack(view, lane = {}) {
 /** Why a lane wants attention → [tone, label]. */
 export const ATTENTION = {
   question: ['warn', tr('đang hỏi')], approve: ['warn', tr('chờ duyệt')], blocked: ['danger', tr('bị chặn')],
-  dead: ['danger', tr('mất kết nối')], needs: ['accent', tr('cần bạn')],
+  dead: ['danger', tr('mất kết nối')], needs: ['accent', tr('cần bạn')], quota: ['danger', tr('hết hạn mức')],
 };
 const FREE = new Set(['idle', 'down', '']);
 
@@ -94,6 +94,7 @@ export function liveLiveness(l) {
 
 export function laneAttention(l) {
   if (l.pending_kind) return 'question';
+  if (l.quota_hold) return 'quota';
   if (l.stage === 'spec-review' && l.status === 'waiting') return 'approve';
   if (l.status === 'blocked') return 'blocked';
   if (l.liveness === 'dead') return 'dead';
@@ -116,7 +117,8 @@ export function isFree(l) {
 }
 
 export function primaryActions(l, { archived = false } = {}) {
-  if (archived) return [];
+  // Held by its quota: only an admin's grant lets it go on (in its chat), not Resume / Assign.
+  if (archived || l.quota_hold) return [];
   const out = [];
   if (l.session_running && l.stage === 'spec-review' && l.status === 'waiting') out.push('approve');
   if (l.session_running) out.push('stop');

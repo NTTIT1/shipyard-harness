@@ -26,6 +26,8 @@ export const DEFAULT_SETTINGS = {
   laneLimits: {},           // { [lane]: { usd?: number, tokens?: number } }
   modelLimits: {},          // { [model]: { usd?: number, tokens?: number } }
   projectLimits: {},        // { [projectId]: { usd?: number, tokens?: number } }
+  quotaWarnPct: 80,         // the lane's chat warns at this %; at 100% the lane stops and waits for an admin
+  quotaResets: {},          // { "<scope>:<key>": ISO } — usage of that limit counts again from then
 };
 
 const root = () => process.env.HARNESS_ROOT || HARNESS_ROOT;
@@ -103,7 +105,7 @@ export function readLaneContext(n) {
   try {
     const s = JSON.parse(fs.readFileSync(file, 'utf8'));
     return { runId: s.run_id || '', projectId: s.run_project_id || s.project_id || '', specDir: s.spec_dir || '', featureTitle: s.feature_title || '', stage: s.stage || '',
-      effort: (s.effort || {}).main || '' };
+      effort: (s.effort || {}).main || '', stepConfig: s.step_config || {}, models: s.models || {} };
   } catch { return {}; }
 }
 
@@ -164,6 +166,7 @@ export function mergeSettings(s = {}) {
     laneLimits: { ...(s.laneLimits || {}) },
     modelLimits: { ...(s.modelLimits || {}) },
     projectLimits: { ...(s.projectLimits || {}) },
+    quotaResets: { ...(s.quotaResets || {}) },
   };
 }
 
@@ -191,17 +194,30 @@ function cleanLimitsMap(src = {}, cur = {}) {
   return out;
 }
 
+function cleanResets(src = {}, cur = {}) {
+  const out = { ...cur };
+  for (const [k, v] of Object.entries(src || {})) {
+    if (!/^(month|lane|model|project):[\w./:@-]{1,120}$/.test(k)) throw Object.assign(new Error(`${k}: hạn mức không hợp lệ`), { status: 400 });
+    if (!v) { delete out[k]; continue; }
+    if (Number.isNaN(Date.parse(v))) throw Object.assign(new Error(`${k}: thời điểm không hợp lệ`), { status: 400 });
+    out[k] = new Date(v).toISOString();
+  }
+  return out;
+}
+
 export function writeSettings(patch) {
   const cur = readSettings();
   const next = mergeSettings({
     ...cur,
-    ...cleanMap(patch, ['usdToVnd', 'planFeeVnd', 'monthlyBudgetUsd', 'monthlyTokenLimit', 'fiveHourUsdLimit', 'sevenDayUsdLimit']),
+    ...cleanMap(patch, ['usdToVnd', 'planFeeVnd', 'monthlyBudgetUsd', 'monthlyTokenLimit', 'fiveHourUsdLimit', 'sevenDayUsdLimit', 'quotaWarnPct']),
     rates: { ...cur.rates, ...cleanMap(patch.rates, Object.keys(DEFAULT_SETTINGS.rates)) },
     hours: { ...cur.hours, ...cleanMap(patch.hours, Object.keys(DEFAULT_SETTINGS.hours)) },
     laneLimits: patch.laneLimits ? cleanLimitsMap(patch.laneLimits, cur.laneLimits) : cur.laneLimits,
     modelLimits: patch.modelLimits ? cleanLimitsMap(patch.modelLimits, cur.modelLimits) : cur.modelLimits,
     projectLimits: patch.projectLimits ? cleanLimitsMap(patch.projectLimits, cur.projectLimits) : cur.projectLimits,
+    quotaResets: patch.quotaResets ? cleanResets(patch.quotaResets, cur.quotaResets) : cur.quotaResets,
   });
+  if (!(next.quotaWarnPct > 0 && next.quotaWarnPct < 100)) throw Object.assign(new Error('quotaWarnPct: phải trong khoảng 1–99'), { status: 400 });
   fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });
   fs.writeFileSync(settingsFile(), JSON.stringify(next, null, 2) + '\n');
   return next;
@@ -273,7 +289,9 @@ export function aggregate(records, settings = mergeSettings(), { month, now = Da
     const lTok = lim.tokens !== undefined ? lim.tokens : (settings.monthlyTokenLimit || 10000000);
     const uPct = lUsd > 0 ? (usd / lUsd) * 100 : 0;
     const tPct = lTok > 0 ? (tok / lTok) * 100 : 0;
-    return { limitUsd: lUsd, limitTokens: lTok, quotaPct: round(Math.max(uPct, tPct), 1), usdPct: round(uPct, 1), tokenPct: round(tPct, 1) };
+    // Priced usage is measured in USD (cache reads make token counts huge and cheap); free gateway usage in tokens.
+    const qPct = lUsd > 0 && (usd > 0 || !(lTok > 0)) ? uPct : tPct;
+    return { limitUsd: lUsd, limitTokens: lTok, quotaPct: round(qPct, 1), usdPct: round(uPct, 1), tokenPct: round(tPct, 1) };
   };
 
   const devRate = settings.rates.DEVELOPER || 1;

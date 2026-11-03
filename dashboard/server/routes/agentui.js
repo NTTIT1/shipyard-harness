@@ -15,6 +15,9 @@ import { readQueue, writeQueue, startQueueTicker } from '../services/lanequeue.j
 import { queuedProjects, startProjectQueueTicker } from '../services/projectqueue.js';
 import * as projectDocs from '../services/projectdocs.js';
 import { normalizeEfforts, aggregate, readAllUsage, readSettings, writeSettings, readPlan } from '../services/usage.js';
+import { AUTH_ENABLED } from '../services/auth.js';
+import * as Q from '../services/quotaguard.js';
+import { readHold } from '../services/quota.js';
 
 const router = Router();
 const lanePath = '/api/lane/:n(\\d)';
@@ -126,6 +129,7 @@ const assignDeps = (n, assignedBy) => ({
   state: args => stateSh(n, args),
   laneUp: x => runAction(x, 'up', {}),
   startSession: S.startSession,
+  quotaGate: Q.quotaGate,
 });
 router.post(`${lanePath}/assign`, wrap(async req => {
   const n = num(req);
@@ -162,7 +166,12 @@ export function startLaneQueues() {
     try { spawn('bash', [path.join(BIN, 'android-emulator.sh'), 'idle-stop'], { stdio: 'ignore', detached: false }).on('error', () => {}); } catch { /* next pass */ }
   }, 30_000);
   idle.unref?.();
-  return () => { stopProjects(); stopLanes(); clearInterval(idle); };
+  // Lanes over a quota are stopped (a running turn is also checked live by the session itself).
+  const quota = setInterval(async () => {
+    try { Q.tickQuotas((await lanesPayload()).lanes); } catch { /* next pass */ }
+  }, 20_000);
+  quota.unref?.();
+  return () => { stopProjects(); stopLanes(); clearInterval(idle); clearInterval(quota); };
 }
 router.get(`${lanePath}/specs`, wrap(async req => ({ specs: listSpecs(num(req)) })));
 // Change the in-flight feature's step models (e.g. after a step failed on a provider, or from Lane/Feature config).
@@ -212,13 +221,39 @@ router.get(`${lanePath}/usage`, wrap(async req => {
   };
 }));
 
+// The lane's own limit stops it when reached (quota guard), so only an admin sets it.
 router.put(`${lanePath}/limit`, wrap(async req => {
+  adminOnly(req);
   const n = num(req);
   const cur = readSettings();
   const next = writeSettings({
     laneLimits: { ...(cur.laneLimits || {}), [String(n)]: req.body || {} },
   });
   return { laneLimit: next.laneLimits[String(n)] || null };
+}));
+
+// Quota of the lane: what it is under, whether it is held; admins grant more, reset a counter, let it go on.
+const isAdmin = req => (AUTH_ENABLED === false && !req.user) || req.user?.role === 'SYS_ADMIN';
+const adminOnly = req => {
+  if (!isAdmin(req)) throw Object.assign(new Error('Chỉ quản trị viên được cấp thêm hạn mức'), { status: 403 });
+  return req.user?.email || '';
+};
+router.get(`${lanePath}/quota`, wrap(async req => {
+  const n = num(req);
+  return { quota: Q.laneQuota(n), hold: readHold(n), can_manage: isAdmin(req) };
+}));
+router.post(`${lanePath}/quota/grant`, wrap(async req => {
+  const by = adminOnly(req);
+  return Q.grantQuota(num(req), String(req.body?.id || ''), req.body?.add, { by });
+}));
+router.post(`${lanePath}/quota/reset`, wrap(async req => {
+  const by = adminOnly(req);
+  return Q.resetQuota(num(req), String(req.body?.id || ''), { by });
+}));
+router.post(`${lanePath}/quota/continue`, wrap(async req => {
+  const by = adminOnly(req);
+  const n = num(req);
+  return { ...Q.releaseLane(n, { by }), quota: Q.laneQuota(n), hold: readHold(n) };
 }));
 
 router.get(`${lanePath}/chat/stream`, (req, res) => {
@@ -236,7 +271,7 @@ router.get(`${lanePath}/chat/stream`, (req, res) => {
 router.post(`${lanePath}/chat/message`, wrap(async req => {
   const text = String((req.body || {}).text || '').trim();
   if (!text) throw Object.assign(new Error('tin nhắn rỗng'), { status: 400 });
-  try { S.sendMessage(num(req), text); } catch (e) { throw Object.assign(e, { status: 409 }); }
+  try { S.sendMessage(num(req), text); } catch (e) { throw Object.assign(e, { status: e.status || 409 }); }
 }));
 router.post(`${lanePath}/chat/answer`, wrap(async req => {
   const { id, answers, allow } = req.body || {};

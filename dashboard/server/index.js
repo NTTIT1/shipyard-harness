@@ -2,13 +2,19 @@ import { spawnSync } from 'child_process';
 import path from 'path';
 import { createApp } from './app.js';
 import { BIN } from './services/config.js';
-import { configureSessions, stopAll, restoreLimitWakes } from './services/sessions.js';
+import * as S from './services/sessions.js';
+import { configureQuotaGuard, quotaGate, checkLane } from './services/quotaguard.js';
 import { startLaneQueues } from './routes/agentui.js';
 import { AUTH_ENABLED, PLATFORM_URL, usingDevSecret } from './services/auth.js';
 import { bindProblem, lanUrls } from './services/lan.js';
 
 // needs_action lives in lane state so the cards/header badge it like any other ask.
+const { configureSessions, stopAll, restoreLimitWakes } = S;
+// The quota guard stops a lane over a limit (lane, model, project, month, workflow step) and waits for an admin.
+configureQuotaGuard({ sessions: S });
 configureSessions({
+  quotaGate,
+  quotaCheck: (n, turn) => checkLane(n, { turn }),
   setNeedsAction: (n, v) => spawnSync('bash', [path.join(BIN, 'state.sh'), String(n), 'set', `needs_action=${v}`], { timeout: 15000 }),
   setNotes: (n, v) => spawnSync('bash', [path.join(BIN, 'state.sh'), String(n), 'set', `notes=${v}`], { timeout: 15000 }),
   laneStatus: n => (spawnSync('bash', [path.join(BIN, 'state.sh'), String(n), 'get', 'status'], { encoding: 'utf8', timeout: 15000 }).stdout || '').trim(),

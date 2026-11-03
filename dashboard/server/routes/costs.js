@@ -4,6 +4,7 @@ import { aggregate, readAllUsage, readSettings, writeSettings, setFeatureHours, 
 import { readModelDefaults, readAllLaneDefaults, readFeatureModels } from '../services/providers.js';
 import { harnessConfig } from '../services/config.js';
 import { lanesPayload } from '../services/state.js';
+import { quotaBoard } from '../services/quota.js';
 
 // Costs screen (admins only — it shows salaries). Data: run/lane*/usage.jsonl + config/costs.json.
 export function costsRouter({ authEnabled = AUTH_ENABLED } = {}) {
@@ -22,8 +23,10 @@ export function costsRouter({ authEnabled = AUTH_ENABLED } = {}) {
       const settings = readSettings();
       const cfg = harnessConfig();
       const lp = await lanesPayload();
+      const records = readAllUsage();
       res.json({
-        ...aggregate(readAllUsage(), settings, { month, defaultProjectId: cfg.platform_project_id || '' }),
+        ...aggregate(records, settings, { month, defaultProjectId: cfg.platform_project_id || '' }),
+        quota_board: quotaBoard({ records, settings, lanes: lp.lanes, plan: readPlan(), defaultProjectId: cfg.platform_project_id || '' }),
         project_progress: lp.project_progress,
         active_lanes_count: lp.active_lanes_count,
         lanes_state: lp.lanes,

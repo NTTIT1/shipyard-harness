@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, CircleHelp, ShieldQuestion, Settings, OctagonX, Send } from 'lucide-react';
+import { Check, CircleHelp, ShieldQuestion, Settings, OctagonX, Send, Gauge, OctagonPause, CirclePlay } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import { useChat } from '../hooks/useChat.js';
 import StepModels from './StepModels.jsx';
+import LaneQuotaPanel from './quota/LaneQuotaPanel.jsx';
 import { sendChat, answerChat, fetchProviders, saveLaneModels } from '../lib/api.js';
 import { tr } from '../lib/i18n.js';
 
 // Shown when the lane is blocked (typically a step failed on its provider): edit the
 // feature's step models, save, and tell the session to continue.
-function ChangeModels({ lane, onDone }) {
+function ChangeModels({ lane, onDone, quota = false }) {
   const [info, setInfo] = useState(null);
   const [value, setValue] = useState(null);
   const [error, setError] = useState('');
@@ -20,7 +21,8 @@ function ChangeModels({ lane, onDone }) {
     try {
       const { impl_agents, effort, gates: _gates, ...models } = value;
       await saveLaneModels(lane.lane, models, effort);
-      await sendChat(lane.lane, 'continue — models for the failed step were changed on the dashboard; re-run that step');
+      // A lane held by its quota goes on through the admin's Tiếp tục once the new model is under its limits.
+      if (!quota) await sendChat(lane.lane, 'continue — models for the failed step were changed on the dashboard; re-run that step');
       onDone();
     } catch (e) { setError(e.message); }
   };
@@ -28,7 +30,7 @@ function ChangeModels({ lane, onDone }) {
   return (
     <div className="chat-approve" style={{ display: 'block' }}>
       <StepModels info={info} value={value} onChange={setValue} />
-      <Button variant="primary" onClick={save}>{tr('Lưu và tiếp tục')}</Button>
+      <Button variant="primary" onClick={save}>{quota ? tr('Lưu model') : tr('Lưu và tiếp tục')}</Button>
       {error && <p className="m-err">{error}</p>}
     </div>
   );
@@ -78,6 +80,10 @@ function Event({ ev, pendingId, onAnswer }) {
   if (ev.kind === 'tool') return <div className="ev ev-t"><Settings size={12} strokeWidth={1.75} aria-hidden="true" /> {ev.name} <span className="ev-s">{ev.summary}</span></div>;
   if (ev.kind === 'system' || ev.kind === 'ended') return <div className="ev ev-sys">{ev.kind === 'ended' ? tr('phiên đã dừng') : ev.text}</div>;
   if (ev.kind === 'result') return null;
+  if (ev.kind === 'quota') {
+    const Icon = ev.level === 'blocked' ? OctagonPause : ev.level === 'released' ? CirclePlay : Gauge;
+    return <div className={`ev ev-quota ev-quota-${ev.level}`} role={ev.level === 'blocked' ? 'alert' : 'status'}><Icon size={14} strokeWidth={1.75} aria-hidden="true" /><span>{ev.text}</span></div>;
+  }
   if (ev.kind === 'answered') return <div className="ev ev-sys">{tr('↳ đã trả lời: {0}', [ev.text])}</div>;
   if (ev.kind === 'question') {
     return ev.id === pendingId
@@ -109,9 +115,12 @@ export default function ChatPanel({ lane }) {
   const send = act(async t => { await sendChat(n, t); setText(''); });
   const awaitingSpec = lane.stage === 'spec-review' && lane.status === 'waiting' && status.session_running;
   const [changing, setChanging] = useState(false);
-  const blocked = lane.status === 'blocked' && status.session_running;
+  const held = !!lane.quota_hold;
+  const blocked = lane.status === 'blocked' && status.session_running && !held;
+  const quotaEvents = events.filter(e => e.kind === 'quota').length;
+  const [changingModel, setChangingModel] = useState(false);
 
-  if (!events.length && !status.session_running && !status.session_resumable) {
+  if (!events.length && !status.session_running && !status.session_resumable && !held) {
     return <p className="muted-empty">{tr('Chưa có phiên chat cho lane này — bấm “Giao việc” để bắt đầu.')}</p>;
   }
 
@@ -132,7 +141,9 @@ export default function ChatPanel({ lane }) {
         </div>
       )}
       {blocked && changing && <ChangeModels lane={lane} onDone={() => setChanging(false)} />}
-      {status.session_running && (
+      {held && <LaneQuotaPanel n={n} refreshKey={`${quotaEvents}-${lane.quota_hold?.at}`} onChangeModel={() => setChangingModel(v => !v)} />}
+      {held && changingModel && <ChangeModels lane={lane} quota onDone={() => setChangingModel(false)} />}
+      {status.session_running && !held && (
         <div className="chat-input">
           <textarea rows={2} value={text} placeholder={tr('Nhắn cho lane…')} onChange={e => setText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && text.trim()) { e.preventDefault(); send(text.trim()); } }} />

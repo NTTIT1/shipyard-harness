@@ -9,7 +9,8 @@
 # Token usage of every run is appended to run/lane<N>/usage.jsonl (dashboard → Chi phí).
 # Workflow guardrails (the project's per-step settings, frozen into the run; bin/step_guard.py): required
 # inputs must exist, the step's VND budget must not be spent, each AI run is cut at the step's minute
-# limit, failures are retried when the step says RETRY, and FAIL_RUN stops the platform run.
+# limit, failures are retried when the step says RETRY, and FAIL_RUN stops the platform run. Over the lane's
+# quota (dashboard/server/bin/quota-check.js) the step does not start and the lane waits for an admin (exit 2).
 # Exit: 0 done · 2 provider/gateway/claude error (escalate to a human) · 3 no verdict line · 4 run stopped
 # (FAIL_RUN) · 64 usage
 set -euo pipefail
@@ -97,6 +98,16 @@ if [ -n "$SG_PHASE" ]; then
   WHY="$(python3 "$CODE_ROOT/bin/step_guard.py" check "$HARNESS_ROOT" "$N" "$STATE_FILE" "$SG_PHASE" || true)"
   # The time limit of a headless step is enforced per run below; here only the budget can stop it up front.
   case "$WHY" in vượt*) give_up "$WHY" ;; esac
+fi
+# The lane's quota (its own, its model's, its project's, the month's — dashboard → Chi phí & hạn mức).
+# Over it, the step does not start: the lane is held until an admin grants more (never FAIL_RUN).
+QUOTA_JS="$CODE_ROOT/dashboard/server/bin/quota-check.js"
+if [ -f "$QUOTA_JS" ] && command -v node >/dev/null 2>&1; then
+  QRC=0; QWHY="$(node "$QUOTA_JS" "$N" "$MODEL" "$STEP")" || QRC=$?
+  if [ "$QRC" -eq 1 ]; then
+    echo "ROLE-STEP: BLOCKED $QWHY — chờ quản trị viên cấp thêm hạn mức (không tự chạy lại)"
+    exit 2
+  fi
 fi
 [ -n "$SG_TIMEOUT_MIN" ] && export OPENHANDS_TIMEOUT="$((SG_TIMEOUT_MIN * 60))"
 
