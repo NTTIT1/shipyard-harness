@@ -86,7 +86,7 @@ export default function WorkflowEditor({ value, onChange, disabled = false, pres
 
       {view === 'canvas' && (
         <div className="wfe-split">
-          <WorkflowCanvas value={value} selected={selected} onSelect={setSelected} />
+          <WorkflowCanvas value={value} selected={selected} onSelect={setSelected} onChange={onChange} disabled={disabled} />
           <WorkflowStepInspector item={item} index={index < 0 ? value.findIndex(w => w.step === selected) : index}
             value={value} onChange={onChange} info={info} members={members} users={users} disabled={disabled} />
         </div>

@@ -28,7 +28,7 @@ export default function Sidebar({
   lanes, projects = [], activeProjectId = 'ALL', onSelectProject,
   selected, onSelect, onAssign, onAddLane, onProviders, theme, onToggleTheme,
   user, onLogout, view, onView, projectSubTab, onProjectSubTab,
-  inboxCount, open, onClose, onOpen, returnFocusRef
+  inboxCount, inboxTotal = 0, open, onClose, onOpen, returnFocusRef
 }) {
   const asideRef = useRef(null);
   const closeRef = useRef(null);
@@ -104,9 +104,8 @@ export default function Sidebar({
             <div className="sb-section-heading" id="sb-h-work">{tr('Điều hành')}</div>
             <div className="sb-nav">
               <NavItem icon={LayoutGrid} label={tr('Tổng quan')} active={view === 'board'} onClick={() => handleNav('board')} />
-              <NavItem icon={FolderOpen} label={tr('Dự án')} active={view === 'hub' || view === 'studio'} onClick={() => handleNav('hub')} />
-              <NavItem icon={Inbox} label={tr('Chờ tôi duyệt')} active={view === 'inbox' || view === 'review'} onClick={() => handleNav('inbox')}
-                badge={inboxCount ? <span className="sb-nav-pill-badge" aria-label={tr('{0} bước chờ duyệt', [inboxCount])}>{inboxCount}</span> : null} />
+              <NavItem icon={FolderOpen} label={tr('Dự án')} active={view === 'hub' || view === 'studio'} onClick={() => handleNav('hub')}
+                badge={inboxTotal ? <span className="sb-nav-dot" title={tr('{0} bước chờ duyệt trong các dự án', [inboxTotal])} aria-label={tr('{0} bước chờ duyệt trong các dự án', [inboxTotal])} /> : null} />
             </div>
           </nav>
 
@@ -119,6 +118,11 @@ export default function Sidebar({
               </span>
             </div>
             <div className="sb-nav">
+              {/* Only when this project has a step waiting for me (kept while I am on it, so it never vanishes under me). */}
+              {(inboxCount > 0 || view === 'inbox' || view === 'review') && (
+                <NavItem icon={Inbox} label={tr('Chờ tôi duyệt')} active={view === 'inbox' || view === 'review'} onClick={() => handleNav('inbox')}
+                  badge={inboxCount ? <span className="sb-nav-pill-badge" aria-label={tr('{0} bước chờ duyệt', [inboxCount])}>{inboxCount}</span> : null} />
+              )}
               <NavItem icon={FolderKanban} label={tr('Tổng quan & thành viên')} active={view === 'projects' && (!projectSubTab || projectSubTab === 'members')} onClick={() => handleNav('projects', 'members')} />
               <NavItem icon={SlidersHorizontal} label={tr('Quy trình & duyệt')} active={view === 'projects' && projectSubTab === 'gates'} onClick={() => handleNav('projects', 'gates')} />
               <NavItem icon={Layers} label={tr('Tính năng & model AI')} active={view === 'projects' && projectSubTab === 'runs'} onClick={() => handleNav('projects', 'runs')} />

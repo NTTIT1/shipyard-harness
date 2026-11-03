@@ -16,3 +16,4 @@
 .hub-busy { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--accent-text) }
 @media (max-width: 640px) { .hub-row { flex-wrap: wrap } .hub-main { flex-basis: 100% } }
 .pd-body { padding: 16px 20px }
+.hub-pending { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; vertical-align: 1px; background: var(--warn-soft); color: var(--warn-text) }

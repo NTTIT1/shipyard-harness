@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertCircle, Bot, FileText, Plus, RefreshCw, RotateCcw, Send, Sparkles, Trash2, Upload, Loader2 } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import Badge from './ui/Badge.jsx';
-import { teamApi, roleKeys, ruleColumns, toggleRole, forgetRule, ruleChanges, sameTeam, fileToBase64, formatSize, skillRows, RULE_NAME_RE } from '../lib/team.js';
+import { teamApi, roleKeys, ruleColumns, toggleRole, forgetRule, ruleChanges, sameTeam, fileToBase64, formatSize, RULE_NAME_RE } from '../lib/team.js';
+import SkillLibrary from './team/SkillLibrary.jsx';
 import { SETUP_STATUS } from '../lib/scaffold.js';
 import '../styles/team.css';
 import { tr } from '../lib/i18n.js';
@@ -30,61 +31,6 @@ function SetupProgress({ setup, branch, canManage, busy, onOpenRun, onRetry }) {
   );
 }
 
-const SKILL_KIND = {
-  installed: ['ok', tr('Cài sẵn'), tr('Cài sẵn trên máy cho mọi dự án — không chép vào repo')],
-  repo: ['neutral', 'Trong repo', tr('Đã có trong .claude/skills/ của repo')],
-  catalog: ['info', tr('Gợi ý'), tr('Gợi ý của Shipyard — được thêm vào .claude/skills/ của repo khi duyệt')],
-  unknown: ['warn', tr('Không tìm thấy'), tr('Vai trò đang dùng skill này nhưng repo và Shipyard đều không có')],
-};
-
-/** Skill × role: tick a cell and that AI role applies the skill on every feature of the project. */
-function SkillMatrix({ s, team, locked, setTeam }) {
-  const roles = roleKeys(team);
-  const rows = skillRows(s, team);
-  const label = r => team.roles[r]?.label || r;
-  return (
-    <section className="card-panel" aria-labelledby="tm-skills-h">
-      <div className="card-header tm-head"><h3 id="tm-skills-h" className="tm-h">{tr('Kỹ năng AI')}</h3>
-        <span className="faint">{tr('Tích ô để vai trò AI đó dùng kỹ năng trong mọi tính năng của dự án. Có hiệu lực sau khi duyệt.')}</span></div>
-      {rows.length === 0 ? <p className="faint tm-pad">{tr('Chưa có kỹ năng nào.')}</p> : (
-        <div className="tm-matrix-wrap">
-          <table className="tm-matrix tm-skillmatrix">
-            <thead>
-              <tr><th scope="col">{tr('Kỹ năng')}</th>{roles.map(r => <th key={r} scope="col">{label(r).replace(/^AI /, '')}</th>)}</tr>
-            </thead>
-            <tbody>
-              {rows.map(sk => {
-                const [tone, kind, why] = SKILL_KIND[sk.kind];
-                return (
-                  <tr key={sk.id}>
-                    <th scope="row">
-                      <span className="tm-sk-name">{sk.label} <Badge tone={tone} title={why}>{kind}</Badge></span>
-                      {sk.desc && <small className="tm-sk-desc">{sk.desc}</small>}
-                    </th>
-                    {roles.map(r => {
-                      const on = (team.roles[r]?.skills || []).includes(sk.id);
-                      const sug = sk.suggested.includes(r);
-                      return (
-                        <td key={r} className={sug && !on ? 'tm-sug' : undefined} title={sug ? tr('Shipyard gợi ý cho {0}', [label(r)]) : undefined}>
-                          <label className="tm-cell">
-                            <input type="checkbox" aria-label={tr('{0} dùng {1}', [label(r), sk.label])} disabled={locked}
-                              checked={on} onChange={() => setTeam(t => toggleRole(t, r, 'skills', sk.id))} />
-                          </label>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <p className="faint tm-pad">{tr('Ô có viền là vai trò Shipyard gợi ý cho kỹ năng đó. Kỹ năng "Cài sẵn" nằm trên máy chạy lane, dùng chung cho mọi dự án.')}</p>
-    </section>
-  );
-}
-
 const OPEN_TONE = { queued: 'neutral', drafting: 'accent', 'awaiting-review': 'warn', publishing: 'accent', error: 'danger', done: 'ok', cancelled: 'neutral' };
 
 /** Per-project AI team: who reads which rules, the rules themselves, material for the AI Manager. */
@@ -98,6 +44,7 @@ export default function TeamPanel({ pid, onOpenRun }) {
   const [busy, setBusy] = useState('');
   const [team, setTeam] = useState(null);
   const [rules, setRules] = useState({});
+  const [newSkills, setNewSkills] = useState({});   // skills written as .md, sent with the next "Gửi duyệt"
   const [cur, setCur] = useState('project.md');
   const [newName, setNewName] = useState('');
   const [note, setNote] = useState('');
@@ -110,7 +57,7 @@ export default function TeamPanel({ pid, onOpenRun }) {
     try {
       const st = await teamApi.state(pid, refresh);
       setS(st);
-      if (!keepEdits) { setTeam(st.team); setRules(st.rules || {}); }
+      if (!keepEdits) { setTeam(st.team); setRules(st.rules || {}); setNewSkills({}); }
       setErr(''); setBranchChoices(null);
     } catch (e) {
       setErr(e.message);
@@ -138,7 +85,7 @@ export default function TeamPanel({ pid, onOpenRun }) {
   };
 
   const changes = useMemo(() => (s ? ruleChanges(s.rules || {}, rules) : {}), [s, rules]);
-  const dirty = !!s && (Object.keys(changes).length > 0 || !sameTeam(s.team, team));
+  const dirty = !!s && (Object.keys(changes).length > 0 || !sameTeam(s.team, team) || Object.keys(newSkills).length > 0);
   const locked = !s?.canManage || s?.open || !!busy;
   const cols = ruleColumns(rules);
   const curName = cols.includes(cur) ? cur : cols[0];
@@ -211,7 +158,7 @@ export default function TeamPanel({ pid, onOpenRun }) {
       )) : (
         <>
           {s.teamError && <div className="alert-banner err"><AlertCircle size={16} /><div className="alert-banner-content">{s.teamError}</div></div>}
-          {team && <SkillMatrix s={s} team={team} locked={locked} setTeam={setTeam} />}
+          {team && <SkillLibrary pid={pid} s={s} team={team} setTeam={setTeam} newSkills={newSkills} setNewSkills={setNewSkills} locked={locked} />}
 
           {team && (
             <section className="card-panel">
@@ -344,9 +291,9 @@ export default function TeamPanel({ pid, onOpenRun }) {
             <div className="tm-submit tm-sticky" role="region" aria-label={tr('Thay đổi chưa gửi')}>
               <span className="tm-submit-what">{tr('Có thay đổi chưa gửi duyệt')}</span>
               <input aria-label={tr('Ghi chú cho người duyệt')} placeholder={tr('Ghi chú cho người duyệt (không bắt buộc)')} value={note} onChange={e => setNote(e.target.value)} />
-              <Button variant="ghost" disabled={!!busy} onClick={() => { setTeam(s.team); setRules(s.rules); }}>{tr('Huỷ thay đổi')}</Button>
+              <Button variant="ghost" disabled={!!busy} onClick={() => { setTeam(s.team); setRules(s.rules); setNewSkills({}); }}>{tr('Huỷ thay đổi')}</Button>
               <Button variant="primary" icon={Send} disabled={!!busy || s.open}
-                onClick={() => act('propose', () => teamApi.propose(pid, { rules: changes, team: sameTeam(s.team, team) ? undefined : team, note }),
+                onClick={() => act('propose', () => teamApi.propose(pid, { rules: changes, team: sameTeam(s.team, team) ? undefined : team, note, newSkills }),
                   tr('Đã gửi thay đổi — vào "Chờ duyệt" để duyệt')).then(() => setNote(''))}>
                 {busy === 'propose' ? tr('Đang gửi…') : tr('Gửi duyệt')}
               </Button>

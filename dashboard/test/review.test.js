@@ -130,3 +130,30 @@ describe('drag & drop and presets', () => {
     expect(pct).toEqual([{ step: 'ARCH', mode: 'REQUIRED' }, { step: 'DEV', mode: 'AUTO' }, { step: 'TEST', mode: 'AUTO' }]);
   });
 });
+
+describe('approvals per project', () => {
+  it('counts and filters the inbox by project', async () => {
+    const { inboxCounts, inboxFor } = await import('../src/lib/review.js');
+    const items = [{ approvalId: 'a', projectId: 'p1' }, { approvalId: 'b', projectId: 'p2' }, { approvalId: 'c', projectId: 'p1' }];
+    expect(inboxCounts(items)).toEqual({ p1: 2, p2: 1 });
+    expect(inboxFor(items, 'p1').map(i => i.approvalId)).toEqual(['a', 'c']);
+    expect(inboxFor(items, 'ALL')).toHaveLength(3);
+    expect(inboxFor(items, 'p9')).toEqual([]);
+  });
+});
+
+describe('adding and removing workflow steps', () => {
+  it('adds PM back to Plan → Code → Test in front of Plan, keeps the 6 steps valid', async () => {
+    const { addStep, removeStep, workflowProblem, presetById } = await import('../src/lib/review.js');
+    const pct = presetById('plan-code-test').steps;
+    const withPm = addStep(pct, 'PM');
+    expect(withPm.filter(w => w.mode !== 'SKIP').map(w => w.step)).toEqual(['PM', 'ARCH', 'DEV', 'TEST']);
+    expect(workflowProblem(withPm)).toBe('');
+    const withDesign = addStep(withPm, 'DESIGN');
+    expect(withDesign.filter(w => w.mode !== 'SKIP').map(w => w.step)).toEqual(['PM', 'ARCH', 'DESIGN', 'DEV', 'TEST']);
+    const noTest = removeStep(withDesign, 'TEST');
+    expect(noTest.find(w => w.step === 'TEST').mode).toBe('SKIP');
+    expect(removeStep(noTest, 'DEV')).toBe(noTest);
+    expect(addStep(noTest, 'TEST').find(w => w.step === 'TEST').mode).toBe('REQUIRED');
+  });
+});

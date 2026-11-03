@@ -15,6 +15,7 @@ const SKILL = /^[a-z0-9][a-z0-9_-]*$/;
 export const HUMAN_NAME = /^[\p{L}\p{N}][\p{L}\p{N} ._()-]{0,100}\.(md|txt|json|ya?ml|csv|sql|xml|html|java|kt|ts|tsx|js|jsx|py|pdf|png|jpe?g)$/iu;
 const MAX_HUMAN = 3 * 1024 * 1024; // base64 must fit the dashboard's 5MB JSON body limit
 const MAX_RULE = 60_000;
+const MAX_SKILL = 60_000;
 const OPEN = ['queued', 'drafting', 'awaiting-review', 'publishing', 'error'];
 const SYNC_EVERY_MS = 30_000;
 
@@ -117,6 +118,12 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
 
   const skillsOf = ctx => (gitOut(ctx.dir, 'ls-tree', '-d', '--name-only', `${ctx.branch}:.claude/skills`) || '')
     .split('\n').filter(n => SKILL.test(n));
+  const repoSkillText = (ctx, id) => gitOut(ctx.dir, 'show', `${ctx.branch}:.claude/skills/${id}/SKILL.md`);
+  /** The repo's own skills with the description their SKILL.md declares. */
+  const repoSkillsOf = ctx => skillsOf(ctx).map(id => {
+    const text = repoSkillText(ctx, id) || '';
+    return { id, desc: parseSkill(text).desc };
+  });
 
   const setupView = e => e && ({ runId: e.runId, status: e.status, error: e.error || null, title: e.title || null,
     note: e.note || null, adopt: !!e.adopt, createdAt: e.createdAt || null, updatedAt: e.updatedAt, busy: setup.isBusy(e.runId) });
@@ -130,7 +137,7 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
     return {
       projectId: project.id, dir: ctx.dir, branch: ctx.branch, provider: ctx.provider,
       adopted: teamText != null, team, teamError, rules: teamText != null ? rulesOf(ctx) : {},
-      skills: skillsOf(ctx), human: humanOf(ctx), setup: setupView(e), open: isOpen(e),
+      skills: skillsOf(ctx), repoSkills: teamText != null ? repoSkillsOf(ctx) : [], human: humanOf(ctx), setup: setupView(e), open: isOpen(e),
       skillCatalog: skillCatalog.map(({ id, label, desc, roles, installed }) => ({ id, label, desc, roles: roles || [], ...(installed ? { installed: true } : {}) })),
     };
   }
@@ -173,7 +180,7 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
     }),
 
     /** A person's edit of the rules / read matrix / skills, sent for review unchanged. */
-    propose: (project, user, { rules = {}, team, note = '' } = {}) => exclusive(project, async () => {
+    propose: (project, user, { rules = {}, team, note = '', newSkills = {} } = {}) => exclusive(project, async () => {
       const ctx = await open(project, { force: true });
       if (show(ctx, 'team.json') == null) throw fail(409, 'Dự án chưa có đội AI — bấm "Thiết lập đội AI" trước');
       const docs = rulesOf(ctx);
@@ -188,6 +195,15 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
       try { validateTeam(teamText); } catch (e) { throw fail(400, e.message); }
       const inRepo = new Set(skillsOf(ctx));
       const skillFiles = {};
+      // Skills a person wrote (a .md each): go into the repo next to the others when the change is approved.
+      const own = [];
+      for (const [id, text] of Object.entries(newSkills || {})) {
+        if (!SKILL.test(id) || id.length > 64) throw fail(400, `Tên skill không hợp lệ: ${id} (chữ thường, số, -, _)`);
+        if (typeof text !== 'string' || !text.trim() || text.length > MAX_SKILL) throw fail(400, `${id}: nội dung skill rỗng hoặc quá dài (tối đa ${MAX_SKILL} ký tự)`);
+        if (skillCatalog.some(c => c.id === id && c.installed)) throw fail(400, `${id}: trùng tên kỹ năng cài sẵn trên máy — đặt tên khác`);
+        skillFiles[`.claude/skills/${id}/SKILL.md`] = skillFile(id, text);
+        inRepo.add(id); own.push(id);
+      }
       for (const [role, cfg] of Object.entries(JSON.parse(teamText).roles)) {
         for (const p of cfg?.reads || []) if (!docs[p.slice('rules/'.length)]) throw fail(400, `${role} đọc ${p} nhưng file này không còn`);
         for (const s of cfg?.skills || []) {
@@ -199,14 +215,27 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
           skillFiles[`.claude/skills/${c.id}/SKILL.md`] = `---\nname: ${c.id}\ndescription: ${c.desc}\n---\n\n${c.content}\n`;
         }
       }
-      const added = Object.keys(skillFiles).map(f => f.split('/')[2]);
+      const added = Object.keys(skillFiles).map(f => f.split('/')[2]).filter(id => !own.includes(id));
       const base = clip(note) || `Thay đổi luật do ${user.email || user.id} sửa trực tiếp`;
+      const lines = [base, added.length ? `Thêm skill từ danh mục Shipyard: ${added.join(', ')}` : '', own.length ? `Thêm / sửa skill tự viết: ${own.join(', ')}` : ''].filter(Boolean);
       return { runId: await startRun(project, ctx, user, {
-        documents: { ...docs, 'team.json': teamText }, skillFiles: added.length ? skillFiles : null,
-        note: added.length ? `${base}\nThêm skill từ danh mục Shipyard: ${added.join(', ')}` : base,
+        documents: { ...docs, 'team.json': teamText }, skillFiles: Object.keys(skillFiles).length ? skillFiles : null,
+        note: lines.join('\n'),
         title: `Sửa luật đội AI — ${project.name}`,
       }) };
     }),
+
+    /** A skill's SKILL.md: the repo's own, or the text Shipyard would add from its catalog. */
+    readSkill: async (project, id) => {
+      if (!SKILL.test(id || '')) throw fail(400, 'Tên skill không hợp lệ');
+      const ctx = await open(project);
+      const text = repoSkillText(ctx, id);
+      if (text != null) return { id, kind: 'repo', content: text };
+      const c = skillCatalog.find(x => x.id === id);
+      if (c && !c.installed) return { id, kind: 'catalog', content: skillFile(c.id, `---\ndescription: ${c.desc}\n---\n\n${c.content || ''}`) };
+      if (c) return { id, kind: 'installed', content: `# ${c.label || id}\n\n${c.desc || ''}\n\n_Cài sẵn trên máy chạy lane — dùng chung cho mọi dự án._` };
+      throw fail(404, 'Không có skill này');
+    },
 
     /** Ask the AI Manager to rewrite the rules (after new material, or the code moved on). */
     redraft: (project, user, { note = '' } = {}) => exclusive(project, async () => {
@@ -254,3 +283,21 @@ export function createTeamHub({ setup, providers, run = runCmd, root = WORKSPACE
 }
 
 const clip = s => String(s || '').trim().slice(0, 4000);
+
+/** A SKILL.md's front matter description (or its first plain line) and body. */
+export function parseSkill(text) {
+  const t = String(text || '').replace(/^\uFEFF/, '');
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(t);
+  const front = m ? m[1] : '';
+  const body = m ? t.slice(m[0].length) : t;
+  const field = k => (new RegExp(`^${k}:\\s*(.*)$`, 'm').exec(front)?.[1] || '').trim().replace(/^["']|["']$/g, '');
+  const firstLine = body.split('\n').map(l => l.trim()).find(l => l && !l.startsWith('#')) || '';
+  return { name: field('name'), desc: (field('description') || firstLine.replace(/^[-*]\s*/, '')).slice(0, 300), body: body.trim() };
+}
+
+/** The SKILL.md written into the repo: front matter Claude Code reads (name = folder, a description), then the text. */
+export function skillFile(id, text) {
+  const { desc, body } = parseSkill(text);
+  const d = (desc || id).replace(/\s+/g, ' ').replace(/"/g, "'");
+  return `---\nname: ${id}\ndescription: "${d}"\n---\n\n${body}\n`;
+}

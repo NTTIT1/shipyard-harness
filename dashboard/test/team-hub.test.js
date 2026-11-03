@@ -236,6 +236,37 @@ describe('team hub + skill catalog', () => {
   });
 });
 
+describe('team hub + skills a person writes', () => {
+  it('a .md skill goes into the repo as .claude/skills/<id>/SKILL.md on approval and a role can use it at once', async () => {
+    const o = origin({ team: true });
+    const setup = fakeSetup();
+    const hub = createTeamHub({ setup, providers, root: o.root, skillCatalog: [{ id: 'machine-skill', label: 'M', desc: '', roles: [], installed: true }] });
+    const p = project(o.bare);
+    const st = await hub.state(p);
+    expect(st.repoSkills).toEqual([{ id: 'spring-api', desc: '' }]);
+    const team = structuredClone(TEAM);
+    team.roles.DEV.skills = ['api-chuan'];
+    await hub.propose(p, user, { team, newSkills: { 'api-chuan': '# API chuẩn công ty\n- Mọi API trả ApiResponse<T>\n' } });
+    const r = setup.runs[0];
+    expect(r.skillFiles['.claude/skills/api-chuan/SKILL.md']).toBe('---\nname: api-chuan\ndescription: "Mọi API trả ApiResponse<T>"\n---\n\n# API chuẩn công ty\n- Mọi API trả ApiResponse<T>\n');
+    expect(r.note).toMatch(/tự viết: api-chuan/);
+    r.status = 'done';
+    await expect(hub.propose(p, user, { newSkills: { 'Bad Name': 'x' } })).rejects.toThrow(/không hợp lệ/);
+    await expect(hub.propose(p, user, { newSkills: { empty: '  ' } })).rejects.toThrow(/rỗng/);
+    await expect(hub.propose(p, user, { newSkills: { 'machine-skill': '# x' } })).rejects.toThrow(/cài sẵn/);
+  });
+
+  it('reads a skill: the repo\'s own, or what the catalog would add', async () => {
+    const o = origin({ team: true });
+    const hub = createTeamHub({ setup: fakeSetup(), providers, root: o.root, skillCatalog: [{ id: 'jpa', label: 'JPA', desc: 'Giao dịch', roles: [], content: '# JPA' }] });
+    const p = project(o.bare);
+    expect((await hub.readSkill(p, 'spring-api')).content).toContain('name: spring-api');
+    expect(await hub.readSkill(p, 'jpa')).toMatchObject({ kind: 'catalog' });
+    await expect(hub.readSkill(p, 'nope')).rejects.toThrow(/Không có/);
+    await expect(hub.readSkill(p, '../x')).rejects.toThrow(/không hợp lệ/);
+  });
+});
+
 it('the runner commits catalog skill files together with the approved rules', async () => {
   const o = origin({ team: true });
   const dir = path.join(o.tmp, 'clone');

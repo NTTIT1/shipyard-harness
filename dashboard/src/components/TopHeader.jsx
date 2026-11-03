@@ -8,6 +8,7 @@ import { tr } from '../lib/i18n.js';
 
 export default function TopHeader({
   projects = [],
+  pending = {},
   activeProjectId,
   onSelectProject,
   onOpenDrawer,
@@ -115,6 +116,7 @@ export default function TopHeader({
                       </div>
                       {p.repoUrl && <span className="top-dd-desc">{p.repoUrl.replace(/^https?:\/\//, '')}</span>}
                     </div>
+                    {pending[p.id] > 0 && <span className="top-dd-pending" title={tr('{0} bước chờ duyệt', [pending[p.id]])}>{pending[p.id]}</span>}
                     {isSelected && <Check size={14} className="top-dd-check" />}
                   </button>
                 );

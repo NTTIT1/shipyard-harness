@@ -1,0 +1,116 @@
+/* "Kỹ năng AI": roles on the left, the chosen role's skills and the searchable library on the right.
+   Built to stay usable with hundreds of skills: search, filters with counts, paging — no checkbox grid. */
+.sk { padding: 0; overflow: hidden }
+.sk-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px 20px; padding: 18px 20px 16px; border-bottom: 1px solid var(--border) }
+.sk-head p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); max-width: 70ch }
+.sk-body { display: grid; grid-template-columns: 210px minmax(0, 1fr); min-height: 420px }
+
+/* Roles */
+.sk-roles { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-right: 1px solid var(--border); background: var(--bg-subtle) }
+.sk-roles button {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 8px;
+  background: none; font: 500 13.5px var(--font); color: var(--text); text-align: left; cursor: pointer;
+  transition: background-color .15s var(--ease, ease-out), transform .1s ease-out;
+}
+.sk-roles button:hover { background: var(--panel-hover) }
+.sk-roles button:active { transform: scale(.98) }
+.sk-roles button.on { background: var(--panel); box-shadow: var(--shadow-sm); font-weight: 600 }
+.sk-roles button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px }
+.sk-n { min-width: 22px; padding: 1px 7px; border-radius: 999px; font-size: 11.5px; font-weight: 600; text-align: center; background: var(--border); color: var(--text-muted); font-variant-numeric: tabular-nums }
+.sk-roles button.on .sk-n { background: var(--accent-soft); color: var(--accent-text) }
+
+/* Pane */
+.sk-pane { display: grid; align-content: start; gap: 10px; padding: 16px 20px 20px; min-width: 0 }
+.sk-sec-head { display: flex; align-items: baseline; gap: 8px }
+.sk-sec-head h4, .sk-lib-head h4 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: -.01em; color: var(--text) }
+.sk-sec-head span { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums }
+.sk-lib-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-top: 14px; padding-top: 16px; border-top: 1px solid var(--border) }
+.sk-search { flex: 0 1 320px; display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg-subtle); color: var(--text-faint) }
+.sk-search:focus-within { border-color: var(--accent) }
+.sk-search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: 13px var(--font); outline: none }
+.sk-filters { display: flex; flex-wrap: wrap; gap: 6px }
+.sk-filters button {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--panel); font: 500 12.5px var(--font); color: var(--text-muted); cursor: pointer;
+  transition: background-color .15s var(--ease, ease-out), border-color .15s var(--ease, ease-out), color .15s var(--ease, ease-out), transform .1s ease-out;
+}
+.sk-filters button span { font-size: 11px; font-weight: 600; color: var(--text-faint); font-variant-numeric: tabular-nums }
+.sk-filters button:hover { border-color: var(--border-strong); color: var(--text) }
+.sk-filters button:active { transform: scale(.96) }
+.sk-filters button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text) }
+.sk-filters button.on span { color: var(--accent-text) }
+.sk-filters button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+
+/* Rows */
+.sk-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--panel) }
+.sk-used { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)) }
+.sk-row { display: flex; align-items: center; gap: 8px; padding-right: 10px; transition: background-color .15s var(--ease, ease-out) }
+.sk-row + .sk-row { border-top: 1px solid var(--border) }
+.sk-row:hover { background: var(--panel-hover) }
+.sk-main { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 12px; padding: 11px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer }
+.sk-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px }
+.sk-ic { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-text) }
+.sk-ic.muted { background: var(--bg-subtle); color: var(--text-muted) }
+.sk-text { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0 }
+.sk-text b { font-size: 13.5px; font-weight: 600; color: var(--text) }
+.sk-text small { flex-basis: 100%; font-size: 12.5px; line-height: 1.45; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden }
+.sk-kind { padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap }
+.sk-kind-ok { background: var(--ok-soft); color: var(--ok-text) }
+.sk-kind-neutral { background: var(--bg-subtle); color: var(--text-muted) }
+.sk-kind-info { background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info-text) }
+.sk-kind-accent { background: var(--accent-soft); color: var(--accent-text) }
+.sk-kind-warn { background: var(--warn-soft); color: var(--warn-text) }
+.sk-sug { font-size: 11px; color: var(--accent-text) }
+.sk-btn {
+  flex: none; display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px;
+  background: none; font: 600 12.5px var(--font); color: var(--text-muted); cursor: pointer; transition: background-color .15s var(--ease, ease-out), color .15s var(--ease, ease-out), transform .1s ease-out;
+}
+.sk-btn:active { transform: scale(.95) }
+.sk-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+.sk-add { color: var(--accent-text); border-color: var(--border) }
+.sk-add:hover { background: var(--accent-soft); border-color: var(--accent) }
+.sk-remove:hover { background: var(--danger-soft); color: var(--danger-text) }
+.sk-empty { margin: 0; padding: 14px; border: 1px dashed var(--border-strong); border-radius: var(--radius); font-size: 13px; color: var(--text-faint) }
+.sk-more { justify-self: center; min-height: 32px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); font: 500 12.5px var(--font); color: var(--text); cursor: pointer }
+.sk-more:hover { border-color: var(--border-strong) }
+
+/* Preview */
+.sk-preview { display: grid; gap: 10px }
+.sk-preview-meta { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12px; color: var(--text-muted) }
+.sk-preview-desc { margin: 0; font-size: 13.5px; color: var(--text) }
+.sk-preview-body { max-height: 55vh; overflow: auto; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-subtle); font-size: 13.5px }
+
+/* Add skills */
+.sk-drop { display: flex; align-items: center; gap: 14px; padding: 22px 20px; border: 1.5px dashed var(--border-strong); border-radius: var(--radius); color: var(--text-muted);
+  transition: border-color .15s var(--ease, ease-out), background-color .15s var(--ease, ease-out) }
+.sk-drop.over { border-color: var(--accent); background: var(--accent-soft) }
+.sk-drop div { display: grid; gap: 3px }
+.sk-drop b { font-size: 14px; color: var(--text) }
+.sk-drop span { font-size: 12.5px }
+.sk-paste { margin: 12px 0 }
+.sk-paste summary { cursor: pointer; font-size: 13px; color: var(--accent-text) }
+.sk-paste textarea { width: 100%; margin: 8px 0; font: 12.5px var(--font-mono, ui-monospace, monospace) }
+.sk-drafts { display: grid; gap: 10px; margin: 12px 0; padding: 0; list-style: none }
+.sk-drafts li { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel) }
+.sk-drafts li.bad { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)) }
+.sk-draft-top { display: flex; align-items: center; gap: 10px }
+.sk-draft-id { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-muted) }
+.sk-draft-id input { flex: 1; min-height: 32px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg-subtle); color: var(--text); font: 13px var(--font-mono, ui-monospace, monospace) }
+.sk-draft-id input[aria-invalid="true"] { border-color: var(--danger) }
+.sk-draft-desc { margin: 0; font-size: 12.5px; color: var(--text-muted) }
+.sk-draft-err { margin: 0; font-size: 12.5px; color: var(--danger-text) }
+.sk-draft-note { margin: 0; font-size: 12.5px; color: var(--warn-text) }
+.sk-draft-roles { display: flex; flex-wrap: wrap; align-items: center; gap: 6px }
+.sk-draft-roles > span { font-size: 12.5px; color: var(--text-muted); margin-right: 2px }
+.sk-draft-roles button { min-height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--panel); font: 500 12px var(--font); color: var(--text-muted); cursor: pointer; transition: all .15s var(--ease, ease-out) }
+.sk-draft-roles button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text) }
+
+@media (max-width: 760px) {
+  .sk-body { grid-template-columns: 1fr }
+  .sk-roles { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border) }
+  .sk-roles button { flex: none }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk-roles button, .sk-filters button, .sk-btn, .sk-row { transition: none }
+  .sk-roles button:active, .sk-filters button:active, .sk-btn:active { transform: none }
+}
