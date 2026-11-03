@@ -12,11 +12,11 @@ cần chụp, kịch bản demo trực tiếp, câu hỏi khách hay hỏi, và 
 |---|---|
 | Khách nghe | Chủ doanh nghiệp / CTO / trưởng nhóm sản phẩm muốn làm phần mềm nhanh hơn với AI |
 | Thời lượng | 20–25 phút trình bày + 10–15 phút demo trực tiếp + 10 phút hỏi đáp |
-| Số slide | 23 slide chính + phụ lục (file `docs/Shipyard-gioi-thieu.pptx` có 27 slide) |
+| Số slide | 23 slide chính + phụ lục (file `docs/Shipyard-gioi-thieu.pptx` có 29 slide) |
 | Tỉ lệ | 16:9 |
 | Chữ | Mỗi slide tối đa **1 câu tiêu đề + 3–5 ý ngắn**. Lời giải thích dài để ở **ghi chú người nói** (Notes) |
 | Phông | Một phông không chân (Inter, SF Pro, Segoe UI hoặc Be Vietnam Pro — hiển thị tiếng Việt tốt) |
-| Màu | Nền trắng hoặc tối giống dashboard; một màu nhấn xanh dương (#4F86F7 — màu chính của dashboard); xanh lá = ổn, vàng = cảnh báo, đỏ = dừng |
+| Màu | Toàn bộ nền trắng; một màu nhấn xanh dương (#4F86F7 — màu chính của dashboard); xanh lá = ổn, vàng = cảnh báo, đỏ = dừng |
 | Ảnh | Chụp ở cửa sổ trình duyệt rộng **1440 px**, zoom 100%, chế độ sáng (dễ in). Che tên khách / dữ liệu thật nếu có |
 
 **Quy ước trong tài liệu:**
@@ -231,6 +231,25 @@ cần chụp, kịch bản demo trực tiếp, câu hỏi khách hay hỏi, và 
 
 **Lời nói:**
 > Người review không cần tự cài và bấm thử: mở thư viện ảnh là thấy tính năng chạy thế nào ở từng bước.
+
+---
+
+### Slide 11b — AI theo PR tới khi merge *(mới — trong .pptx là slide 13)*
+
+**Trên slide:** *AI theo PR tới khi merge — và sau đó*
+
+- Góp ý mới trên PR → AI sửa qua đúng các cổng kiểm tra rồi đẩy lên
+- Xung đột với nhánh chính → tự gộp thay đổi mới, chạy lại kiểm tra
+- Sau khi người merge → QC trên bản đã deploy; có lỗi thì mở PR sửa tiếp
+- Ticket tự động: Jira · Linear · GitHub Issues (tuỳ chọn, bật theo dự án)
+
+`📸 ẢNH PR-1 — Lane đang theo dõi PR: trạng thái CI, góp ý, link ticket`
+
+---
+
+### Slide 11c — Công cụ cho cả đội *(mới — trong .pptx là slide 14, không cần ảnh)*
+
+**Trên slide:** *Không chỉ làm tính năng* — 4 thẻ: Review PR tự động · QC toàn ứng dụng · Chia lô tính năng cho các lane ít đụng file nhau · Hàng chờ theo lane
 
 ---
 
@@ -464,6 +483,7 @@ diện tiếng Việt (trừ khi trình bày cho khách nước ngoài: chuyển
 | S09-2 | 9 | Hộp thoại "Thêm lane" *(tuỳ chọn, dùng khi demo)* | Lanes → **Thêm lane** |
 | S10-1 | 10 | Sơ đồ luồng kỹ thuật của lane | Mở một lane → sơ đồ pipeline |
 | S11-1 | 11 | Thư viện ảnh QC | Mở lane đã qua QC → thư viện ảnh (Proof) |
+| PR-1 | 11b | Lane đang theo dõi PR | Mở một lane đã mở PR → Tổng quan (CI, góp ý, ticket) |
 | S12-1 | 12 | Chờ tôi duyệt | Có ít nhất một tài liệu đang chờ duyệt |
 | S13-1 | 13 | Quy trình & duyệt — Sơ đồ | Dự án → Quy trình & duyệt → bấm một bước để mở cấu hình |
 | TEAM-1 | 13b | Đội AI & kỹ năng của dự án | Dự án → Đội AI / Kỹ năng AI & khung |
