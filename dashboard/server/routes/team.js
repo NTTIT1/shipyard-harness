@@ -61,6 +61,9 @@ export function teamRouter({ authEnabled = AUTH_ENABLED, providers = createProvi
   router.post('/api/team/:pid/retry', member, manager, (req, res) => {
     try { res.status(202).json(hub.retry(req.project)); } catch (e) { fail(res, e); }
   });
+  router.get('/api/team/:pid/skill/:id', member, async (req, res) => {
+    try { res.json(await hub.readSkill(req.project, req.params.id)); } catch (e) { fail(res, e); }
+  });
   router.get('/api/team/:pid/human/:name', member, async (req, res) => {
     try {
       const p = await hub.readHuman(req.project, req.params.name);

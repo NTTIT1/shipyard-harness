@@ -48,3 +48,31 @@ describe('skillRows', () => {
     expect(skillRows({ skills: ['x'] }, null)).toEqual([{ id: 'x', label: 'x', desc: '', suggested: [], kind: 'repo' }]);
   });
 });
+
+describe('skill library', () => {
+  it('names a skill from a file name, Vietnamese included', async () => {
+    const { skillIdFrom } = await import('../src/lib/team.js');
+    expect(skillIdFrom('API chuẩn Công ty.md')).toBe('api-chuan-cong-ty');
+    expect(skillIdFrom('Đặt tên__biến!!.md')).toBe('dat-ten__bien');
+  });
+  it('reads description from front matter, else the first plain line', async () => {
+    const { parseSkillMd } = await import('../src/lib/team.js');
+    expect(parseSkillMd('---\nname: a\ndescription: "Mô tả"\n---\n# T\nx').desc).toBe('Mô tả');
+    expect(parseSkillMd('# Tiêu đề\n\n- Luôn viết test\n')).toMatchObject({ title: 'Tiêu đề', desc: 'Luôn viết test' });
+  });
+  it("one role's library: used in its order, search without accents, filters with counts, new skills listed", async () => {
+    const { roleLibrary } = await import('../src/lib/team.js');
+    const rows = skillRows({ skills: ['repo-a'], skillCatalog: [
+      { id: 'jpa', label: 'JPA an toàn', desc: 'Giao dịch', roles: ['DEV'] },
+      { id: 'prd', label: 'PRD chuẩn', desc: 'Tiêu chí nghiệm thu', roles: ['PM'] },
+      { id: 'mach', label: 'Máy', desc: '', roles: [], installed: true },
+    ] }, { roles: { DEV: { skills: ['repo-a'] } } }, { 'cua-toi': '# Của tôi\n- Quy tắc riêng' });
+    const team = { roles: { DEV: { skills: ['repo-a'] }, PM: { skills: [] } } };
+    const lib = roleLibrary(rows, team, 'DEV');
+    expect(lib.used.map(r => r.id)).toEqual(['repo-a']);
+    expect(lib.available.map(r => r.id)).toEqual(['cua-toi', 'jpa']);
+    expect(lib.counts).toMatchObject({ all: 4, suggested: 2, installed: 1, catalog: 2, new: 1 });
+    expect(roleLibrary(rows, team, 'DEV', { filter: 'all', q: 'nghiem thu' }).available.map(r => r.id)).toEqual(['prd']);
+    expect(rows.find(r => r.id === 'cua-toi')).toMatchObject({ kind: 'new', desc: 'Quy tắc riêng' });
+  });
+});
