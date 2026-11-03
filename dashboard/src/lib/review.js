@@ -194,3 +194,33 @@ export function isMember(rows, userId) {
 export function safeImageSrc(p) {
   return typeof p === 'string' && /^\/(spec|proof)\/\d+\//.test(p) && !p.includes('..') ? p : '';
 }
+
+/** Approvals waiting per project: { [projectId]: n }. */
+export function inboxCounts(items) {
+  const out = {};
+  for (const i of items || []) if (i?.projectId) out[i.projectId] = (out[i.projectId] || 0) + 1;
+  return out;
+}
+/** The approvals of the project being viewed ('ALL' / none = every project). */
+export const inboxFor = (items, projectId) => (!projectId || projectId === 'ALL' ? items || [] : (items || []).filter(i => i.projectId === projectId));
+
+/** The usual order of the document steps; an added step slots in by it among the steps that run. */
+const CANON = ['PM', 'BA', 'ARCH', 'DESIGN'];
+
+/**
+ * Turns a left-out step back on ("Thêm bước"): it needs a person's approval, and a document step is placed
+ * before the first running document step that normally follows it (else right before Lập trình).
+ */
+export function addStep(workflow, step, mode = 'REQUIRED') {
+  const on = workflow.map(w => (w.step === step ? { ...w, mode } : w));
+  if (!MOVABLE.includes(step)) return on;
+  const rest = on.filter(w => w.step !== step);
+  const me = on.find(w => w.step === step);
+  const after = CANON.indexOf(step);
+  let at = rest.findIndex(w => (MOVABLE.includes(w.step) && w.mode !== 'SKIP' && CANON.indexOf(w.step) > after) || !MOVABLE.includes(w.step));
+  if (at < 0) at = rest.length;
+  return [...rest.slice(0, at), me, ...rest.slice(at)];
+}
+
+/** Leaves a step out ("Bỏ bước"); Lập trình always runs. */
+export const removeStep = (workflow, step) => (step === 'DEV' ? workflow : workflow.map(w => (w.step === step ? { ...w, mode: 'SKIP' } : w)));

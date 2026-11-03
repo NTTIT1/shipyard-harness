@@ -389,6 +389,28 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .wfc-skipped { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border-strong); font-size: 12px; color: var(--text-faint) }
 .wfc-skip { padding: 2px 9px; border: 1px dashed var(--border-strong); border-radius: 999px; background: none; color: var(--text-muted); font: 500 12px var(--font); cursor: pointer; text-decoration: line-through }
 .wfc-skip.on { border-style: solid; border-color: var(--accent); color: var(--text); text-decoration: none }
+/* Leave a step out (✕ on its node) / put one back ("Thêm bước") */
+.wfc-item { position: relative }
+.wfc-node { padding-right: 34px }
+.wfc-remove { position: absolute; top: 27px; right: 7px; z-index: 1; display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 6px;
+  background: none; color: var(--text-faint); cursor: pointer; opacity: 0; transition: opacity .15s var(--ease), background-color .15s var(--ease), color .15s var(--ease) }
+.wfc-item:hover .wfc-remove, .wfc-remove:focus-visible { opacity: 1 }
+.wfc-remove:hover { background: var(--danger-soft); color: var(--danger-text) }
+.wfc-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+@media (hover: none) { .wfc-remove { opacity: 1 } }
+.wfc-add { display: grid; gap: 6px; margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border-strong) }
+.wfc-add-h { font-size: 12px; font-weight: 600; color: var(--text-muted) }
+.wfc-add-btn { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 9px 12px; border: 1px dashed var(--border-strong); border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 70%, transparent); color: var(--text); font: inherit; text-align: left; cursor: pointer;
+  transition: border-color .15s var(--ease), background-color .15s var(--ease), transform .1s ease-out }
+.wfc-add-btn svg { flex: none; margin-top: 2px; color: var(--accent-text) }
+.wfc-add-btn span { display: grid; gap: 2px; min-width: 0 }
+.wfc-add-btn b { font-size: 13px; font-weight: 600 }
+.wfc-add-btn small { font-size: 11.5px; line-height: 1.4; color: var(--text-muted) }
+.wfc-add-btn:hover { border-style: solid; border-color: var(--accent); background: var(--accent-soft) }
+.wfc-add-btn:active { transform: scale(.985) }
+.wfc-add-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+@media (prefers-reduced-motion: reduce) { .wfc-add-btn, .wfc-remove { transition: none } .wfc-add-btn:active { transform: none } }
 
 /* inspector */
 .wfi { display: grid; align-content: start; gap: 14px; padding: 16px 20px 20px; min-width: 0 }

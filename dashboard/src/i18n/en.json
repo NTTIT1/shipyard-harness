@@ -1741,5 +1741,12 @@
   "Mới · chờ duyệt": "New · pending approval",
   "Trong repo": "In the repo",
   "Nội dung rỗng": "Empty content",
-  "hoặc": "or"
+  "hoặc": "or",
+  "Dự án {0} không có bước nào chờ bạn duyệt": "Project {0} has no step waiting for you",
+  "{0} chờ duyệt": "{0} to approve",
+  "{0} bước chờ duyệt trong các dự án": "{0} steps waiting for approval across projects",
+  "Bỏ bước {0} khỏi quy trình": "Remove step {0} from the workflow",
+  "Bỏ bước này": "Remove this step",
+  "Thêm bước vào quy trình": "Add a step to the workflow",
+  "Thêm bước": "Add a step"
 }
