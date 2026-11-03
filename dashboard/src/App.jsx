@@ -267,6 +267,11 @@ export default function App({ user, onLogout }) {
           view={view}
           projectSubTab={projectSubTab}
           onOpenDrawer={() => setDrawer(true)}
+          user={user}
+          theme={theme}
+          onToggleTheme={toggle}
+          onLogout={onLogout}
+          onProviders={() => setProviders(true)}
         />
         {view === 'board' && (
           <ProjectBoardView

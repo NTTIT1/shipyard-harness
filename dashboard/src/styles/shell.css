@@ -3,12 +3,15 @@ body { margin: 0; padding: 0; background: var(--bg); -webkit-font-smoothing: ant
 .app { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100vh }
 .sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 14px; padding: 18px 14px;
   border-right: 1px solid var(--border); background: var(--bg-subtle); overflow: hidden }
-.sb-brand { display: flex; align-items: center; gap: 10px; padding: 2px 4px; font-size: 14.5px; letter-spacing: -0.01em }
-.sb-brand-logo { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-text); flex-shrink: 0 }
-.sb-brand-info { display: flex; flex-direction: column; min-width: 0 }
-.sb-brand-name { font-size: 14.5px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; line-height: 1.2 }
-.sb-brand-sub { font-size: 9.5px; font-family: var(--mono); font-weight: 600; color: var(--text-faint); letter-spacing: .08em }
-.sb-close { display: none; margin-left: auto }
+.sb-brand { position: relative; display: flex; align-items: center; justify-content: center; padding: 6px 4px 10px; min-height: 76px }
+/* GM AI Factory logo: the artwork as is on light, its light tint on dark */
+.sb-logo { display: block; height: 68px; flex-shrink: 0 }
+.sb-logo-img { display: block; height: 100%; width: auto; user-select: none; -webkit-user-drag: none }
+.sb-logo-img.on-dark { display: none }
+:root[data-theme="dark"] .sb-logo-img.on-light, :root:not([data-theme]) .sb-logo-img.on-light { display: none }
+:root[data-theme="dark"] .sb-logo-img.on-dark, :root:not([data-theme]) .sb-logo-img.on-dark { display: block }
+
+.sb-close { display: none; position: absolute; top: 4px; right: 0 }
 .sb-assign { width: 100%; justify-content: center; flex-shrink: 0 }
 /* The nav scrolls between the fixed brand/CTA and the footer, so nothing is ever squashed. */
 .sb-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 18px;
@@ -41,7 +44,6 @@ body { margin: 0; padding: 0; background: var(--bg); -webkit-font-smoothing: ant
 .sb-sub-lane-name { flex: 1; font-family: var(--mono); font-weight: 600 }
 .sb-sub-lane-prog { font-size: 11px; color: var(--accent-text); font-weight: 600 }
 
-.sb-foot { display: flex; align-items: center; gap: 2px; padding: 10px 0 0 10px; border-top: 1px solid var(--border) }
 .main { min-width: 0; padding: 0 32px 48px; display: flex; flex-direction: column }
 .topbar { display: none }
 
@@ -125,10 +127,10 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 .ov-bar i { display: block; height: 100%; background: var(--accent) }
 .ov-head { font-size: 12px; color: var(--text-faint); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center }
 
-.sb-user-email { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--text-muted) }
 .login { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--bg); color: var(--text) }
 .login-card { width: min(380px, 100%); padding: 28px 24px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); box-shadow: var(--shadow-md) }
-.login-brand { display: flex; align-items: center; gap: 8px; font-size: 15px; margin-bottom: 18px }
+.login-brand { display: flex; align-items: center; gap: 10px; font-size: 15px; margin-bottom: 18px }
+.login-logo { height: 44px }
 .login-card h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.01em }
 .login-sub { margin: 4px 0 18px; font-size: 13px; color: var(--text-muted) }
 .login-note { margin-bottom: 12px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--warn-soft); font-size: 13px }
@@ -321,3 +323,68 @@ table.steps { width: 100%; border-collapse: collapse; font-size: 13px }
 /* A project has steps waiting for me: a dot on "Dự án", the count in the project switcher. */
 .sb-nav-dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 22%, transparent) }
 .top-dd-pending { flex-shrink: 0; min-width: 20px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; text-align: center; background: var(--warn); color: #000; font-variant-numeric: tabular-nums }
+
+/* ---- top-right corner: language · light/dark · account ---- */
+.top-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0 }
+.ta-wrap { position: relative }
+.ta-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px; padding: 0 10px; border: 1px solid var(--border);
+  border-radius: 10px; background: var(--panel); color: var(--text-muted); font: 600 12.5px var(--font); letter-spacing: .02em; cursor: pointer;
+  transition: background-color .15s var(--ease, ease-out), color .15s var(--ease, ease-out), border-color .15s var(--ease, ease-out), transform .1s ease-out;
+}
+.ta-btn:hover, .ta-btn[aria-expanded="true"] { background: var(--panel-hover); color: var(--text); border-color: var(--border-strong) }
+.ta-btn:active { transform: scale(.96) }
+.ta-btn:focus-visible, .ta-avatar-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.ta-chev { color: var(--text-faint); transition: transform .2s var(--ease, ease-out) }
+.ta-btn[aria-expanded="true"] .ta-chev { transform: rotate(180deg) }
+.ta-icon { position: relative; width: 34px; padding: 0 }
+.ta-theme svg { position: absolute; transition: opacity .2s var(--ease, ease-out), transform .3s cubic-bezier(.2, .9, .25, 1) }
+.ta-theme svg:not(.on) { opacity: 0; transform: rotate(-90deg) scale(.6) }
+.ta-theme svg.on { opacity: 1; transform: none }
+.ta-avatar-btn { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer;
+  transition: transform .1s ease-out, box-shadow .15s var(--ease, ease-out) }
+.ta-avatar-btn:hover, .ta-avatar-btn[aria-expanded="true"] { box-shadow: 0 0 0 3px var(--accent-soft) }
+.ta-avatar-btn:active { transform: scale(.94) }
+.ta-avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .02em }
+.ta-avatar.lg { width: 40px; height: 40px; font-size: 14px }
+
+/* The popover grows out of its trigger's corner and plays the same path back */
+.ta-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; min-width: 220px; padding: 6px; border: 1px solid var(--border);
+  border-radius: 14px; background: color-mix(in srgb, var(--panel) 92%, transparent); box-shadow: 0 18px 48px rgb(0 0 0 / .22), var(--shadow-sm);
+  backdrop-filter: blur(20px) saturate(170%); -webkit-backdrop-filter: blur(20px) saturate(170%);
+  transform-origin: top right; opacity: 0; transform: scale(.92) translateY(-4px);
+  transition: opacity .16s ease-out, transform .22s cubic-bezier(.2, .9, .25, 1);
+}
+.ta-pop.in { opacity: 1; transform: none }
+.ta-pop-h { padding: 6px 10px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint) }
+.ta-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 9px; background: none;
+  color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background-color .12s var(--ease, ease-out)
+}
+.ta-item:hover, .ta-item:focus-visible { background: var(--panel-hover); outline: none }
+.ta-item.on { background: var(--accent-soft) }
+.ta-item svg { flex-shrink: 0; color: var(--text-muted) }
+.ta-item-text { flex: 1; display: grid; min-width: 0; line-height: 1.25 }
+.ta-item-text b { font-size: 13.5px; font-weight: 600 }
+.ta-item-text small { font-size: 11.5px; color: var(--text-muted) }
+.ta-code { flex-shrink: 0; display: grid; place-items: center; width: 30px; height: 22px; border-radius: 6px; background: var(--bg-subtle); border: 1px solid var(--border);
+  font: 700 10.5px var(--mono); color: var(--text-muted); letter-spacing: .04em }
+.ta-item.on .ta-code { background: var(--accent-strong); border-color: var(--accent-strong); color: var(--accent-fg) }
+.ta-item .ta-check { color: var(--accent-text) }
+.ta-item.danger, .ta-item.danger svg { color: var(--danger-text) }
+.ta-item.danger:hover { background: var(--danger-soft) }
+.ta-account { min-width: 260px }
+.ta-me { display: flex; align-items: center; gap: 12px; padding: 10px 10px 8px }
+.ta-me-text { display: grid; gap: 1px; min-width: 0 }
+.ta-me-text b { font-size: 14px; font-weight: 650; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ta-me-text small { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.ta-role { justify-self: start; margin-top: 4px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--accent-soft); color: var(--accent-text) }
+.ta-sep { height: 1px; margin: 4px 6px; background: var(--border) }
+
+@media (max-width: 640px) { .ta-lang .ta-chev { display: none } .ta-pop { right: -4px } }
+@media (prefers-reduced-motion: reduce) {
+  .ta-pop { transform: none; transition: opacity .15s ease } .ta-theme svg { transition: opacity .15s ease } .ta-theme svg:not(.on) { transform: none }
+  .ta-btn:active, .ta-avatar-btn:active { transform: none }
+}
+@media (prefers-reduced-transparency: reduce) { .ta-pop { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none } }

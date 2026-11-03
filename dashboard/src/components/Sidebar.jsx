@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import {
-  Plus, Server, Settings2, Sun, Moon, X, Ship, LogOut, Inbox,
+  Plus, Server, Settings2, X, Inbox,
   FolderKanban, LayoutGrid, Users, Coins, FileText, Gauge,
   ListTodo, Layers, SlidersHorizontal, Database, Palette, MessagesSquare, FolderOpen
 } from 'lucide-react';
@@ -13,7 +13,6 @@ import { fmtAge } from '../lib/format.js';
 import { isAdmin } from '../lib/users.js';
 import { createSpring, SPRING, project, rubberband, velocityFrom, prefersReducedMotion } from '../lib/spring.js';
 import { tr } from '../lib/i18n.js';
-import LangSwitch from './ui/LangSwitch.jsx';
 
 
 function dotTone(l) {
@@ -86,17 +85,14 @@ export default function Sidebar({
         
         {/* Brand Header */}
         <div className="sb-brand">
-          <div className="sb-brand-logo">
-            <Ship size={18} strokeWidth={2} style={{ color: 'var(--accent-text)' }} aria-hidden="true" />
-          </div>
-          <div className="sb-brand-info">
-            <strong className="sb-brand-name">AI Factory</strong>
-            <span className="sb-brand-sub">SHIPYARD SYSTEM</span>
-          </div>
+          {/* GM AI Factory: the blue mark on light, a lighter tint on dark (same artwork). */}
+          <span className="sb-logo" role="img" aria-label="GM AI Factory">
+            <img src="/logo.png" alt="" className="sb-logo-img on-light" width="92" height="54" />
+            <img src="/logo-light.png" alt="" className="sb-logo-img on-dark" width="92" height="54" />
+          </span>
           <IconButton ref={closeRef} className="sb-close" icon={X} label={tr('Đóng')} onClick={onClose} />
         </div>
 
-        <Button variant="primary" icon={Plus} className="sb-assign" onClick={() => onAssign(null)}>{tr('Giao việc mới')}</Button>
 
         <div className="sb-scroll">
           {/* Daily work: what needs me, what runs. */}
@@ -173,13 +169,6 @@ export default function Sidebar({
 
         </div>
 
-        <div className="sb-foot sb-user">
-          <span className="sb-user-email" title={user?.email}>{user?.email || ''}</span>
-          <LangSwitch />
-          {!isAdmin(user) && <IconButton icon={Settings2} label={tr('Nhà cung cấp AI')} onClick={onProviders} />}
-          <IconButton icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? tr('Giao diện sáng') : tr('Giao diện tối')} onClick={onToggleTheme} />
-          {user && onLogout && <IconButton icon={LogOut} label={tr('Đăng xuất')} onClick={onLogout} />}
-        </div>
       </aside>
     </>
   );

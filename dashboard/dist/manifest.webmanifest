@@ -1,6 +1,6 @@
 {
-  "name": "Shipyard Harness Dashboard",
-  "short_name": "Shipyard",
+  "name": "GM AI Factory",
+  "short_name": "GM AI Factory",
   "description": "Watch and control the parallel feature-harness lanes.",
   "id": "/",
   "start_url": "/",

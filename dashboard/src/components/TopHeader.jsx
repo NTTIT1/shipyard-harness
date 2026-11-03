@@ -4,6 +4,7 @@ import {
   Layers
 } from 'lucide-react';
 import IconButton from './ui/IconButton.jsx';
+import TopActions from './TopActions.jsx';
 import { tr } from '../lib/i18n.js';
 
 export default function TopHeader({
@@ -12,6 +13,7 @@ export default function TopHeader({
   activeProjectId,
   onSelectProject,
   onOpenDrawer,
+  user, theme, onToggleTheme, onLogout, onProviders,
 }) {
   const [openDropdown, setOpenDropdown] = useState(false);
   const dropdownRef = useRef(null);
@@ -126,6 +128,7 @@ export default function TopHeader({
         </div>
       </div>
 
+      <TopActions user={user} theme={theme} onToggleTheme={onToggleTheme} onLogout={onLogout} onProviders={onProviders} />
     </header>
   );
 }
