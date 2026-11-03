@@ -12,7 +12,7 @@ const KIND_LABEL = { idea: 'Từ ý tưởng', template: 'Từ khung', git: 'T�
  * "Dự án" (Điều hành): create a project, and every project in one list — the ones still being shaped
  * with the AIs (drafts: open the chat where you left it) and the created ones (open their chat or settings).
  */
-export default function ProjectHubView({ projects = [], lanes = [], canScaffold, onCreate, onOpenDraft, onOpenChat, onOpenSettings }) {
+export default function ProjectHubView({ projects = [], lanes = [], pending = {}, canScaffold, onCreate, onOpenDraft, onOpenChat, onOpenSettings }) {
   const [drafts, setDrafts] = useState([]);
   const [err, setErr] = useState('');
   const load = useCallback(() => (canScaffold ? studio.list().then(l => setDrafts(l.filter(isDraft)), e => setErr(e.message)) : Promise.resolve()), [canScaffold]);
@@ -74,7 +74,7 @@ export default function ProjectHubView({ projects = [], lanes = [], canScaffold,
                 <button type="button" className="hub-main" onClick={() => onOpenChat(p.id)}>
                   <FolderKanban size={16} className="hub-icon" aria-hidden="true" />
                   <span className="hub-text">
-                    <span className="hub-name">{p.name}</span>
+                    <span className="hub-name">{p.name}{pending[p.id] > 0 && <span className="hub-pending">{tr('{0} chờ duyệt', [pending[p.id]])}</span>}</span>
                     <span className="hub-meta">{[p.description, tr('{0} lane', [laneCount(p.id)])].filter(Boolean).join(' · ')}</span>
                   </span>
                 </button>

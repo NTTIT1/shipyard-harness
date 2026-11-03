@@ -5,15 +5,15 @@ import { STEP_LABEL, ROLE_LABEL } from '../lib/review.js';
 import { fmtDur } from '../lib/format.js';
 import { tr } from '../lib/i18n.js';
 
-export default function InboxView({ items, error, onOpen }) {
+export default function InboxView({ items, error, onOpen, project }) {
   return (
     <section className="rv-page" aria-labelledby="inbox-title">
-      <h1 id="inbox-title" className="rv-h1"><Inbox size={20} strokeWidth={1.75} aria-hidden="true" />{' '}{tr('Chờ tôi duyệt')}</h1>
+      <h1 id="inbox-title" className="rv-h1"><Inbox size={20} strokeWidth={1.75} aria-hidden="true" />{' '}{tr('Chờ tôi duyệt')}{project?.name && <span className="faint"> · {project.name}</span>}</h1>
       {error && <p className="m-err">{error}</p>}
       {!error && items.length === 0 && (
         <div className="modern-empty-state">
           <div className="modern-empty-icon"><CheckCircle2 size={22} aria-hidden="true" /></div>
-          <div className="modern-empty-title">{tr('Không có bước nào chờ bạn duyệt')}</div>
+          <div className="modern-empty-title">{project?.name ? tr('Dự án {0} không có bước nào chờ bạn duyệt', [project.name]) : tr('Không có bước nào chờ bạn duyệt')}</div>
           <div className="modern-empty-desc">{tr('Khi AI làm xong một bước cần vai trò của bạn (PM, BA, Tech Lead, Designer, Tester — hoặc Owner duyệt thay), bước đó hiện ở đây. Đổi bước nào cần duyệt ở')}{' '}<b>{tr('Quy trình & duyệt')}</b>{' '}{tr('của dự án.')}</div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useLanes } from './hooks/useLanes.js';
 import { useProof } from './hooks/useProof.js';
 import { useReviews } from './hooks/useReviews.js';
@@ -7,6 +7,7 @@ import { platform } from './lib/platform.js';
 import { useTheme } from './hooks/useTheme.js';
 import { useRemembered, restoreProject, restoreView } from './hooks/useRemembered.js';
 import { laneAttention, laneInScope } from './lib/laneview.js';
+import { inboxCounts, inboxFor } from './lib/review.js';
 import { Menu as MenuIcon, Plus } from 'lucide-react';
 import Sidebar from './components/Sidebar.jsx';
 import LaneHeader from './components/LaneHeader.jsx';
@@ -67,6 +68,9 @@ export default function App({ user, onLogout }) {
   const [view, setView] = useRemembered('shipyard-view', 'board', restoreView);
   const [review, setReview] = useState(null);
   const inbox = useInbox();
+  // Approvals live under the project they belong to: the sidebar item and the list follow the open project.
+  const pending = useMemo(() => inboxCounts(inbox.items), [inbox.items]);
+  const projectInbox = useMemo(() => inboxFor(inbox.items, activeProjectId), [inbox.items, activeProjectId]);
   const openReview = useCallback(r => { setReview(r); setView('review'); }, []);
   const [docsRun, setDocsRun] = useState('');
   const openDocs = useCallback(runId => { setDocsRun(runId || ''); setView('docs'); }, []);
@@ -247,7 +251,8 @@ export default function App({ user, onLogout }) {
         onView={setView}
         projectSubTab={projectSubTab}
         onProjectSubTab={setProjectSubTab}
-        inboxCount={inbox.items.length}
+        inboxCount={projectInbox.length}
+        inboxTotal={inbox.items.length}
         open={drawer}
         onClose={() => setDrawer(false)}
         onOpen={() => setDrawer(true)}
@@ -256,6 +261,7 @@ export default function App({ user, onLogout }) {
       <main className={`main${view === 'studio' ? ' main-studio' : ''}`} id="main-content" tabIndex={-1}>
         <TopHeader
           projects={projects}
+          pending={pending}
           activeProjectId={activeProjectId}
           onSelectProject={setActiveProjectId}
           view={view}
@@ -277,9 +283,9 @@ export default function App({ user, onLogout }) {
             canScaffold={canScaffold}
           />
         )}
-        {view === 'inbox' && <InboxView items={inbox.items} error={inbox.error} onOpen={i => openReview({ runId: i.runId, approvalId: i.approvalId })} />}
+        {view === 'inbox' && <InboxView items={projectInbox} project={projects.find(p => p.id === activeProjectId)} error={inbox.error} onOpen={i => openReview({ runId: i.runId, approvalId: i.approvalId })} />}
         {view === 'review' && review && <Suspense fallback={<ViewLoading />}><ReviewView key={review.runId + (review.approvalId || '')} runId={review.runId} approvalId={review.approvalId}
-          inboxItems={inbox.items} onBack={() => setView('inbox')} onDecided={inbox.refresh} /></Suspense>}
+          inboxItems={projectInbox} onBack={() => setView('inbox')} onDecided={inbox.refresh} /></Suspense>}
         {view === 'projects' && (
           <ProjectsView
             user={user}
@@ -310,7 +316,7 @@ export default function App({ user, onLogout }) {
         )}
         {view === 'hub' && (
           <Suspense fallback={<ViewLoading />}>
-            <ProjectHubView projects={projects} lanes={lanes} canScaffold={canScaffold} onCreate={() => setCreating(true)}
+            <ProjectHubView projects={projects} lanes={lanes} pending={pending} canScaffold={canScaffold} onCreate={() => setCreating(true)}
               onOpenDraft={id => { setStudioSession(id); setView('studio'); }}
               onOpenChat={pid => { setActiveProjectId(pid); setView('chat'); }}
               onOpenSettings={pid => { setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }} />
