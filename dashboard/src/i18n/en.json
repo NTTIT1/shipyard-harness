@@ -1767,5 +1767,21 @@
   "Xoá bản nháp": "Delete draft",
   "Xoá cuộc trò chuyện": "Delete conversation",
   "Xoá nhà cung cấp": "Remove provider",
-  "Xoá ý tưởng": "Delete idea"
+  "Xoá ý tưởng": "Delete idea",
+  "Đội AI đủ vai trò": "A full AI team",
+  "PM, BA, kiến trúc sư, thiết kế, lập trình, kiểm thử": "PM, BA, architect, design, development, testing",
+  "Con người duyệt": "People approve",
+  "Ở đúng những bước bạn chọn, theo quy trình từng dự án": "At the steps you choose, per project workflow",
+  "An toàn với code": "Safe with your code",
+  "AI chỉ mở pull request — người review và merge": "AI only opens pull requests — people review and merge",
+  "Đội AI làm phần mềm cho bạn": "An AI team that builds your software",
+  "Từ ý tưởng tới pull request đã kiểm thử — nhiều tính năng chạy song song, chi phí có hạn mức.": "From an idea to a tested pull request — many features in parallel, costs within limits.",
+  "Dùng tài khoản Shipyard Platform của bạn.": "Use your Shipyard Platform account.",
+  "Caps Lock đang bật": "Caps Lock is on",
+  "Quên mật khẩu hoặc chưa có tài khoản? Liên hệ quản trị viên của hệ thống.": "Forgot your password or no account yet? Ask the system administrator.",
+  "Đăng nhập bằng Google": "Sign in with Google",
+  "Xuất bảng lương": "Payroll export",
+  "Báo cáo doanh thu": "Revenue report",
+  "Minh hoạ: ba tính năng chạy song song trên ba lane, qua các bước tới pull request": "Illustration: three features running in parallel on three lanes, through the steps to a pull request",
+  "Mỗi lane là một tính năng. Người duyệt ở các cổng bạn chọn; AI chỉ mở pull request.": "Each lane is one feature. People approve at the gates you choose; the AI only opens pull requests."
 }
