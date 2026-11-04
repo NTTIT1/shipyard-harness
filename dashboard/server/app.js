@@ -41,6 +41,9 @@ export function createApp(authOpts) {
   app.use(credsRoutes);
   const dist = path.join(__dirname, '..', 'dist');
   app.use(express.static(dist));
-  app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
+  // A missing build file (an old tab asking for a chunk a rebuild removed) is a 404, never the app page —
+  // the page then reloads itself instead of failing on HTML served as JavaScript.
+  app.get('/assets/*', (_req, res) => res.status(404).end());
+  app.get('*', (_req, res) => { res.set('Cache-Control', 'no-cache'); res.sendFile(path.join(dist, 'index.html')); });
   return app;
 }

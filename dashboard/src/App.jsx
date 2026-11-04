@@ -390,7 +390,9 @@ export default function App({ user, onLogout }) {
         </>)}
       </main>
 
+      {/* A crash inside a creation dialog shows its error here instead of blanking the whole app. */}
       {wizard && (
+        <ErrorBoundary title={tr('Không hiển thị được trình tạo dự án')} onReset={() => setWizard(false)}>
         <Suspense fallback={null}>
           <NewProjectWizard
             onClose={() => setWizard(false)}
@@ -401,12 +403,15 @@ export default function App({ user, onLogout }) {
             }}
           />
         </Suspense>
+        </ErrorBoundary>
       )}
       {creating && (
+        <ErrorBoundary title={tr('Không hiển thị được hộp tạo dự án')} onReset={() => setCreating(false)}>
         <Suspense fallback={null}>
           <CreateProjectModal onClose={() => setCreating(false)}
             onStarted={id => { setCreating(false); setStudioSession(id); setView('studio'); }} />
         </Suspense>
+        </ErrorBoundary>
       )}
       {confirm && (
         <ConfirmModal lane={confirm.lane} action={confirm.action}
