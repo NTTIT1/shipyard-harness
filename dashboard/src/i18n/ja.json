@@ -1833,5 +1833,21 @@
   "Xoá bản nháp": "下書きを削除",
   "Xoá cuộc trò chuyện": "会話を削除",
   "Xoá nhà cung cấp": "プロバイダーを削除",
-  "Xoá ý tưởng": "アイデアを削除"
+  "Xoá ý tưởng": "アイデアを削除",
+  "Đội AI đủ vai trò": "役割の揃ったAIチーム",
+  "PM, BA, kiến trúc sư, thiết kế, lập trình, kiểm thử": "PM・BA・アーキテクト・デザイン・開発・テスト",
+  "Con người duyệt": "人が承認",
+  "Ở đúng những bước bạn chọn, theo quy trình từng dự án": "プロジェクトごとのワークフローで、選んだステップで",
+  "An toàn với code": "コードに安全",
+  "AI chỉ mở pull request — người review và merge": "AIはプルリクエストを開くだけ — レビューとマージは人が",
+  "Đội AI làm phần mềm cho bạn": "あなたのソフトウェアを作るAIチーム",
+  "Từ ý tưởng tới pull request đã kiểm thử — nhiều tính năng chạy song song, chi phí có hạn mức.": "アイデアからテスト済みのプルリクエストまで — 複数機能を並行で、コストは上限内で。",
+  "Dùng tài khoản Shipyard Platform của bạn.": "Shipyard Platform のアカウントを使ってください。",
+  "Caps Lock đang bật": "Caps Lock がオンです",
+  "Quên mật khẩu hoặc chưa có tài khoản? Liên hệ quản trị viên của hệ thống.": "パスワードを忘れた、またはアカウントがない場合はシステム管理者に連絡してください。",
+  "Đăng nhập bằng Google": "Google でログイン",
+  "Xuất bảng lương": "給与明細の出力",
+  "Báo cáo doanh thu": "売上レポート",
+  "Minh hoạ: ba tính năng chạy song song trên ba lane, qua các bước tới pull request": "図解：3 つの機能が 3 つのレーンで並行して進み、各ステップを経てプルリクエストになります",
+  "Mỗi lane là một tính năng. Người duyệt ở các cổng bạn chọn; AI chỉ mở pull request.": "1 レーン = 1 機能。選んだゲートで人が承認し、AI はプルリクエストを作るだけです。"
 }

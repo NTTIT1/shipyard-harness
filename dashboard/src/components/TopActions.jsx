@@ -55,7 +55,7 @@ function usePopover() {
   return { open, shown: phase === 'open', wrap, trigger, toggle, close };
 }
 
-function LanguageMenu() {
+export function LanguageMenu() {
   const p = usePopover();
   const cur = LANGS.find(l => l.id === lang) || LANGS[0];
   return (
@@ -84,7 +84,7 @@ function LanguageMenu() {
   );
 }
 
-function ThemeToggle({ theme, onToggle }) {
+export function ThemeToggle({ theme, onToggle }) {
   const dark = theme === 'dark';
   const label = dark ? tr('Giao diện sáng') : tr('Giao diện tối');
   return (
