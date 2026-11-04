@@ -281,9 +281,16 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .wf-preset:active { transform: scale(.97) }
 
 .wf-mode { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden }
-.wf-mode label { display: inline-flex; align-items: center; padding: 4px 10px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; white-space: nowrap }
+.wf-mode label { position: relative; display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; font-size: 12.5px; color: var(--text-muted); cursor: pointer; white-space: nowrap;
+  transition: background-color .15s var(--ease, ease-out), color .15s var(--ease, ease-out) }
 .wf-mode label + label { border-left: 1px solid var(--border-strong) }
-.wf-mode label.on { background: var(--accent-soft); color: var(--text); font-weight: 600 }
+.wf-mode label:hover:not(.on):not(:has(input:disabled)) { background: var(--panel-hover); color: var(--text) }
+.wf-mode label:active:not(:has(input:disabled)) { background: var(--accent-soft) }
+/* The chosen mode reads at a glance: a solid segment with a tick, not a faint tint. */
+.wf-mode label.on { background: var(--accent-strong); color: var(--accent-fg); font-weight: 600 }
+.wf-mode label.on::before { content: '✓'; font-size: 11px; line-height: 1 }
+.wf-mode label + label.on, .wf-mode label.on + label { border-left-color: var(--accent-strong) }
+.wf-mode label:has(input:disabled) { opacity: .6 }
 .wf-mode label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px }
 .wf-mode label:has(input:disabled) { cursor: default }
 .wf-mode input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none }
