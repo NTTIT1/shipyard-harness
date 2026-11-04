@@ -74,11 +74,13 @@ export default class ErrorBoundary extends React.Component {
             </p>
           </div>
 
-          <Button
-            size="sm"
-            variant="primary"
-            icon={RotateCcw}
-            onClick={this.handleReset}>{tr('Thử lại')}</Button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button
+              size="sm"
+              variant="primary"
+              icon={RotateCcw}
+              onClick={this.props.reload ? () => window.location.reload() : this.handleReset}>{this.props.reload ? tr('Tải lại trang') : tr('Thử lại')}</Button>
+          </div>
         </div>
       );
     }
