@@ -1,3 +1,4 @@
+import { confirmDialog } from '../../lib/dialog.js';
 import React, { useState } from 'react';
 import { Check, SkipForward, RotateCcw, ArrowRight, Monitor, FileText } from 'lucide-react';
 import Button from '../ui/Button.jsx';
@@ -150,8 +151,8 @@ function DocStage({ s, stage, act, empty, children, chatOpen = true, onToggleCha
               variant="ghost"
               icon={RotateCcw}
               disabled={s?.busy}
-              onClick={act(() => {
-                if (!window.confirm(tr('Mở lại bước này? Các bước sau sẽ cần được duyệt lại.'))) return null;
+              onClick={act(async () => {
+                if (!await confirmDialog({ title: tr('Sửa lại bước này'), message: tr('Mở lại bước này? Các bước sau sẽ cần được duyệt lại.'), confirmLabel: tr('Mở lại') })) return null;
                 return studio.reopen(s.id, stage);
               })}>{tr('Sửa lại bước này')}</Button>
           </div>

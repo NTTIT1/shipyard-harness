@@ -1,3 +1,4 @@
+import { confirmDialog } from '../../lib/dialog.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Trash2, UserPlus, AlertCircle, SlidersHorizontal, Check } from 'lucide-react';
 import Button from '../ui/Button.jsx';
@@ -144,7 +145,7 @@ export default function ProjectMembersTab({ pid, canManage }) {
                             icon={Trash2}
                             aria-label={tr('Xoá thành viên')}
                             title={tr('Xoá thành viên khỏi dự án')}
-                            onClick={() => window.confirm(tr('Xoá thành viên {0} khỏi dự án?', [name]))
+                            onClick={async () => (await confirmDialog({ title: tr('Xoá thành viên'), message: tr('Xoá thành viên {0} khỏi dự án?', [name]), confirmLabel: tr('Xoá'), danger: true }))
                               && platform.removeMember(pid, r.userId).then(load, e => setErr(e.message))}
                           />
                         </div>

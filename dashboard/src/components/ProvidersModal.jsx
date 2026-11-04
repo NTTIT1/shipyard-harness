@@ -1,3 +1,4 @@
+import { confirmDialog } from '../lib/dialog.js';
 import React, { useEffect, useState } from 'react';
 import { Trash2, Plus, Check, RotateCcw } from 'lucide-react';
 import Button from './ui/Button.jsx';
@@ -48,7 +49,7 @@ export default function ProvidersModal({ lanes = [], onClose }) {
 
   const remove = async id => {
     const label = info?.providers[id]?.label || id;
-    if (!window.confirm(tr('Xoá nhà cung cấp {0}? Key đã lưu sẽ mất.', [label]))) return;
+    if (!await confirmDialog({ title: tr('Xoá nhà cung cấp'), message: tr('Xoá nhà cung cấp {0}? Key đã lưu sẽ mất.', [label]), confirmLabel: tr('Xoá'), danger: true })) return;
     try { setError(''); await saveProviders({ [id]: { remove: true } }); await load(); }
     catch (e) { setError(e.message); }
   };

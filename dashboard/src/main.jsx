@@ -9,6 +9,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import AuthGate from './components/AuthGate.jsx';
 import ErrorBoundary from './components/ui/ErrorBoundary.jsx';
+import DialogHost from './components/ui/DialogHost.jsx';
 import './index.css';
 import { lang, tr } from './lib/i18n.js';
 
@@ -30,6 +31,7 @@ window.addEventListener('load', () => { setTimeout(() => { try { sessionStorage.
 ReactDOM.createRoot(document.getElementById('root')).render(
   <ErrorBoundary title={tr('Giao diện gặp lỗi')} reload>
     <AuthGate>{auth => <App {...auth} />}</AuthGate>
+    <DialogHost />
   </ErrorBoundary>,
 );
 

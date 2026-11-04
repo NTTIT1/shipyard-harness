@@ -1,3 +1,4 @@
+import { confirmDialog } from '../lib/dialog.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, MessagesSquare, Loader2, ArrowUp, ArrowDown, X, Send } from 'lucide-react';
 import Button from './ui/Button.jsx';
@@ -112,7 +113,7 @@ export default function ProjectChatView({ pid, project }) {
                         <button type="button" className="btn btn-sm btn-ghost" aria-label={tr('Lên')} disabled={i === 0} onClick={() => saveQueue({ order: moveItem(items, i, -1).map(y => y.slug) })}><ArrowUp size={12} /></button>
                         <button type="button" className="btn btn-sm btn-ghost" aria-label={tr('Xuống')} disabled={i === items.length - 1} onClick={() => saveQueue({ order: moveItem(items, i, 1).map(y => y.slug) })}><ArrowDown size={12} /></button>
                         <button type="button" className="btn btn-sm btn-ghost" aria-label={tr('Bỏ "{0}" khỏi hàng đợi', [x.title])}
-                          onClick={() => { if (window.confirm(tr('Bỏ "{0}" khỏi hàng chờ? Tài liệu dự án sẽ ghi tính năng này là đã bỏ.', [x.title]))) saveQueue({ remove: x.slug }); }}><X size={12} /></button>
+                          onClick={async () => { if (await confirmDialog({ title: tr('Bỏ khỏi hàng chờ'), message: tr('Bỏ "{0}" khỏi hàng chờ? Tài liệu dự án sẽ ghi tính năng này là đã bỏ.', [x.title]), confirmLabel: tr('Bỏ'), danger: true })) saveQueue({ remove: x.slug }); }}><X size={12} /></button>
                       </span>
                     )}
                   </li>

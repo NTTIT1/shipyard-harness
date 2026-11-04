@@ -1,3 +1,4 @@
+import { confirmDialog } from '../lib/dialog.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, MessagesSquare, Settings2, Loader2, Trash2, FolderKanban, Lightbulb, LayoutTemplate, GitBranch } from 'lucide-react';
 import Button from './ui/Button.jsx';
@@ -24,7 +25,7 @@ export default function ProjectHubView({ projects = [], lanes = [], pending = {}
     return () => clearTimeout(t);
   }, [drafts, load]);
   const remove = async d => {
-    if (!window.confirm(tr('Xoá bản nháp "{0}"? Toàn bộ tài liệu nháp và lịch sử trao đổi sẽ bị xoá.', [d.title]))) return;
+    if (!await confirmDialog({ title: tr('Xoá bản nháp'), message: tr('Xoá bản nháp "{0}"? Toàn bộ tài liệu nháp và lịch sử trao đổi sẽ bị xoá.', [d.title]), confirmLabel: tr('Xoá'), danger: true })) return;
     try { await studio.remove(d.id); load(); } catch (e) { setErr(e.message); }
   };
   const laneCount = pid => lanes.filter(l => l.run_project_id === pid).length;
