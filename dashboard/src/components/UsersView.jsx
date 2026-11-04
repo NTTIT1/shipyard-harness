@@ -1,3 +1,4 @@
+import { confirmDialog } from '../lib/dialog.js';
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   UserPlus, KeyRound, Lock, Unlock, Users, Shield, User,
@@ -382,7 +383,7 @@ function AdminUsers({ me }) {
                             icon={Lock}
                             disabled={busy}
                             title={tr('Khoá tài khoản')}
-                            onClick={() => window.confirm(tr('Khoá tài khoản {0}? Họ sẽ không đăng nhập được nữa.', [u.email]))
+                            onClick={async () => (await confirmDialog({ title: tr('Khoá tài khoản'), message: tr('Khoá tài khoản {0}? Họ sẽ không đăng nhập được nữa.', [u.email]), confirmLabel: tr('Khoá'), danger: true }))
                               && act(() => platform.updateUser(u.id, { status: 'DISABLED' }), tr('Đã khoá {0}.', [u.email]))}>{tr('Khoá')}</Button>
                         ))}
                       </td>

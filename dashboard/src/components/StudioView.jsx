@@ -1,3 +1,4 @@
+import { confirmDialog } from '../lib/dialog.js';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, MessageSquare, Loader2, Trash2, Check, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, ArrowLeft } from 'lucide-react';
 import Button from './ui/Button.jsx';
@@ -26,7 +27,7 @@ export default function StudioView({ onOpenProject, onProjectCreated, onOpenChat
 
   const deleteIdea = useCallback(async (id, title, e) => {
     if (e) e.stopPropagation();
-    if (!window.confirm(tr('Xoá ý tưởng "{0}"? Toàn bộ tài liệu nháp và lịch sử trao đổi sẽ bị xoá.', [title || tr('này')]))) return;
+    if (!await confirmDialog({ title: tr('Xoá ý tưởng'), message: tr('Xoá ý tưởng "{0}"? Toàn bộ tài liệu nháp và lịch sử trao đổi sẽ bị xoá.', [title || tr('này')]), confirmLabel: tr('Xoá'), danger: true })) return;
     try {
       setErr('');
       await studio.remove(id);
@@ -229,7 +230,7 @@ export function Session({ s, act, onOpenProject, onOpenChat, onDeleted, readOnly
               const confirmMsg = s?.project
                 ? tr('Xoá ý tưởng "{0}" khỏi Studio? (Dự án đã tạo vẫn được giữ nguyên trong hệ thống)', [s?.title])
                 : tr('Xoá cuộc trò chuyện "{0}"? Mọi tài liệu nháp sẽ bị xoá.', [s?.title]);
-              if (!window.confirm(confirmMsg)) return null;
+              if (!await confirmDialog({ title: tr('Xoá cuộc trò chuyện'), message: confirmMsg, confirmLabel: tr('Xoá'), danger: true })) return null;
               await studio.remove(s.id);
               onDeleted();
               return null;

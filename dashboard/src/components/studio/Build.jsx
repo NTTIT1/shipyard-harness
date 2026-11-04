@@ -1,3 +1,4 @@
+import { confirmDialog } from '../../lib/dialog.js';
 import React, { useState, useEffect } from 'react';
 import { Plus, Check, Rocket, RotateCcw, ArrowLeft, AlertTriangle, ExternalLink, MessagesSquare } from 'lucide-react';
 import Button from '../ui/Button.jsx';
@@ -41,8 +42,8 @@ export default function Build({ s, act, onOpenProject, onOpenChat }) {
     await new Promise(r => setTimeout(r, 400));
     return studio.get(s.id);
   });
-  const back = act(() => {
-    if (!window.confirm(tr('Xoá bản dự án đang tạo dở và quay lại bước Tạo dự án? Tài liệu đã duyệt và quy trình vẫn giữ.'))) return null;
+  const back = act(async () => {
+    if (!await confirmDialog({ title: tr('Quay lại bước Tạo dự án'), message: tr('Xoá bản dự án đang tạo dở và quay lại bước Tạo dự án? Tài liệu đã duyệt và quy trình vẫn giữ.'), confirmLabel: tr('Quay lại'), danger: true })) return null;
     return studio.backToCreate(s.id);
   });
   const placeOf = f => {

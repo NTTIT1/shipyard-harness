@@ -1,3 +1,4 @@
+import { confirmDialog } from '../lib/dialog.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Check, Undo2, MessageSquareWarning, Ban, Pencil, Eye, GitCompare, RotateCcw } from 'lucide-react';
 import Button from './ui/Button.jsx';
@@ -101,7 +102,7 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
     const realEdits = Object.fromEntries(Object.entries(edits).filter(([k, v]) => v !== docs[k]));
     const problem = validateDecision({ action, feedback, sendBackTo, edits: realEdits, currentStep: rev.step, steps });
     if (problem) { setMsg({ tone: 'warn', text: problem }); return; }
-    if (action === 'CANCEL' && !window.confirm(tr('Huỷ cả tính năng này? AI sẽ dừng lại.'))) return;
+    if (action === 'CANCEL' && !await confirmDialog({ title: tr('Huỷ tính năng'), message: tr('Huỷ cả tính năng này? AI sẽ dừng lại.'), confirmLabel: tr('Huỷ tính năng'), cancelLabel: tr('Không'), danger: true })) return;
     setBusy(true); setMsg(null);
     try {
       const body = { action, step: rev.step, feedback: feedback.trim() || undefined };
@@ -132,9 +133,10 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
             {inboxItem?.decideAs === 'OWNER_FALLBACK' && tr(' · bạn duyệt thay với tư cách Owner')}</p>
         </div>
         <label className="rv-sub">{tr('Bản sửa đổi')}{' '}
-          <select value={revId} onChange={e => {
+          <select value={revId} onChange={async e => {
+            const next = e.target.value;
             const dirty = Object.keys(edits).some(k => edits[k] !== docs[k]);
-            if (!dirty || window.confirm(tr('Bỏ các chỗ đã sửa tay chưa gửi?'))) setRevId(e.target.value);
+            if (!dirty || await confirmDialog({ title: tr('Bỏ chỗ đã sửa'), message: tr('Bỏ các chỗ đã sửa tay chưa gửi?'), confirmLabel: tr('Bỏ'), danger: true })) setRevId(next);
           }}>
             {view.revisions.map(r => <option key={r.id} value={r.id}>{tr('{0} · bản {1} · {2}', [STEP_LABEL[r.step], r.revisionNo, r.approvalStatus || ''])}</option>)}
           </select>
