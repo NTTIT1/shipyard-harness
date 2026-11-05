@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Check, Languages, LogOut, Moon, Settings2, Sun, ChevronDown } from 'lucide-react';
+import { Check, Languages, LogOut, Moon, Sun, ChevronDown } from 'lucide-react';
 import { LANGS, lang, setLang, tr } from '../lib/i18n.js';
 import { initials, avatarColor } from '../lib/avatar.js';
 import { isAdmin } from '../lib/users.js';
@@ -96,7 +96,7 @@ export function ThemeToggle({ theme, onToggle }) {
   );
 }
 
-function AccountMenu({ user, onLogout, onProviders }) {
+function AccountMenu({ user, onLogout }) {
   const p = usePopover();
   const name = user.fullName || (user.email || '').split('@')[0];
   const admin = isAdmin(user);
@@ -117,11 +117,6 @@ function AccountMenu({ user, onLogout, onProviders }) {
             </span>
           </div>
           <div className="ta-sep" role="separator" />
-          {!admin && onProviders && (
-            <button type="button" role="menuitem" className="ta-item" onClick={() => { p.close(); onProviders(); }}>
-              <Settings2 size={15} aria-hidden="true" /><span className="ta-item-text"><b>{tr('Nhà cung cấp AI')}</b></span>
-            </button>
-          )}
           {onLogout && (
             <button type="button" role="menuitem" className="ta-item danger" onClick={() => { p.close(); onLogout(); }}>
               <LogOut size={15} aria-hidden="true" /><span className="ta-item-text"><b>{tr('Đăng xuất')}</b></span>
@@ -134,12 +129,12 @@ function AccountMenu({ user, onLogout, onProviders }) {
 }
 
 /** Top-right corner: interface language, light/dark, and the signed-in account. */
-export default function TopActions({ user, theme, onToggleTheme, onLogout, onProviders }) {
+export default function TopActions({ user, theme, onToggleTheme, onLogout }) {
   return (
     <div className="top-actions">
       <LanguageMenu />
       <ThemeToggle theme={theme} onToggle={onToggleTheme} />
-      {user && <AccountMenu user={user} onLogout={onLogout} onProviders={onProviders} />}
+      {user && <AccountMenu user={user} onLogout={onLogout} />}
     </div>
   );
 }

@@ -1849,5 +1849,9 @@
   "Xuất bảng lương": "給与明細の出力",
   "Báo cáo doanh thu": "売上レポート",
   "Minh hoạ: ba tính năng chạy song song trên ba lane, qua các bước tới pull request": "図解：3 つの機能が 3 つのレーンで並行して進み、各ステップを経てプルリクエストになります",
-  "Mỗi lane là một tính năng. Người duyệt ở các cổng bạn chọn; AI chỉ mở pull request.": "1 レーン = 1 機能。選んだゲートで人が承認し、AI はプルリクエストを作るだけです。"
+  "Mỗi lane là một tính năng. Người duyệt ở các cổng bạn chọn; AI chỉ mở pull request.": "1 レーン = 1 機能。選んだゲートで人が承認し、AI はプルリクエストを作るだけです。",
+  "Chỉ Owner, Maintainer, PM hoặc Tech Lead của dự án được giao việc hoặc nhắn cho lane": "レーンへの作業割り当てやメッセージは、プロジェクトの Owner・Maintainer・PM・Tech Lead のみが行えます",
+  "Chỉ Owner, Maintainer hoặc Tech Lead của dự án được điều khiển lane, quy trình và model AI": "レーン・パイプライン・AI モデルの操作は、プロジェクトの Owner・Maintainer・Tech Lead のみが行えます",
+  "Chỉ Owner của dự án được xem chi phí": "コストを閲覧できるのはプロジェクトの Owner のみです",
+  "Chỉ quản trị viên hệ thống được làm việc này": "この操作はシステム管理者のみが行えます"
 }

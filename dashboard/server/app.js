@@ -12,10 +12,11 @@ import { scaffoldRouter } from './routes/scaffold.js';
 import { teamRouter } from './routes/team.js';
 import { SKILL_CATALOG } from './services/scaffold/team.js';
 import { requireAuth } from './services/auth.js';
+import { accessGuard } from './services/access.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export function createApp(authOpts) {
+export function createApp(authOpts, accessOpts) {
   const app = express();
   app.use(express.json({ limit: '5mb' })); // reviewers' edited documents can be large
   app.use((req, res, next) => {
@@ -30,6 +31,8 @@ export function createApp(authOpts) {
   // Login (via Shipyard Platform) gates every data route; /auth/* and the SPA shell stay public.
   app.use(authRoutes);
   app.use(requireAuth(authOpts));
+  // Project roles (from the platform) decide every lane-scoped and install-wide action — src/lib/permissions.js.
+  app.use(accessGuard({ ...(authOpts && 'enabled' in authOpts ? { authEnabled: authOpts.enabled } : {}), ...accessOpts }));
   app.use(platformRouter());
   app.use(costsRouter());
   app.use(scaffoldRouter());

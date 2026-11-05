@@ -19,6 +19,7 @@ import { ROLE_LABEL } from '../lib/review.js';
 import { useWorkflowLanes } from '../hooks/useRunViews.js';
 import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
 import { tr } from '../lib/i18n.js';
+import { allowed } from '../lib/permissions.js';
 
 
 const SECTION_LABEL = {
@@ -252,7 +253,8 @@ export default function ProjectsView({
           {tab === 'members' && <ProjectMembersTab key={project.id} pid={project.id} canManage={canManage} />}
           {tab === 'gates' && <ProjectGatesTab key={project.id} pid={project.id} canManage={canManage} />}
           {tab === 'team' && <TeamPanel key={project.id} pid={project.id} onOpenRun={onOpenRun} />}
-          {tab === 'runs' && <ProjectRunsTab key={project.id} pid={project.id} onOpenRun={onOpenRun} />}
+          {tab === 'runs' && <ProjectRunsTab key={project.id} pid={project.id} onOpenRun={onOpenRun}
+            canEdit={!user || allowed(user, roles, 'manage')} />}
           {tab === 'memory' && <ProjectMemoryView key={project.id} projectId={project.id} canManage={canManage} />}
         </div>
       ) : (

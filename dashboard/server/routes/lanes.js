@@ -3,10 +3,11 @@ import { lanesPayload } from '../services/state.js';
 import { runAction, laneProjects } from '../services/actions.js';
 import { brief } from '../services/sessions.js';
 import { aggregate, readAllUsage, readSettings } from '../services/usage.js';
+import { scopeLanes } from '../services/access.js';
 
 const router = Router();
 
-router.get('/api/lanes', async (_req, res) => {
+router.get('/api/lanes', async (req, res) => {
   try {
     const payload = await lanesPayload();
     const settings = readSettings();
@@ -33,9 +34,10 @@ router.get('/api/lanes', async (_req, res) => {
       byProject: costAgg.byProject,
     };
 
-    res.json(payload);
+    // Only the caller's projects' lanes, each saying what they may do on it (src/lib/permissions.js).
+    res.json(req.access ? await scopeLanes(payload, req) : payload);
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    res.status(e.status || 500).json({ ok: false, error: e.message });
   }
 });
 

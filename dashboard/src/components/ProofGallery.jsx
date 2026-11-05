@@ -75,7 +75,7 @@ export default function ProofGallery({ proof, selectedLane, selectedSlug, onSele
           <Ticket size={13} strokeWidth={1.75} aria-hidden="true" />{' '}{tr('task report')}{' '}<ExternalLink size={11} strokeWidth={1.75} aria-hidden="true" />
         </a>
       )}
-      {hasShots && (
+      {hasShots && onCleanup && (
         <Button size="sm" variant={cleanup ? 'primary' : 'secondary'} icon={cleanup ? Check : Eraser}
           onClick={() => setCleanup(c => !c)} title={tr('toggle screenshot cleanup mode')}>
           {cleanup ? 'done' : 'clean up'}

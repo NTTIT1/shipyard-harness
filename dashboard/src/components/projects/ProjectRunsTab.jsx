@@ -7,8 +7,9 @@ import { platform } from '../../lib/platform.js';
 import { fetchProviders, saveFeatureModels } from '../../lib/api.js';
 import { STEP_LABEL, runProgress } from '../../lib/review.js';
 import { tr } from '../../lib/i18n.js';
+import { why } from '../../lib/permissions.js';
 
-export default function ProjectRunsTab({ pid, onOpenRun }) {
+export default function ProjectRunsTab({ pid, onOpenRun, canEdit = true }) {
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [providersData, setProvidersData] = useState(null);
@@ -58,6 +59,7 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
         models: stepModels,
         impl_agents,
         effort,
+        scope_project: pid,
       });
       if (titleAlias && titleAlias !== key) {
         await saveFeatureModels({
@@ -65,6 +67,7 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
           models: stepModels,
           impl_agents,
           effort,
+          scope_project: pid,
         });
       }
       await loadAll();
@@ -80,9 +83,9 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
   const handleReset = async (key, titleAlias = '') => {
     setSaving(true);
     try {
-      await saveFeatureModels({ key, reset: true });
+      await saveFeatureModels({ key, reset: true, scope_project: pid });
       if (titleAlias && titleAlias !== key) {
-        await saveFeatureModels({ key: titleAlias, reset: true });
+        await saveFeatureModels({ key: titleAlias, reset: true, scope_project: pid });
       }
       await loadAll();
       setEditingKey(null);
@@ -102,7 +105,8 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
         </div>
       )}
 
-      <div className="pj-invite-bar">
+      {!canEdit && <p className="hint u-m0">{why('manage')}</p>}
+      {canEdit && <div className="pj-invite-bar">
         <div className="pj-invite-label">
           <Cpu size={16} style={{ color: 'var(--accent-text)' }} />
           <span>{tr('Cấu hình trước Model cho tính năng mới:')}</span>
@@ -126,7 +130,7 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
             openEditor(k, k);
             setNewKey('');
           }}>{tr('Chọn Model')}</Button>
-      </div>
+      </div>}
 
       {editingKey && !runs.some(r => r.id === editingKey) && (
         <div className="card-panel" style={{ padding: 16 }}>
@@ -134,9 +138,9 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
             <strong style={{ fontSize: 13 }}>{tr('Cấu hình Model cho tính năng:')}{' '}<span className="mono">{editingKey}</span></strong>
             <div style={{ display: 'flex', gap: 6 }}>
               <Button size="sm" variant="ghost" onClick={() => setEditingKey(null)}>{tr('Đóng')}</Button>
-              <Button size="sm" variant="primary" icon={Save} disabled={saving} onClick={() => handleSave(editingKey, editingKey)}>
+              {canEdit && <Button size="sm" variant="primary" icon={Save} disabled={saving} onClick={() => handleSave(editingKey, editingKey)}>
                 {saving ? tr('Đang lưu…') : tr('Lưu Model cho tính năng')}
-              </Button>
+              </Button>}
             </div>
           </div>
           {providersData && featForm && (
@@ -208,12 +212,12 @@ export default function ProjectRunsTab({ pid, onOpenRun }) {
                             <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{tr('Ghi đè model của từng bước (PM, BA, Arch, Dev, Review, QC...) khi chạy tính năng này.')}</div>
                           </div>
                           <div style={{ display: 'flex', gap: 6 }}>
-                            {customCfg && (
+                            {canEdit && customCfg && (
                               <Button size="sm" variant="ghost" icon={RotateCcw} disabled={saving} onClick={() => handleReset(r.id, r.title)}>{tr('Xoá cấu hình riêng')}</Button>
                             )}
-                            <Button size="sm" variant="primary" icon={Save} disabled={saving} onClick={() => handleSave(r.id, r.title)}>
+                            {canEdit && <Button size="sm" variant="primary" icon={Save} disabled={saving} onClick={() => handleSave(r.id, r.title)}>
                               {saving ? tr('Đang lưu…') : tr('Lưu cấu hình')}
-                            </Button>
+                            </Button>}
                           </div>
                         </div>
                         <StepModels info={providersData} value={featForm} onChange={setFeatForm} />

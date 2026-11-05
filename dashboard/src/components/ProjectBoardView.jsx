@@ -163,9 +163,9 @@ export default function ProjectBoardView({
           {canScaffold && (
             <Button variant="secondary" icon={Wand2} onClick={onOpenWizard}>{tr('Tạo dự án')}</Button>
           )}
-          <Button variant="secondary" icon={Server} onClick={onAddLane}>{tr('Thêm lane')}</Button>
+          {onAddLane && <Button variant="secondary" icon={Server} onClick={onAddLane}>{tr('Thêm lane')}</Button>}
           {/* The sidebar carries this action on wide screens; phones only see it here. */}
-          <Button variant="primary" icon={Plus} className="pb-cta-narrow" onClick={() => onAssign(null)}>{tr('Giao việc mới')}</Button>
+          {onAssign && <Button variant="primary" icon={Plus} className="pb-cta-narrow" onClick={() => onAssign(null)}>{tr('Giao việc mới')}</Button>}
         </div>
       </header>
 
@@ -353,7 +353,7 @@ export default function ProjectBoardView({
               ) : (
                 <div className="pb-empty-lanes">
                   <span>{tr('Dự án này chưa có Lane nào đang chạy tính năng.')}</span>
-                  <Button size="sm" variant="secondary" icon={Plus} onClick={() => onAssign(null)}>{tr('Giao việc vào Lane')}</Button>
+                  {onAssign && <Button size="sm" variant="secondary" icon={Plus} onClick={() => onAssign(null)}>{tr('Giao việc vào Lane')}</Button>}
                 </div>
               )}
             </div>

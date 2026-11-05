@@ -163,7 +163,7 @@ export default function Sidebar({
                 </button>
               );
             })}
-            <Button variant="ghost" size="sm" icon={Plus} onClick={onAddLane} style={{ marginTop: 4 }}>{tr('Thêm lane')}</Button>
+            {onAddLane && <Button variant="ghost" size="sm" icon={Plus} onClick={onAddLane} style={{ marginTop: 4 }}>{tr('Thêm lane')}</Button>}
           </div>
         )}
 

@@ -12,14 +12,17 @@ import { primaryActions, laneStatus } from '../lib/laneview.js';
 import { prNum } from '../lib/format.js';
 import { stopSession, resumeSession } from '../lib/api.js';
 import { tr } from '../lib/i18n.js';
+import { canLane } from '../lib/permissions.js';
 
 
 export default function LaneHeader({ lane, projectName, archived, onBackToBoard, onAction, onCreds, onAssign, onTab, onReview, onDocs }) {
   const [err, setErr] = useState('');
   const [pipeline, setPipeline] = useState(false);
   const run = fn => async () => { setErr(''); try { await fn(); } catch (e) { setErr(e.message); } };
-  const acts = primaryActions(lane, { archived });
   const n = lane.lane;
+  // Only what the caller's project roles allow (the server refuses the rest anyway).
+  const NEED = { approve: 'work', stop: 'manage', resume: 'manage', assign: 'work' };
+  const acts = primaryActions(lane, { archived }).filter(a => canLane(lane, NEED[a] || 'manage'));
   const BTN = {
     approve: <Button key="approve" variant="primary" icon={Check} onClick={() => onTab('chat')}>{tr('Duyệt spec')}</Button>,
     stop: <Button key="stop" icon={Square} onClick={run(() => stopSession(n))}>{tr('Dừng')}</Button>,
@@ -27,15 +30,15 @@ export default function LaneHeader({ lane, projectName, archived, onBackToBoard,
     assign: <Button key="assign" variant="primary" icon={Plus} onClick={() => onAssign(n)}>{tr('Giao việc')}</Button>,
   };
   const menu = [
-    { label: tr('Quy trình của lane'), icon: GitMerge, onSelect: () => setPipeline(true) },
-    { label: tr('Bật stack (up)'), icon: Power, onSelect: () => onAction(n, 'up') },
-    { label: tr('Tắt stack (down)'), icon: PowerOff, onSelect: () => onAction(n, 'down') },
-    { label: tr('Xoá trạng thái (clear)'), icon: Eraser, onSelect: () => onAction(n, 'clear') },
-    { label: tr('Cài lại agents'), icon: RefreshCcw, onSelect: () => onCreds(n, 'agents') },
-    { label: tr('Tài khoản (creds)'), icon: KeyRound, onSelect: () => onCreds(n, 'creds') },
-    { label: tr('Reset lane'), icon: RotateCcw, danger: true, onSelect: () => onAction(n, 'reset') },
-    { label: tr('Xoá lane'), icon: Trash2, danger: true, onSelect: () => onAction(n, 'remove') },
-  ];
+    { need: 'manage', label: tr('Quy trình của lane'), icon: GitMerge, onSelect: () => setPipeline(true) },
+    { need: 'manage', label: tr('Bật stack (up)'), icon: Power, onSelect: () => onAction(n, 'up') },
+    { need: 'manage', label: tr('Tắt stack (down)'), icon: PowerOff, onSelect: () => onAction(n, 'down') },
+    { need: 'manage', label: tr('Xoá trạng thái (clear)'), icon: Eraser, onSelect: () => onAction(n, 'clear') },
+    { need: 'credentials', label: tr('Cài lại agents'), icon: RefreshCcw, onSelect: () => onCreds(n, 'agents') },
+    { need: 'credentials', label: tr('Tài khoản (creds)'), icon: KeyRound, onSelect: () => onCreds(n, 'creds') },
+    { need: 'manage', label: tr('Reset lane'), icon: RotateCcw, danger: true, onSelect: () => onAction(n, 'reset') },
+    { need: 'manage', label: tr('Xoá lane'), icon: Trash2, danger: true, onSelect: () => onAction(n, 'remove') },
+  ].filter(m => canLane(lane, m.need)).map(({ need, ...m }) => m);
   const waitingReview = !archived && !!lane.run_id && lane.status === 'waiting';
   const branch = lane.git_branch || lane.branch || '';
   return (
@@ -80,7 +83,7 @@ export default function LaneHeader({ lane, projectName, archived, onBackToBoard,
         {waitingReview && onReview && <Button variant="primary" icon={ClipboardCheck} onClick={onReview}>{tr('Mở màn hình duyệt')}</Button>}
         {!archived && lane.run_id && onDocs && <Button variant="ghost" icon={FileText} onClick={onDocs}>{tr('Tài liệu')}</Button>}
         {acts.map(a => BTN[a])}
-        {!archived && <Menu items={menu} label={tr('Thao tác lane {0}', [n])} />}
+        {!archived && menu.length > 0 && <Menu items={menu} label={tr('Thao tác lane {0}', [n])} />}
       </div>
     </header>
   );
