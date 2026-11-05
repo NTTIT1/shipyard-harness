@@ -7,6 +7,7 @@ import proofRoutes from './routes/proof.js';
 import credsRoutes from './routes/creds.js';
 import authRoutes from './routes/auth.js';
 import { platformRouter } from './routes/platform.js';
+import { releasesRouter } from './routes/releases.js';
 import { costsRouter } from './routes/costs.js';
 import { scaffoldRouter } from './routes/scaffold.js';
 import { teamRouter } from './routes/team.js';
@@ -37,6 +38,7 @@ export function createApp(authOpts, accessOpts) {
   app.use(costsRouter());
   app.use(scaffoldRouter());
   app.use(teamRouter({ skillCatalog: SKILL_CATALOG }));
+  app.use(releasesRouter());
   // agentui first: its POST /api/lane/:n/assign would otherwise hit lanes' /:action.
   app.use(agentuiRoutes);
   app.use(lanesRoutes);

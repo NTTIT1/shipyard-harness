@@ -11,6 +11,7 @@ import TeamPanel from './TeamPanel.jsx';
 import DeleteProjectButton from './DeleteProjectButton.jsx';
 import ProjectMembersTab from './projects/ProjectMembersTab.jsx';
 import ProjectOverview from './projects/ProjectOverview.jsx';
+import ProjectReleasesTab from './projects/ProjectReleasesTab.jsx';
 import ProjectGatesTab from './projects/ProjectGatesTab.jsx';
 import ProjectRunsTab from './projects/ProjectRunsTab.jsx';
 import BlueprintStatus from './projects/BlueprintStatus.jsx';
@@ -25,7 +26,7 @@ import { allowed } from '../lib/permissions.js';
 
 const SECTION_LABEL = {
   overview: tr('Tổng quan dự án'), members: tr('Thành viên'), gates: tr('Quy trình & duyệt'), runs: tr('Tính năng & model AI'),
-  memory: tr('Bộ nhớ dự án'), team: tr('Kỹ năng AI & khung'),
+  memory: tr('Bộ nhớ dự án'), team: tr('Kỹ năng AI & khung'), releases: tr('Phát hành'),
 };
 
 export default function ProjectsView({
@@ -249,6 +250,7 @@ export default function ProjectsView({
           {tab === 'team' && <TeamPanel key={project.id} pid={project.id} onOpenRun={onOpenRun} />}
           {tab === 'runs' && <ProjectRunsTab key={project.id} pid={project.id} onOpenRun={onOpenRun}
             canEdit={!user || allowed(user, roles, 'manage')} />}
+          {tab === 'releases' && <ProjectReleasesTab key={project.id} pid={project.id} />}
           {tab === 'memory' && <ProjectMemoryView key={project.id} projectId={project.id} canManage={canManage} />}
         </div>
       ) : (
