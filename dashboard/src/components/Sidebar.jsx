@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useMe
 import {
   Plus, Server, Settings2, X, Inbox,
   FolderKanban, LayoutGrid, Users, Coins, FileText, Gauge,
-  ListTodo, Layers, SlidersHorizontal, Database, Palette, MessagesSquare, FolderOpen
+  ListTodo, Layers, SlidersHorizontal, Database, Palette, MessagesSquare, FolderOpen, Rocket
 } from 'lucide-react';
 import Button from './ui/Button.jsx';
 import IconButton from './ui/IconButton.jsx';
@@ -123,6 +123,7 @@ export default function Sidebar({
               <NavItem icon={Users} label={tr('Thành viên')} active={view === 'projects' && projectSubTab === 'members'} onClick={() => handleNav('projects', 'members')} />
               <NavItem icon={SlidersHorizontal} label={tr('Quy trình & duyệt')} active={view === 'projects' && projectSubTab === 'gates'} onClick={() => handleNav('projects', 'gates')} />
               <NavItem icon={Layers} label={tr('Tính năng & model AI')} active={view === 'projects' && projectSubTab === 'runs'} onClick={() => handleNav('projects', 'runs')} />
+              <NavItem icon={Rocket} label={tr('Phát hành')} active={view === 'projects' && projectSubTab === 'releases'} onClick={() => handleNav('projects', 'releases')} />
               <NavItem icon={MessagesSquare} label={tr('Chat dự án')} active={view === 'chat'} onClick={() => handleNav('chat')} />
               {/* The open project's lanes only: a lane of another project never shows here. */}
               <NavItem icon={ListTodo} label={tr('Lanes')} active={view === 'lanes'} onClick={() => handleNav('lanes')}

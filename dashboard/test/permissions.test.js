@@ -15,6 +15,9 @@ describe('permission table', () => {
       work: ['OWNER', 'MAINTAINER', 'PM', 'TECH_LEAD'],
       manage: ['OWNER', 'MAINTAINER', 'TECH_LEAD'],
       costs: ['OWNER'],
+      release: ['OWNER', 'MAINTAINER', 'TECH_LEAD'],
+      'release-verify': ['OWNER', 'MAINTAINER', 'PM', 'TESTER'],
+      'release-prod': ['OWNER', 'MAINTAINER'],
     };
     for (const [action, who] of Object.entries(expected)) {
       for (const r of ROLES) expect(allowed(user, [r], action), `${r} ${action}`).toBe(who.includes(r));
@@ -34,7 +37,7 @@ describe('permission table', () => {
     }
   });
   it('a lane carries its capabilities; the UI reads them, an older payload falls back to allowed', () => {
-    expect(capabilities(user, ['PM'])).toEqual({ view: true, work: true, manage: false, costs: false });
+    expect(capabilities(user, ['PM'])).toEqual({ view: true, work: true, manage: false, costs: false, release: false, 'release-verify': true, 'release-prod': false });
     expect(canLane({ can: { manage: false } }, 'manage')).toBe(false);
     expect(canLane({}, 'manage')).toBe(true);
   });

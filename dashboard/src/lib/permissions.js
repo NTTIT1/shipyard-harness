@@ -11,6 +11,9 @@ export const PROJECT_ACTIONS = {
   work: ['OWNER', 'MAINTAINER', 'PM', 'TECH_LEAD'],      // give a lane a feature, chat with it, order its queue
   manage: ['OWNER', 'MAINTAINER', 'TECH_LEAD'],          // stop/resume/reset a lane, its pipeline and AI models
   costs: ['OWNER'],                                       // what the project's lanes cost
+  release: ['OWNER', 'MAINTAINER', 'TECH_LEAD'],          // cut a release, send it to UAT / test environments
+  'release-verify': ['OWNER', 'MAINTAINER', 'PM', 'TESTER'], // confirm (or reject) a release on UAT
+  'release-prod': ['OWNER', 'MAINTAINER'],                // send a confirmed release to production, release settings
 };
 
 /** Install-wide actions: only a system administrator. */
@@ -48,4 +51,7 @@ export const why = action => ({
   work: tr('Chỉ Owner, Maintainer, PM hoặc Tech Lead của dự án được giao việc hoặc nhắn cho lane'),
   manage: tr('Chỉ Owner, Maintainer hoặc Tech Lead của dự án được điều khiển lane, quy trình và model AI'),
   costs: tr('Chỉ Owner của dự án được xem chi phí'),
+  release: tr('Chỉ Owner, Maintainer hoặc Tech Lead của dự án được tạo bản phát hành và đưa lên UAT'),
+  'release-verify': tr('Chỉ Owner, Maintainer, PM hoặc Tester của dự án được xác nhận bản phát hành trên UAT'),
+  'release-prod': tr('Chỉ Owner hoặc Maintainer của dự án được phát hành lên Production'),
 }[action] || tr('Chỉ quản trị viên hệ thống được làm việc này'));

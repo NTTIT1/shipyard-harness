@@ -550,3 +550,40 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .po-empty { margin: 0; font-size: 13px; color: var(--text-faint) }
 @media (max-width: 900px) { .po-cols { grid-template-columns: minmax(0, 1fr) } }
 @media (prefers-reduced-motion: reduce) { .po-row { transition: none } }
+
+/* Phát hành (releases) */
+.rl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px }
+.rl-envs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: env }
+.rl-envs li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-subtle); font-size: 13px; min-width: 0 }
+.rl-envs li + li::before { content: '→'; margin-right: 2px; color: var(--text-faint) }
+.rl-env-name { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--text) }
+.rl-envs code, .rl-meta code { font-size: 12px; color: var(--text-muted) }
+.rl-link { display: inline-flex; align-items: center; gap: 3px; font-size: 12.5px; color: var(--accent-text, var(--accent)); text-decoration: none; overflow-wrap: anywhere }
+.rl-link:hover { text-decoration: underline }
+.rl-pick { display: grid; gap: 4px; margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px }
+.rl-pick legend { padding: 0 4px; font-size: 12px; color: var(--text-muted) }
+.rl-check { display: flex; align-items: center; gap: 8px; min-height: 32px; font-size: 13.5px; cursor: pointer }
+.rl-check span:first-of-type { flex: 1; min-width: 0 }
+.rl-form { display: grid; grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); gap: 12px }
+.rl-field { display: grid; gap: 4px; font-size: 12.5px; color: var(--text-muted); min-width: 0 }
+.rl-field input, .rl-field textarea, .rl-note { box-sizing: border-box; width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: 13.5px }
+.rl-field textarea { resize: vertical; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12.5px }
+.rl-field input[aria-invalid="true"] { border-color: var(--danger) }
+.rl-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.rl-list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none }
+.rl-item { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-subtle); min-width: 0 }
+.rl-item-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px }
+.rl-version { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; font-variant-numeric: tabular-nums }
+.rl-meta { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-faint); overflow-wrap: anywhere }
+.rl-features { margin: 0; font-size: 13px; color: var(--text-muted) }
+.rl-stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none }
+.rl-stage { display: grid; gap: 6px; align-content: start; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); min-width: 0 }
+.rl-stage-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px }
+.rl-stage-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px }
+.rl-note { flex: 1 1 140px; min-width: 0; padding: 5px 8px; font-size: 12.5px }
+.rl-more summary { cursor: pointer; font-size: 12.5px; color: var(--text-muted) }
+.rl-history { margin: 8px 0; padding-left: 16px; font-size: 12.5px; color: var(--text-muted) }
+.rl-settings { display: grid; gap: 10px }
+.rl-env-edit { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px }
+.rl-env-edit legend { padding: 0 4px; font-size: 12px; font-weight: 600; color: var(--text-muted) }
+@media (max-width: 640px) { .rl-form { grid-template-columns: 1fr } }
