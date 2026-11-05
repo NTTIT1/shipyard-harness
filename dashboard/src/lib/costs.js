@@ -1,7 +1,7 @@
 import { tr } from './i18n.js';
 // Formatting + labels for the Costs screen.
-export const PHASE_LABEL = { PM: 'PM', BA: 'BA', ARCH: tr('Kiến trúc'), DESIGN: tr('Thiết kế UI'), DEV: tr('Lập trình'), TEST: tr('Kiểm thử'), ORCH: tr('Điều phối') };
-export const PHASE_ORDER = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST', 'ORCH'];
+export const PHASE_LABEL = { PM: 'PM', BA: 'BA', ARCH: tr('Kiến trúc'), DESIGN: tr('Thiết kế UI'), DEV: tr('Lập trình'), SECURITY: tr('Bảo mật'), TEST: tr('Kiểm thử'), ORCH: tr('Điều phối') };
+export const PHASE_ORDER = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST', 'ORCH'];
 export const ROLE_LABEL = { PM: 'PM', BA: 'BA', TECH_LEAD: tr('Kiến trúc sư'), DESIGNER: 'Designer', DEVELOPER: tr('Lập trình viên'), TESTER: 'Tester' };
 export const EFFORT_LABEL = { low: tr('Thấp'), medium: tr('Trung bình'), high: 'Cao', xhigh: tr('Rất cao'), max: tr('Tối đa') };
 

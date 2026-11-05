@@ -39,11 +39,12 @@ export const PHASE_WORK = {
   ARCH: [[tr('AI Kiến trúc sư'), tr('plan.md, tasks.md, entities.json; quyết định có giao diện hay không')], [tr('AI phản biện plan'), tr('soi lỗ hổng của kế hoạch')]],
   DESIGN: [[tr('AI Thiết kế'), tr('mockup HTML + ảnh desktop/mobile, design.md')]],
   DEV: [['Code', tr('phiên chính của lane hoặc OpenHands trong hộp kín')], ['CI + e2e', tr('build, test, kiểm tra trước khi đẩy')], ['AI review code', tr('soát lỗi trước khi duyệt')]],
+  SECURITY: [[tr('Quét tự động'), tr('bí mật trong code, gitleaks, semgrep, thư viện có lỗ hổng (công cụ nào có trên máy)')], [tr('AI Bảo mật'), tr('rà soát diff theo OWASP Top 10 và phân quyền, viết security-report.md')]],
   TEST: [['AI Tester', tr('qc-plan.md + chạy test tự động')], [tr('QC trên trình duyệt'), tr('chụp ảnh bằng chứng')]],
 };
 
 /** Phase → the model step id the lane resolves (Giao việc / lane defaults use the same ids). */
-export const PHASE_MODEL_STEP = { PM: 'pm', BA: 'ba', ARCH: 'arch', DESIGN: 'design', DEV: 'dev', TEST: 'test' };
+export const PHASE_MODEL_STEP = { PM: 'pm', BA: 'ba', ARCH: 'arch', DESIGN: 'design', DEV: 'dev', SECURITY: 'security', TEST: 'test' };
 
 const fmtVnd = n => `${Number(n).toLocaleString('vi-VN')} ₫`;
 const shortModel = m => (m ? m.replace(/^claude:/, '').replace(/^openhands:/, 'OpenHands · ') : '');
@@ -111,6 +112,8 @@ export function suggestedConfigs(info) {
       ARCH: { model: m(sonnet), timeoutMinutes: 45, maxRetries: 1, onFailure: 'RETRY' },
       DESIGN: { model: g, timeoutMinutes: 30, condition: 'HAS_UI' },
       DEV: {},
+      // Reading code for vulnerabilities needs a strong reasoner: Claude even in the token-saving split.
+      SECURITY: { model: m(sonnet), timeoutMinutes: 30, maxRetries: 1, onFailure: 'RETRY' },
       TEST: { model: g, timeoutMinutes: 30, maxRetries: 2, onFailure: 'RETRY', condition: 'PREV_PASSED' },
     };
   }
@@ -120,6 +123,7 @@ export function suggestedConfigs(info) {
     ARCH: { model: m(strong), timeoutMinutes: 45, maxRetries: 1, onFailure: 'RETRY' },
     DESIGN: { model: m(strong), timeoutMinutes: 45, condition: 'HAS_UI' },
     DEV: {},
+    SECURITY: { model: m(strong), timeoutMinutes: 30, maxRetries: 1, onFailure: 'RETRY' },
     TEST: { model: m(cheap), timeoutMinutes: 60, maxRetries: 2, onFailure: 'RETRY', condition: 'PREV_PASSED' },
   };
 }

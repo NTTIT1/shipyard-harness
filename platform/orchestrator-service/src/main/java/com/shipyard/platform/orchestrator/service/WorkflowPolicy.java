@@ -85,6 +85,7 @@ public class WorkflowPolicy {
             modes.put(s, parseMode(s, w.mode()));
             bodyMap.put(s, w);
         }
+        order = Workflow.withSecurity(order);
         Workflow.validateOrder(order);
         Map<Step, GatePolicy> rows = new EnumMap<>(Step.class);
         policies.findByProjectId(projectId).forEach(p -> rows.put(p.step, p));
@@ -92,7 +93,9 @@ public class WorkflowPolicy {
         for (int i = 0; i < order.size(); i++) {
             Step s = order.get(i);
             GatePolicy p = rows.getOrDefault(s, new GatePolicy(projectId, s, GateMode.REQUIRED));
-            p.mode = modes.get(s);
+            // A step the client did not send (SECURITY from an older client) keeps its mode, else REQUIRED.
+            if (modes.containsKey(s)) p.mode = modes.get(s);
+            else if (p.mode == null) p.mode = GateMode.REQUIRED;
             p.position = i;
             WorkflowStep stepBody = bodyMap.get(s);
             if (stepBody != null) {

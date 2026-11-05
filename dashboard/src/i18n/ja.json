@@ -1874,5 +1874,14 @@
   "Không có lane nào hỏi, bị chặn hay có PR chờ gộp.": "質問中・ブロック中・マージ待ち PR のレーンはありません。",
   "Tính năng gần đây": "最近の機能",
   "Dự án chưa có tính năng nào. Giao việc cho một lane hoặc thêm tính năng trong Chat dự án.": "まだ機能がありません。レーンに作業を割り当てるか、プロジェクトチャットで機能を追加してください。",
-  "PR chờ gộp": "マージ待ち PR"
+  "PR chờ gộp": "マージ待ち PR",
+  "Bảo mật": "セキュリティ",
+  "BA → Kiến trúc → Thiết kế UI → PM chốt phạm vi → Code → Bảo mật → Test, bước nào cũng có người duyệt.": "BA → アーキテクチャ → UI デザイン → PM が範囲確定 → コード → セキュリティ → テスト、全ステップを人が承認。",
+  "PM → BA → Plan → Thiết kế UI → Code → Bảo mật → Test, bước nào cũng có người duyệt.": "PM → BA → 計画 → UI デザイン → コード → セキュリティ → テスト、全ステップを人が承認。",
+  "Quy trình phải có đủ {0} bước.": "ワークフローには {0} ステップすべてが必要です。",
+  "Bảo mật phải đứng sau Lập trình.": "セキュリティは実装の後に置く必要があります。",
+  "Quét tự động": "自動スキャン",
+  "bí mật trong code, gitleaks, semgrep, thư viện có lỗ hổng (công cụ nào có trên máy)": "コード内の秘密情報、gitleaks、semgrep、脆弱なライブラリ（このマシンにあるツールのみ）",
+  "AI Bảo mật": "AI セキュリティ",
+  "rà soát diff theo OWASP Top 10 và phân quyền, viết security-report.md": "OWASP Top 10 と権限の観点で差分をレビューし、security-report.md を作成"
 }

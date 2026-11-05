@@ -12,7 +12,7 @@ declared). Shape: {"brief": "...", "architecture": "...", "design": "...", "mock
 
   project_docs.py <lane_dir> <step> [profile_dir]   prints the section (nothing when there are no docs)
 
-step: pm | ba | arch | design | dev | test | qc  (sub-steps map to these; unknown -> nothing)
+step: pm | ba | arch | design | dev | security | test | qc  (sub-steps map to these; unknown -> nothing)
 """
 import html
 import json
@@ -87,6 +87,11 @@ HOW = {
         "— bố cục, chữ, màu, khoảng cách, trạng thái, nhãn tiếng Việt; lấy token màu/font từ `docs/design/design.md`.",
         "Code theo module, mô hình dữ liệu, API và cấu trúc thư mục trong `docs/architecture.md`; hành vi theo `docs/product-brief.md`.",
         "Không tự đổi thiết kế hay phạm vi; chỗ buộc phải khác thì ghi lý do trong mô tả PR.",
+    ],
+    "security": [
+        "Đối chiếu phân quyền: ai được làm gì theo vai trò người dùng trong `docs/product-brief.md` và mô hình dữ liệu/API trong `docs/architecture.md`; "
+        "endpoint hay màn hình nào cho phép nhiều hơn tài liệu đã duyệt là phát hiện cần báo.",
+        "Dữ liệu nhạy cảm (thông tin cá nhân, lương, mật khẩu, token) theo `docs/product-brief.md` không được lộ ra log, API hay giao diện ngoài người được phép.",
     ],
     "test": [
         "Ca kiểm thử bao gồm: hành vi đúng `docs/product-brief.md`, và giao diện khớp mockup đã duyệt trong `docs/design/mockups/` (bố cục, nhãn, trạng thái).",

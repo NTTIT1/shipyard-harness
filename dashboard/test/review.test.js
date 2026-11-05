@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, STEP_LABEL, runSteps, runProgress, moveStep, moveTo, workflowProblem, WORKFLOW_PRESETS } from '../src/lib/review.js';
+import { validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, STEP_LABEL, runSteps, runProgress, moveStep, moveTo, workflowProblem, WORKFLOW_PRESETS, withSecurity, presetById } from '../src/lib/review.js';
 
 const steps = [
   { step: 'PM', status: 'APPROVED' }, { step: 'BA', status: 'APPROVED' }, { step: 'ARCH', status: 'APPROVED' },
@@ -98,12 +98,12 @@ describe('configurable workflow', () => {
   });
   it('measures progress on the frozen workflow', () => {
     expect(runProgress({ status: 'RUNNING', currentStep: 'ARCH', workflow: ['ARCH', 'DEV'] })).toBe(50);
-    expect(runProgress({ status: 'RUNNING', currentStep: 'PM' })).toBe(17);
+    expect(runProgress({ status: 'RUNNING', currentStep: 'PM' })).toBe(14);
     expect(runProgress({ status: 'DONE' })).toBe(100);
   });
-  const wf = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'].map(step => ({ step, mode: 'REQUIRED' }));
+  const wf = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST'].map(step => ({ step, mode: 'REQUIRED' }));
   it('moves only document steps, and only among themselves', () => {
-    expect(moveStep(wf, 'ARCH', -1).map(w => w.step)).toEqual(['PM', 'ARCH', 'BA', 'DESIGN', 'DEV', 'TEST']);
+    expect(moveStep(wf, 'ARCH', -1).map(w => w.step)).toEqual(['PM', 'ARCH', 'BA', 'DESIGN', 'DEV', 'SECURITY', 'TEST']);
     expect(moveStep(wf, 'DESIGN', 1)).toBe(wf);
     expect(moveStep(wf, 'DEV', -1)).toBe(wf);
     expect(moveStep(wf, 'PM', -1)).toBe(wf);
@@ -111,23 +111,35 @@ describe('configurable workflow', () => {
   it('validates like the orchestrator', () => {
     expect(workflowProblem(wf)).toBe('');
     expect(workflowProblem(wf.map(w => (w.step === 'DEV' ? { ...w, mode: 'SKIP' } : w)))).toMatch(/Lập trình/);
-    expect(workflowProblem([...wf.slice(0, 3), wf[4], wf[3], wf[5]])).toMatch(/trước Lập trình/);
-    expect(workflowProblem(wf.slice(1))).toMatch(/6 bước/);
+    expect(workflowProblem([...wf.slice(0, 3), wf[4], wf[3], wf[5], wf[6]])).toMatch(/trước Lập trình/);
+    expect(workflowProblem([...wf.slice(0, 4), wf[5], wf[4], wf[6]])).toMatch(/Bảo mật phải đứng sau/);
+    expect(workflowProblem(wf.slice(1))).toMatch(/7 bước/);
   });
 });
 
 describe('drag & drop and presets', () => {
-  const wf = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'].map(step => ({ step, mode: 'REQUIRED' }));
+  const wf = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST'].map(step => ({ step, mode: 'REQUIRED' }));
   it('drops a document step anywhere in the head, never past DEV', () => {
-    expect(moveTo(wf, 'ARCH', 0).map(w => w.step)).toEqual(['ARCH', 'PM', 'BA', 'DESIGN', 'DEV', 'TEST']);
-    expect(moveTo(wf, 'PM', 9).map(w => w.step)).toEqual(['BA', 'ARCH', 'DESIGN', 'PM', 'DEV', 'TEST']);
+    expect(moveTo(wf, 'ARCH', 0).map(w => w.step)).toEqual(['ARCH', 'PM', 'BA', 'DESIGN', 'DEV', 'SECURITY', 'TEST']);
+    expect(moveTo(wf, 'PM', 9).map(w => w.step)).toEqual(['BA', 'ARCH', 'DESIGN', 'PM', 'DEV', 'SECURITY', 'TEST']);
     expect(moveTo(wf, 'DEV', 0)).toBe(wf);
     expect(moveTo(wf, 'BA', 1)).toBe(wf);
   });
-  it('every preset is a valid workflow; Plan → Code → Test auto-runs code and test', () => {
+  it('every preset is a valid workflow; Plan → Code → Test auto-runs code, security review and test', () => {
     for (const p of WORKFLOW_PRESETS) expect(workflowProblem(p.steps), p.id).toBe('');
     const pct = WORKFLOW_PRESETS.find(p => p.id === 'plan-code-test').steps.filter(w => w.mode !== 'SKIP');
-    expect(pct).toEqual([{ step: 'ARCH', mode: 'REQUIRED' }, { step: 'DEV', mode: 'AUTO' }, { step: 'TEST', mode: 'AUTO' }]);
+    expect(pct).toEqual([{ step: 'ARCH', mode: 'REQUIRED' }, { step: 'DEV', mode: 'AUTO' }, { step: 'SECURITY', mode: 'AUTO' }, { step: 'TEST', mode: 'AUTO' }]);
+    for (const id of ['enterprise', 'full']) {
+      expect(presetById(id).steps.find(w => w.step === 'SECURITY').mode, id).toBe('REQUIRED');
+    }
+  });
+  it('a six-step workflow from before the security review gets it right after Lập trình', () => {
+    const old = ['ARCH', 'PM', 'BA', 'DESIGN', 'DEV', 'TEST'].map(step => ({ step, mode: 'AUTO' }));
+    const w = withSecurity(old);
+    expect(w.map(x => x.step)).toEqual(['ARCH', 'PM', 'BA', 'DESIGN', 'DEV', 'SECURITY', 'TEST']);
+    expect(w.find(x => x.step === 'SECURITY').mode).toBe('REQUIRED');
+    expect(workflowProblem(w)).toBe('');
+    expect(withSecurity(w)).toBe(w);
   });
 });
 
@@ -143,14 +155,14 @@ describe('approvals per project', () => {
 });
 
 describe('adding and removing workflow steps', () => {
-  it('adds PM back to Plan → Code → Test in front of Plan, keeps the 6 steps valid', async () => {
+  it('adds PM back to Plan → Code → Test in front of Plan, keeps the 7 steps valid', async () => {
     const { addStep, removeStep, workflowProblem, presetById } = await import('../src/lib/review.js');
     const pct = presetById('plan-code-test').steps;
     const withPm = addStep(pct, 'PM');
-    expect(withPm.filter(w => w.mode !== 'SKIP').map(w => w.step)).toEqual(['PM', 'ARCH', 'DEV', 'TEST']);
+    expect(withPm.filter(w => w.mode !== 'SKIP').map(w => w.step)).toEqual(['PM', 'ARCH', 'DEV', 'SECURITY', 'TEST']);
     expect(workflowProblem(withPm)).toBe('');
     const withDesign = addStep(withPm, 'DESIGN');
-    expect(withDesign.filter(w => w.mode !== 'SKIP').map(w => w.step)).toEqual(['PM', 'ARCH', 'DESIGN', 'DEV', 'TEST']);
+    expect(withDesign.filter(w => w.mode !== 'SKIP').map(w => w.step)).toEqual(['PM', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST']);
     const noTest = removeStep(withDesign, 'TEST');
     expect(noTest.find(w => w.step === 'TEST').mode).toBe('SKIP');
     expect(removeStep(noTest, 'DEV')).toBe(noTest);

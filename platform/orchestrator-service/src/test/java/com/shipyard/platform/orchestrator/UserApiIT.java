@@ -172,7 +172,7 @@ class UserApiIT extends OrchestratorIT {
     @Test
     void gatePolicyOnlyOwnerOrMaintainerMayChange() {
         Map<String, String> policy = data(user("usr_ba", HttpMethod.GET, "/api/v1/projects/" + P + "/gate-policy", null));
-        assertThat(policy).hasSize(6).containsEntry("BA", "REQUIRED").doesNotContainKey("MANAGER");
+        assertThat(policy).hasSize(7).containsEntry("BA", "REQUIRED").containsEntry("SECURITY", "REQUIRED").doesNotContainKey("MANAGER");
         assertThat(user("usr_owner", HttpMethod.PUT, "/api/v1/projects/" + P + "/gate-policy", Map.of("MANAGER", "AUTO"))
                 .getStatusCode().value()).isEqualTo(400);
         assertThat(user("usr_ba", HttpMethod.PUT, "/api/v1/projects/" + P + "/gate-policy", Map.of("BA", "AUTO"))
@@ -189,7 +189,7 @@ class UserApiIT extends OrchestratorIT {
     void projectWorkflowReordersAndLeavesStepsOutForNewRuns() {
         String url = "/api/v1/projects/" + P + "/workflow";
         List<Map<String, Object>> wf = data(user("usr_ba", HttpMethod.GET, url, null));
-        assertThat(wf).extracting(m -> m.get("step")).containsExactly("PM", "BA", "ARCH", "DESIGN", "DEV", "TEST");
+        assertThat(wf).extracting(m -> m.get("step")).containsExactly("PM", "BA", "ARCH", "DESIGN", "DEV", "SECURITY", "TEST");
         List<Map<String, String>> body = List.of(
                 Map.of("step", "ARCH", "mode", "REQUIRED"), Map.of("step", "PM", "mode", "AUTO"),
                 Map.of("step", "BA", "mode", "SKIP"), Map.of("step", "DESIGN", "mode", "SKIP"),
@@ -197,22 +197,24 @@ class UserApiIT extends OrchestratorIT {
         assertThat(user("usr_ba", HttpMethod.PUT, url, body).getStatusCode().value()).isEqualTo(403);
         assertThat(user("usr_owner", HttpMethod.PUT, url, body).getStatusCode().value()).isEqualTo(200);
         wf = data(user("usr_ba", HttpMethod.GET, url, null));
-        assertThat(wf).extracting(m -> m.get("step")).containsExactly("ARCH", "PM", "BA", "DESIGN", "DEV", "TEST");
+        // a client from before SECURITY sends six steps: it is kept, right after DEV, and still reviewed by a person
+        assertThat(wf).extracting(m -> m.get("step")).containsExactly("ARCH", "PM", "BA", "DESIGN", "DEV", "SECURITY", "TEST");
+        assertThat(wf.get(5)).containsEntry("mode", "REQUIRED").containsEntry("approverRole", "TECH_LEAD");
         assertThat(wf.get(2)).containsEntry("mode", "SKIP");
         // the legacy gate-policy API keeps the order
         user("usr_owner", HttpMethod.PUT, "/api/v1/projects/" + P + "/gate-policy", Map.of("TEST", "AUTO"));
         wf = data(user("usr_ba", HttpMethod.GET, url, null));
         assertThat(wf.get(0)).containsEntry("step", "ARCH");
-        assertThat(wf.get(5)).containsEntry("mode", "AUTO");
+        assertThat(wf.get(6)).containsEntry("mode", "AUTO");
 
         ResponseEntity<Map> r = internal(HttpMethod.POST, "/internal/v1/runs", Map.of(
                 "projectId", P, "laneRef", "host:lane3", "title", "Kho", "description", "", "createdBy", "usr_owner"));
         Map<String, Object> run = data(r);
         assertThat(run.get("currentStep")).isEqualTo("ARCH");
-        assertThat((List<String>) run.get("workflow")).containsExactly("ARCH", "PM", "BA", "DESIGN", "DEV", "TEST");
+        assertThat((List<String>) run.get("workflow")).containsExactly("ARCH", "PM", "BA", "DESIGN", "DEV", "SECURITY", "TEST");
         Map<String, Object> view = data(user("usr_ba", HttpMethod.GET, "/api/v1/runs/" + run.get("id"), null));
         List<Map<String, Object>> steps = (List<Map<String, Object>>) view.get("steps");
-        assertThat(steps).extracting(m -> m.get("step")).containsExactly("ARCH", "PM", "BA", "DESIGN", "DEV", "TEST");
+        assertThat(steps).extracting(m -> m.get("step")).containsExactly("ARCH", "PM", "BA", "DESIGN", "DEV", "SECURITY", "TEST");
         assertThat(steps.get(2)).containsEntry("status", "SKIPPED").containsEntry("skipReason", "workflow");
 
         // a feature (lane) may still bring back a left-out step, or leave another one out
