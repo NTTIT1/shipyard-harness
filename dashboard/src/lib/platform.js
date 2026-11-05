@@ -40,5 +40,7 @@ export const platform = {
   updateUser: (id, patch) => data(call('PATCH', `auth/admin/users/${id}`, patch)),
   resetPassword: (id, password) => call('POST', `auth/admin/users/${id}/password`, { password }),
   changeMyPassword: (currentPassword, newPassword) => call('POST', 'auth/me/password', { currentPassword, newPassword }),
+  memoryGraph: (pid, { q: text, type, limit } = {}) => data(call('GET', `projects/${pid}/memory/graph?${q({ q: text, type, limit })}`)),
+  memoryRelated: (pid, type, key) => data(call('GET', `projects/${pid}/memory/graph/related?${q({ type, key })}`)),
   setMemoryDisabled: (pid, itemId, disabled) => data(call('PATCH', `projects/${pid}/memory/${itemId}`, { disabled })),
 };

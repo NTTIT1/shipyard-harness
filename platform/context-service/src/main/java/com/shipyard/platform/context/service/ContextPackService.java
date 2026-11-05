@@ -40,7 +40,9 @@ public class ContextPackService {
         SearchResult lessons = search.search(new SearchRequest(req.projectId(), q, List.of("FEEDBACK", "HUMAN_EDIT"), null, 6, null));
         SearchResult related = search.search(new SearchRequest(req.projectId(), q,
                 List.of("FEATURE_SUMMARY", "DECISION", "ARTIFACT"), null, 6, req.runId()));
-        boolean degraded = lessons.degraded() || related.degraded();
+        // The repo's own documents and its code map (dashboard → Bản đồ mã nguồn & tài liệu), when built.
+        SearchResult repo = search.search(new SearchRequest(req.projectId(), q, List.of("DOC", "CODE_MAP"), null, 4, null));
+        boolean degraded = lessons.degraded() || related.degraded() || repo.degraded();
         if (degraded) md.append("> ⚠ Semantic search is unavailable (embedding service down) — keyword and graph results only.\n\n");
 
         int perSection = Math.max(2000, (BUDGET_CHARS) / 2);
@@ -49,6 +51,10 @@ public class ContextPackService {
         section(md, lessons.hits(), perSection, items, "_No lessons recorded yet._");
         md.append("## 3. Related past features & decisions\n\n");
         section(md, related.hits(), perSection, items, "_Nothing related found._");
+        if (!repo.hits().isEmpty()) {
+            md.append("## 4. Project documents & code map (from the repo — check against the code before relying on them)\n\n");
+            section(md, repo.hits(), Math.max(1500, BUDGET_CHARS / 4), items, "");
+        }
         return new Pack(md.toString(), items, degraded);
     }
 
