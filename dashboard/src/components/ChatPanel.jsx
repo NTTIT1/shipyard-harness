@@ -6,6 +6,7 @@ import StepModels from './StepModels.jsx';
 import LaneQuotaPanel from './quota/LaneQuotaPanel.jsx';
 import { sendChat, answerChat, fetchProviders, saveLaneModels } from '../lib/api.js';
 import { tr } from '../lib/i18n.js';
+import { canLane, why } from '../lib/permissions.js';
 
 // Shown when the lane is blocked (typically a step failed on its provider): edit the
 // feature's step models, save, and tell the session to continue.
@@ -109,7 +110,10 @@ export default function ChatPanel({ lane }) {
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [events.length]);
 
   const pending = [...events].reverse().find(e => (e.kind === 'question' || e.kind === 'permission'));
-  const pendingId = status.pending_kind && pending ? pending.id : null;
+  // Viewers follow the chat; only roles that may work the lane answer or write to it.
+  const canWork = canLane(lane, 'work');
+  const canManage = canLane(lane, 'manage');
+  const pendingId = canWork && status.pending_kind && pending ? pending.id : null;
   const act = fn => async (...a) => { setError(''); try { await fn(...a); } catch (e) { setError(e.message); } };
   const answer = act(payload => answerChat(n, pendingId, payload));
   const send = act(async t => { await sendChat(n, t); setText(''); });
@@ -129,7 +133,7 @@ export default function ChatPanel({ lane }) {
       <div className="chat-log" ref={logRef}>
         {events.map((ev, i) => <Event key={`${i}-${ev.seq}`} ev={ev} pendingId={pendingId} onAnswer={answer} />)}
       </div>
-      {awaitingSpec && (
+      {awaitingSpec && canWork && (
         <div className="chat-approve">{tr('Spec/plan/tasks đã sẵn sàng')}{lane.spec_dir ? <> — <a href={`/spec/${n}/${lane.spec_dir}/spec.md`} target="_blank" rel="noreferrer">spec</a> · <a href={`/spec/${n}/${lane.spec_dir}/plan.md`} target="_blank" rel="noreferrer">plan</a> · <a href={`/spec/${n}/${lane.spec_dir}/tasks.md`} target="_blank" rel="noreferrer">tasks</a></> : null}
           {' '}<Button variant="primary" size="sm" icon={Check} onClick={() => send('ok')}>{tr('Duyệt')}</Button>
           <span className="hint">{tr('hoặc gõ yêu cầu sửa bên dưới')}</span>
@@ -137,13 +141,14 @@ export default function ChatPanel({ lane }) {
       )}
       {blocked && !changing && (
         <div className="chat-approve">
-          <OctagonX size={14} strokeWidth={1.75} aria-hidden="true" /> {lane.notes || tr('lane bị chặn')} <Button size="sm" onClick={() => setChanging(true)}>{tr('Đổi model bước này')}</Button>
+          <OctagonX size={14} strokeWidth={1.75} aria-hidden="true" /> {lane.notes || tr('lane bị chặn')} {canManage && <Button size="sm" onClick={() => setChanging(true)}>{tr('Đổi model bước này')}</Button>}
         </div>
       )}
       {blocked && changing && <ChangeModels lane={lane} onDone={() => setChanging(false)} />}
       {held && <LaneQuotaPanel n={n} refreshKey={`${quotaEvents}-${lane.quota_hold?.at}`} onChangeModel={() => setChangingModel(v => !v)} />}
       {held && changingModel && <ChangeModels lane={lane} quota onDone={() => setChangingModel(false)} />}
-      {status.session_running && !held && (
+      {status.session_running && !held && !canWork && <p className="hint chat-readonly">{why('work')}</p>}
+      {status.session_running && !held && canWork && (
         <div className="chat-input">
           <textarea rows={2} value={text} placeholder={tr('Nhắn cho lane…')} onChange={e => setText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && text.trim()) { e.preventDefault(); send(text.trim()); } }} />

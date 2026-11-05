@@ -7,11 +7,13 @@ import { STEPS, STEP_LABEL } from '../lib/review.js';
 import { platform } from '../lib/platform.js';
 import { workflowModels } from '../lib/workflow.js';
 import { tr } from '../lib/i18n.js';
+import { canLane } from '../lib/permissions.js';
 
 const isFree = l => !l.session_running && ['idle', 'down', '', undefined].includes(l.status);
 
 export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
-  const free = lanes.filter(isFree);
+  // Only free lanes the caller may give work to (their project role; the server checks it again).
+  const free = lanes.filter(l => isFree(l) && canLane(l, 'work'));
   const [lane, setLane] = useState(initialLane ?? free[0]?.lane ?? null);
   const [mode, setMode] = useState('new');
   const [text, setText] = useState('');
@@ -105,9 +107,9 @@ export default function AssignModal({ lanes, initialLane, onClose, onDone }) {
             <div className="am-adv-body">
               <div className="am-adv-row">
                 <span className="m-l" style={{ margin: 0 }}>{tr('AI từng bước')}</span>
-                <label className="am-check">
+                {canLane(lanes.find(l => l.lane === lane), 'manage') && <label className="am-check">
                   <input type="checkbox" checked={saveAsLaneDef} onChange={e => setSaveAsLaneDef(e.target.checked)} />{tr('Lưu làm mặc định riêng cho Lane {0}', [lane])}
-                </label>
+                </label>}
               </div>
               {info && models && <StepModels info={info} value={models} onChange={setModels} />}
               <div className="m-l" style={{ marginTop: 14 }}>{tr('Quy trình')}</div>

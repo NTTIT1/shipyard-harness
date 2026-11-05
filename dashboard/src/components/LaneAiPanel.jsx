@@ -10,6 +10,7 @@ import {
 } from '../lib/api.js';
 import { fmtVnd, fmtTokens, fmtUsd, sumTokens } from '../lib/costs.js';
 import { tr } from '../lib/i18n.js';
+import { canLane, why } from '../lib/permissions.js';
 
 function pctTone(pct) {
   if (pct >= 90) return 'danger';
@@ -29,6 +30,10 @@ function QuotaBar({ pct, tone }) {
 
 export default function LaneAiPanel({ lane, onUpdated }) {
   const n = lane.lane;
+  // Costs are the project OWNER's, model changes the lane managers', the lane's quota the admin's.
+  const canCosts = canLane(lane, 'costs');
+  const canManage = canLane(lane, 'manage');
+  const canQuota = canLane(lane, 'quota');
   const [info, setInfo] = useState(null);
   const [usage, setUsage] = useState(null);
   const [mode, setMode] = useState('lane-default'); // 'lane-default' | 'feature'
@@ -44,7 +49,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
 
   const load = useCallback(async () => {
     try {
-      const [prov, u] = await Promise.all([fetchProviders(), fetchLaneUsage(n)]);
+      const [prov, u] = await Promise.all([fetchProviders(), canCosts ? fetchLaneUsage(n) : Promise.resolve({})]);
       setInfo(prov);
       setUsage(u);
       const customLane = (prov.lane_defaults || {})[String(n)];
@@ -67,7 +72,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
     } catch (e) {
       setMsg({ ok: '', err: e.message });
     }
-  }, [n, featKey, currentFeatKey, lane.models, lane.effort, lane.impl_agents]);
+  }, [n, canCosts, featKey, currentFeatKey, lane.models, lane.effort, lane.impl_agents]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -123,7 +128,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
       if (featKey === currentFeatKey) {
         await saveLaneModels(n, stepModels, effort, { impl_agents, featureKey: featKey });
       } else {
-        await saveFeatureModels({ key: featKey, models: stepModels, effort, impl_agents });
+        await saveFeatureModels({ key: featKey, models: stepModels, effort, impl_agents, scope_lane: n });
       }
       if (resumeBlocked) {
         await sendChat(n, 'continue — models for the failed step were changed on the dashboard; re-run that step');
@@ -180,6 +185,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
       )}
 
       {/* 1. Per-Lane Quota %, Token & Cost Summary */}
+      {canCosts && (<>
       <div className="stats-grid">
         <div className="stat-card">
           <div className={`stat-icon ${pctTone(lu.quotaPct)}`}><Gauge size={18} /></div>
@@ -234,7 +240,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
           </div>
         </div>
         <div className="card-body">
-          <form onSubmit={saveLimit} style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+          {canQuota && <form onSubmit={saveLimit} style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <div className="form-field" style={{ minWidth: 180 }}>
               <label className="form-label">{tr('Hạn mức ngân sách Lane {0} (USD)', [n])}</label>
               <input
@@ -258,7 +264,7 @@ export default function LaneAiPanel({ lane, onUpdated }) {
               />
             </div>
             <Button type="submit" variant="secondary" icon={Save} disabled={busy}>{tr('Lưu hạn mức Lane {0}', [n])}</Button>
-          </form>
+          </form>}
 
           {/* Per-Model usage on this lane */}
           {usage.byModel && usage.byModel.length > 0 && (
@@ -302,6 +308,8 @@ export default function LaneAiPanel({ lane, onUpdated }) {
         </div>
       </div>
 
+      </>)}
+
       {/* 2. Per-Lane vs Per-Feature AI Model Configuration */}
       <div className="card-panel">
         <div className="card-header">
@@ -327,13 +335,14 @@ export default function LaneAiPanel({ lane, onUpdated }) {
             <div className="stack-12">
               <p className="rv-sub u-m0">{tr('Thiết lập bộ Model AI & mức Effort riêng cho')}{' '}<b>Lane {n}</b>{tr('. Mỗi bước (PM, BA, Kiến trúc, Thiết kế, Code, Kiểm thử…) trên Lane {0} có thể chạy một model khác hẳn các lane khác.', [n])}</p>
               <StepModels info={info} value={laneDef} onChange={setLaneDef} />
-              <div className="row-wrap-8 u-mt4">
+              {!canManage && <p className="hint u-m0">{why('manage')}</p>}
+              {canManage && <div className="row-wrap-8 u-mt4">
                 <Button variant="primary" icon={Save} disabled={busy} onClick={saveLaneDefault}>{tr('Lưu cấu hình riêng cho Lane {0}', [n])}
                 </Button>
                 {hasCustomLane && (
                   <Button variant="ghost" icon={RotateCcw} disabled={busy} onClick={resetLaneDefault}>{tr('Đặt lại theo mặc định chung')}</Button>
                 )}
-              </div>
+              </div>}
             </div>
           )}
 
@@ -355,12 +364,13 @@ export default function LaneAiPanel({ lane, onUpdated }) {
               </div>
               <p className="rv-sub u-m0">{tr('Cấu hình model bên dưới chỉ áp dụng riêng cho tính năng đã chọn (ưu tiên cao hơn cấu hình của Lane {0} và mặc định chung).', [n])}</p>
               <StepModels info={info} value={featModels} onChange={setFeatModels} />
-              <div className="row-wrap-8 u-mt4">
+              {!canManage && <p className="hint u-m0">{why('manage')}</p>}
+              {canManage && <div className="row-wrap-8 u-mt4">
                 <Button variant="primary" icon={Save} disabled={busy} onClick={() => saveForFeature(false)}>{tr('Lưu model cho tính năng này')}</Button>
                 {lane.status === 'blocked' && featKey === currentFeatKey && (
                   <Button variant="secondary" disabled={busy} onClick={() => saveForFeature(true)}>{tr('Lưu & tiếp tục chạy bước đang dừng')}</Button>
                 )}
-              </div>
+              </div>}
             </div>
           )}
         </div>

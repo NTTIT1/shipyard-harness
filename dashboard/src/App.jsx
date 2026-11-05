@@ -36,6 +36,8 @@ import ViewLoading from './components/ui/ViewLoading.jsx';
 import TopHeader from './components/TopHeader.jsx';
 import ErrorBoundary from './components/ui/ErrorBoundary.jsx';
 import { tr } from './lib/i18n.js';
+import { isAdmin } from './lib/users.js';
+import { canLane } from './lib/permissions.js';
 
 // Screens most sessions never open load on demand (separate chunks).
 const ReviewView = lazy(() => import('./components/ReviewView.jsx'));
@@ -93,6 +95,11 @@ export default function App({ user, onLogout }) {
   const lanes = data?.lanes || [];
   const config = data?.config || {};
   const canScaffold = !user || user.role === 'SYS_ADMIN';
+  // What the caller's roles allow (the server enforces it; src/lib/permissions.js): adding lanes is the
+  // administrator's, giving work needs a lane the caller may work on.
+  const admin = data?.is_admin ?? (!user || isAdmin(user));
+  const openAddLane = admin ? () => setAddLane(true) : null;
+  const openAssign = lanes.some(l => canLane(l, 'work')) ? n => setAssign(n) : null;
 
   // auto-select first running lane within active project scope
   useEffect(() => {
@@ -240,8 +247,8 @@ export default function App({ user, onLogout }) {
         projectCosts={data?.project_costs}
         selected={selectedLane}
         onSelect={setSelectedLane}
-        onAssign={n => setAssign(n)}
-        onAddLane={() => setAddLane(true)}
+        onAssign={openAssign}
+        onAddLane={openAddLane}
         onProviders={() => setProviders(true)}
         theme={theme}
         onToggleTheme={toggle}
@@ -282,8 +289,8 @@ export default function App({ user, onLogout }) {
             onSelectProject={setActiveProjectId}
             onSelectLane={n => { setSelectedLane(n); setView('lanes'); }}
             onOpenProjectSettings={pid => { setActiveProjectId(pid); setView('projects'); }}
-            onAssign={n => setAssign(n)}
-            onAddLane={() => setAddLane(true)}
+            onAssign={openAssign}
+            onAddLane={openAddLane}
             onOpenWizard={() => setCreating(true)}
             canScaffold={canScaffold}
           />
@@ -343,11 +350,11 @@ export default function App({ user, onLogout }) {
             {activeProjectId && activeProjectId !== 'ALL' ? (<>
               <h1>{tr('{0} chưa có lane nào', [projects.find(p => p.id === activeProjectId)?.name || tr('Dự án này')])}</h1>
               <p>{tr('Thêm một lane cho dự án: lane tự nhận lần lượt các tính năng đang chờ trong hàng chờ của dự án.')}</p>
-              <Button variant="primary" icon={Plus} onClick={() => setAddLane(true)}>{tr('Thêm lane cho dự án này')}</Button>
+              {openAddLane && <Button variant="primary" icon={Plus} onClick={openAddLane}>{tr('Thêm lane cho dự án này')}</Button>}
             </>) : (<>
               <h1>{tr('Chưa có lane nào')}</h1>
               <p>{tr('Thêm lane để bắt đầu, rồi giao việc cho nó.')}</p>
-              <Button variant="primary" icon={Plus} onClick={() => setAddLane(true)}>{tr('Thêm lane')}</Button>
+              {openAddLane && <Button variant="primary" icon={Plus} onClick={openAddLane}>{tr('Thêm lane')}</Button>}
             </>)}
           </div>
         ) : (
@@ -361,7 +368,7 @@ export default function App({ user, onLogout }) {
               onCreds={handleCreds}
               onReview={() => openReview({ runId: selectedLaneData.run_id })}
               onDocs={() => openDocs(selectedLaneData.run_id)}
-              onAssign={n => setAssign(n)}
+              onAssign={openAssign}
               onTab={setTab}
             />
             {selectedLaneData.mode === 'pr-review' ? (
@@ -380,7 +387,8 @@ export default function App({ user, onLogout }) {
                   {tab === 'chat' && !viewingPast && <ChatPanel key={selectedLane} lane={selectedLaneData} />}
                   {tab === 'ai' && <LaneAiPanel key={selectedLane} lane={headLane} onUpdated={refreshNow} />}
                   {tab === 'proof' && <ProofGallery proof={proof} selectedLane={selectedLane} selectedSlug={selectedSlug}
-                    onSelectFeature={selectFeature} onShot={openShot} onGallery={openGallery} onCleanup={handleCleanup} />}
+                    onSelectFeature={selectFeature} onShot={openShot} onGallery={openGallery}
+                    onCleanup={canLane(selectedLaneData, 'manage') ? handleCleanup : null} />}
                   {tab === 'spec' && <SpecLinks lane={headLane} />}
                 </div>
               </>

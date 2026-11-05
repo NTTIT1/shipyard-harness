@@ -1783,5 +1783,9 @@
   "Xuất bảng lương": "Payroll export",
   "Báo cáo doanh thu": "Revenue report",
   "Minh hoạ: ba tính năng chạy song song trên ba lane, qua các bước tới pull request": "Illustration: three features running in parallel on three lanes, through the steps to a pull request",
-  "Mỗi lane là một tính năng. Người duyệt ở các cổng bạn chọn; AI chỉ mở pull request.": "Each lane is one feature. People approve at the gates you choose; the AI only opens pull requests."
+  "Mỗi lane là một tính năng. Người duyệt ở các cổng bạn chọn; AI chỉ mở pull request.": "Each lane is one feature. People approve at the gates you choose; the AI only opens pull requests.",
+  "Chỉ Owner, Maintainer, PM hoặc Tech Lead của dự án được giao việc hoặc nhắn cho lane": "Only the project's Owner, Maintainer, PM or Tech Lead can give work to or message a lane",
+  "Chỉ Owner, Maintainer hoặc Tech Lead của dự án được điều khiển lane, quy trình và model AI": "Only the project's Owner, Maintainer or Tech Lead can control lanes, the pipeline and AI models",
+  "Chỉ Owner của dự án được xem chi phí": "Only the project's Owner can see costs",
+  "Chỉ quản trị viên hệ thống được làm việc này": "Only a system administrator can do this"
 }
