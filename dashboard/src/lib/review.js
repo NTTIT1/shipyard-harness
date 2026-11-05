@@ -1,7 +1,7 @@
 import { tr } from './i18n.js';
 // Pure helpers for the review screen (unit-tested; mirrors orchestrator rules, spec §3.2).
-export const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
-export const STEP_LABEL = { PM: tr('PM — Yêu cầu'), BA: tr('BA — Nghiệp vụ'), ARCH: tr('Plan — Kiến trúc'), DESIGN: tr('Thiết kế UI'), DEV: tr('Lập trình'), TEST: tr('Kiểm thử'),
+export const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST'];
+export const STEP_LABEL = { PM: tr('PM — Yêu cầu'), BA: tr('BA — Nghiệp vụ'), ARCH: tr('Plan — Kiến trúc'), DESIGN: tr('Thiết kế UI'), DEV: tr('Lập trình'), SECURITY: tr('Bảo mật'), TEST: tr('Kiểm thử'),
   MANAGER: tr('Luật dự án (AI Manager)'), BLUEPRINT: tr('Kiến trúc dự án (trước khi tạo khung)') };
 
 /**
@@ -32,7 +32,7 @@ export const GATE_MODES = [
   { id: 'SKIP', label: tr('Bỏ bước') },
 ];
 
-/** Steps that may be reordered (they feed DEV); DEV then TEST always close the workflow. */
+/** Steps that may be reordered (they feed DEV); DEV, then SECURITY and TEST, always close the workflow. */
 export const MOVABLE = ['PM', 'BA', 'ARCH', 'DESIGN'];
 
 /** Moves a step to `target` inside the movable head of the workflow (drag & drop); returns a new list. */
@@ -49,24 +49,35 @@ export function moveTo(workflow, step, target) {
 }
 
 const wf = (...pairs) => pairs.map(([step, mode]) => ({ step, mode }));
+
+/**
+ * A workflow from before the security review (saved earlier, or written by the studio's AI) has six
+ * steps: SECURITY goes right after DEV, needing a person (mirrors the orchestrator's withSecurity).
+ */
+export function withSecurity(workflow) {
+  if (!Array.isArray(workflow) || workflow.some(w => w.step === 'SECURITY')) return workflow;
+  const dev = workflow.findIndex(w => w.step === 'DEV');
+  if (dev < 0) return workflow;
+  return [...workflow.slice(0, dev + 1), { step: 'SECURITY', mode: 'REQUIRED' }, ...workflow.slice(dev + 1)];
+}
 /**
  * Ready-made workflows (ids are also what the AI advisor may suggest). "Plan" is the ARCH step: it
  * writes plan.md + tasks.md. Auto steps only pass green submissions; a red test waits for a human.
  */
 export const WORKFLOW_PRESETS = [
   { id: 'enterprise', label: tr('Doanh nghiệp'),
-    desc: tr('BA → Kiến trúc → Thiết kế UI → PM chốt phạm vi → Code → Test, bước nào cũng có người duyệt.'),
-    steps: wf(['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['PM', 'REQUIRED'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
-  { id: 'full', label: tr('Đầy đủ'), desc: tr('PM → BA → Plan → Thiết kế UI → Code → Test, bước nào cũng có người duyệt.'),
-    steps: wf(['PM', 'REQUIRED'], ['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
+    desc: tr('BA → Kiến trúc → Thiết kế UI → PM chốt phạm vi → Code → Bảo mật → Test, bước nào cũng có người duyệt.'),
+    steps: wf(['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['PM', 'REQUIRED'], ['DEV', 'REQUIRED'], ['SECURITY', 'REQUIRED'], ['TEST', 'REQUIRED']) },
+  { id: 'full', label: tr('Đầy đủ'), desc: tr('PM → BA → Plan → Thiết kế UI → Code → Bảo mật → Test, bước nào cũng có người duyệt.'),
+    steps: wf(['PM', 'REQUIRED'], ['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['DEV', 'REQUIRED'], ['SECURITY', 'REQUIRED'], ['TEST', 'REQUIRED']) },
   { id: 'plan-code-test', label: 'Plan → Code → Test', desc: tr('Bạn duyệt Plan; Code và Test tự qua khi xanh, đỏ thì dừng chờ người.'),
-    steps: wf(['ARCH', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['TEST', 'AUTO']) },
+    steps: wf(['ARCH', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['SECURITY', 'AUTO'], ['TEST', 'AUTO']) },
   { id: 'auto', label: tr('Tự chạy hết'), desc: tr('Plan → Code → Test không chờ duyệt; chỉ dừng khi test hoặc CI đỏ.'),
-    steps: wf(['ARCH', 'AUTO'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['TEST', 'AUTO']) },
+    steps: wf(['ARCH', 'AUTO'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['SECURITY', 'AUTO'], ['TEST', 'AUTO']) },
   { id: 'ui', label: tr('Thiết kế UI → Code → Test'), desc: tr('Cho dự án nặng giao diện: duyệt mockup trước khi code.'),
-    steps: wf(['DESIGN', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DEV', 'REQUIRED'], ['TEST', 'REQUIRED']) },
+    steps: wf(['DESIGN', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DEV', 'REQUIRED'], ['SECURITY', 'REQUIRED'], ['TEST', 'REQUIRED']) },
   { id: 'code', label: tr('Chỉ Code + Test'), desc: tr('Việc nhỏ, rõ ràng: AI tự lên kế hoạch trong bước Code.'),
-    steps: wf(['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['TEST', 'REQUIRED']) },
+    steps: wf(['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['SECURITY', 'AUTO'], ['TEST', 'REQUIRED']) },
 ];
 export const presetById = id => WORKFLOW_PRESETS.find(p => p.id === id) || null;
 
@@ -82,10 +93,11 @@ export function moveStep(workflow, step, dir) {
 /** '' when the workflow is valid, else a Vietnamese message (mirrors the orchestrator's rules). */
 export function workflowProblem(workflow) {
   const order = (workflow || []).map(w => w.step);
-  if (order.length !== STEPS.length || STEPS.some(s => !order.includes(s))) return tr('Quy trình phải có đủ 6 bước.');
+  if (order.length !== STEPS.length || STEPS.some(s => !order.includes(s))) return tr('Quy trình phải có đủ {0} bước.', [STEPS.length]);
   const dev = order.indexOf('DEV');
   if (MOVABLE.some(s => order.indexOf(s) > dev)) return tr('Các bước tài liệu phải đứng trước Lập trình.');
   if (order.indexOf('TEST') < dev) return tr('Kiểm thử phải đứng sau Lập trình.');
+  if (order.indexOf('SECURITY') < dev) return tr('Bảo mật phải đứng sau Lập trình.');
   if (workflow.find(w => w.step === 'DEV').mode === 'SKIP') return tr('Không thể bỏ bước Lập trình.');
   for (const w of workflow) {
     const why = stepConfigProblem(w.step, w.config);
@@ -126,6 +138,7 @@ export function defaultApproverRole(step) {
     case 'DESIGN': return 'PM';
     case 'PM': return 'PM';
     case 'DEV': return 'TECH_LEAD';
+    case 'SECURITY': return 'TECH_LEAD';
     case 'TEST': return 'TESTER';
     default: return 'TECH_LEAD';
   }

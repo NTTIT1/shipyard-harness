@@ -1808,5 +1808,14 @@
   "Không có lane nào hỏi, bị chặn hay có PR chờ gộp.": "No lane is asking, blocked, or has a PR waiting to merge.",
   "Tính năng gần đây": "Recent features",
   "Dự án chưa có tính năng nào. Giao việc cho một lane hoặc thêm tính năng trong Chat dự án.": "No features yet. Give a lane some work, or add a feature in the project chat.",
-  "PR chờ gộp": "PR to merge"
+  "PR chờ gộp": "PR to merge",
+  "Bảo mật": "Security",
+  "BA → Kiến trúc → Thiết kế UI → PM chốt phạm vi → Code → Bảo mật → Test, bước nào cũng có người duyệt.": "BA → Architecture → UI design → PM locks scope → Code → Security → Test, every step approved by a person.",
+  "PM → BA → Plan → Thiết kế UI → Code → Bảo mật → Test, bước nào cũng có người duyệt.": "PM → BA → Plan → UI design → Code → Security → Test, every step approved by a person.",
+  "Quy trình phải có đủ {0} bước.": "The workflow must have all {0} steps.",
+  "Bảo mật phải đứng sau Lập trình.": "Security must come after Coding.",
+  "Quét tự động": "Automated scan",
+  "bí mật trong code, gitleaks, semgrep, thư viện có lỗ hổng (công cụ nào có trên máy)": "secrets in code, gitleaks, semgrep, vulnerable libraries (whichever tools this machine has)",
+  "AI Bảo mật": "AI Security",
+  "rà soát diff theo OWASP Top 10 và phân quyền, viết security-report.md": "reviews the diff against the OWASP Top 10 and permissions, writes security-report.md"
 }

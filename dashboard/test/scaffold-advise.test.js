@@ -68,9 +68,13 @@ describe('workflow chosen in the wizard', () => {
   it('validates like the orchestrator', () => {
     const ok = WORKFLOW_PRESETS[1].steps;
     expect(validateWorkflow(ok)).toEqual(ok);
-    expect(() => validateWorkflow(ok.slice(1))).toThrow(/6 bước/);
+    expect(() => validateWorkflow(ok.slice(1))).toThrow(/7 bước/);
+    // a six-step workflow (studio AI, older wizard) gets the security review right after Code
+    const six = ok.filter(w => w.step !== 'SECURITY');
+    expect(validateWorkflow(six).map(w => w.step)).toEqual(ok.map(w => w.step));
     expect(() => validateWorkflow(ok.map(w => (w.step === 'DEV' ? { ...w, mode: 'SKIP' } : w)))).toThrow(/Code/);
-    expect(() => validateWorkflow([...ok.slice(0, 4), ok[5], ok[4]])).toThrow(/Test sau Code/);
+    expect(() => validateWorkflow([...ok.slice(0, 4), ok[6], ok[4], ok[5]])).toThrow(/Test sau Code/);
+    expect(() => validateWorkflow([...ok.slice(0, 4), ok[5], ok[4], ok[6]])).toThrow(/Bảo mật/);
     expect(validateRequest({ name: 'K', slug: 'kho-a', stack: 'java-spring', options: {}, workflow: ok }, ALL).workflow).toEqual(ok);
   });
 });

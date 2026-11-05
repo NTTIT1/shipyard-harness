@@ -8,7 +8,7 @@
     step_guard.py check  <harness_root> <lane> <state_file> <phase> -> exit 1 + reason when the budget or the
                                                                        time limit of the phase is used up
 
-Harness sub-steps map onto the six workflow phases (plan-critic belongs to ARCH, qc-local to TEST…).
+Harness sub-steps map onto the seven workflow phases (plan-critic belongs to ARCH, qc-local to TEST…).
 """
 import datetime
 import json
@@ -20,6 +20,7 @@ PHASE = {
     'pm': 'PM', 'ba': 'BA', 'arch': 'ARCH', 'plan-critic': 'ARCH',
     'design': 'DESIGN', 'ux-design': 'DESIGN', 'ui-design': 'DESIGN', 'design-qa': 'DESIGN',
     'dev': 'DEV', 'impl-worker': 'DEV', 'code-review': 'DEV', 'backend-dev': 'DEV', 'frontend-dev': 'DEV',
+    'security': 'SECURITY',
     'test': 'TEST', 'qc-local': 'TEST',
 }
 ON_FAILURE = ('ESCALATE_HUMAN', 'RETRY', 'FAIL_RUN')

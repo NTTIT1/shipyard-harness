@@ -95,18 +95,18 @@ export function normalizeWorkflow(raw) {
 
 /** What the AI may put in workflow.json, with the models this machine has. */
 export function workflowGuide(presetText = PRESET_TEXT) {
-  const steps = 'PM, BA, ARCH, DESIGN, DEV, TEST';
+  const steps = 'PM, BA, ARCH, DESIGN, DEV, SECURITY, TEST';
   return [
     '# Quy trình làm tính năng của dự án (workflow.json)',
     '',
-    `File \`workflow.json\` là một mảng JSON đủ 6 bước (${steps}), theo thứ tự chạy:`,
+    `File \`workflow.json\` là một mảng JSON đủ 7 bước (${steps}), theo thứ tự chạy:`,
     '```json',
     '[{"step":"ARCH","mode":"REQUIRED","config":{"timeoutMinutes":45}},',
     ' {"step":"PM","mode":"SKIP"}, {"step":"BA","mode":"SKIP"}, {"step":"DESIGN","mode":"SKIP"},',
-    ' {"step":"DEV","mode":"AUTO"},',
+    ' {"step":"DEV","mode":"AUTO"}, {"step":"SECURITY","mode":"REQUIRED"},',
     ' {"step":"TEST","mode":"AUTO","config":{"maxRetries":2,"onFailure":"RETRY","condition":"PREV_PASSED"}}]',
     '```',
-    '- Thứ tự: PM/BA/ARCH/DESIGN (đổi chỗ được với nhau) luôn trước DEV; TEST sau DEV. DEV không được SKIP.',
+    '- Thứ tự: PM/BA/ARCH/DESIGN (đổi chỗ được với nhau) luôn trước DEV; SECURITY (rà soát bảo mật code vừa viết) và TEST sau DEV. DEV không được SKIP.',
     '- mode: REQUIRED = người duyệt sau khi AI làm; AUTO = tự qua khi xanh; SKIP = không chạy bước này.',
     '- approverRole (khi REQUIRED, tuỳ chọn): OWNER, MAINTAINER, PM, BA, TECH_LEAD, DESIGNER, DEVELOPER, QA.',
     '- config (tuỳ chọn, chỉ ghi khóa cần đặt):',

@@ -13,6 +13,7 @@
     "ba": "claude:claude-opus-5-5",
     "arch": "claude:claude-opus-5-5",
     "design": "claude:claude-opus-5-5",
+    "security": "claude:claude-opus-5-5",
     "test": "claude:claude-opus-5-5"
   }
 }

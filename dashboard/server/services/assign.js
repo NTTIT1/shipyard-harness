@@ -13,7 +13,7 @@ export function buildPrompt({ requirement, spec_dir }) {
   return `/ship-feature ${spec_dir || requirement}`;
 }
 
-const GATE_STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST'];
+const GATE_STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST'];
 
 // Per-feature (or per-lane default) workflow choices ({STEP: REQUIRED|AUTO|SKIP}); '' = follow the
 // project's workflow. DEV can never be left out.

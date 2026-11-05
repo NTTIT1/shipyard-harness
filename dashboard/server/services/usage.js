@@ -9,8 +9,8 @@ import { HARNESS_ROOT } from './config.js';
 // monthly plan fee allocated by each record's share of the month's API-equivalent value.
 
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'];
-export const PHASES = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'TEST', 'ORCH'];
-export const PHASE_ROLE = { PM: 'PM', BA: 'BA', ARCH: 'TECH_LEAD', DESIGN: 'DESIGNER', DEV: 'DEVELOPER', TEST: 'TESTER' };
+export const PHASES = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST', 'ORCH'];
+export const PHASE_ROLE = { PM: 'PM', BA: 'BA', ARCH: 'TECH_LEAD', DESIGN: 'DESIGNER', DEV: 'DEVELOPER', SECURITY: 'TECH_LEAD', TEST: 'TESTER' };
 
 export const DEFAULT_SETTINGS = {
   usdToVnd: 26000,
@@ -21,7 +21,7 @@ export const DEFAULT_SETTINGS = {
   sevenDayUsdLimit: 60,     // 7-day rolling window quota in USD
   tzOffsetMin: 420,         // days/months are counted in this zone (Vietnam = UTC+7)
   rates: { PM: 150000, BA: 120000, TECH_LEAD: 200000, DESIGNER: 120000, DEVELOPER: 150000, TESTER: 100000 }, // VND / hour
-  hours: { PM: 2, BA: 3, ARCH: 4, DESIGN: 6, DEV: 16, TEST: 4 },   // estimated human hours per feature
+  hours: { PM: 2, BA: 3, ARCH: 4, DESIGN: 6, DEV: 16, SECURITY: 2, TEST: 4 },   // estimated human hours per feature
   featureHours: {},         // { featureKey: { PHASE: hours } }
   laneLimits: {},           // { [lane]: { usd?: number, tokens?: number } }
   modelLimits: {},          // { [model]: { usd?: number, tokens?: number } }
@@ -58,11 +58,12 @@ export function diffModelUsage(prev = {}, cur = {}) {
 const STEP_PHASE = {
   pm: 'PM', ba: 'BA', arch: 'ARCH', 'plan-critic': 'ARCH', design: 'DESIGN',
   'impl-worker': 'DEV', 'code-review': 'DEV', 'senior-gate': 'DEV',
-  test: 'TEST', 'qc-local': 'TEST', 'dev-qc': 'TEST', ticketer: 'ORCH',
+  security: 'SECURITY', test: 'TEST', 'qc-local': 'TEST', 'dev-qc': 'TEST', ticketer: 'ORCH',
 };
 const STAGE_PHASE = [
-  [/^review-(pm|ba|arch|design|dev|test)$/, m => m[1].toUpperCase()],
+  [/^review-(pm|ba|arch|design|dev|security|test)$/, m => m[1].toUpperCase()],
   [/^(spec|pm)/, () => 'PM'], [/^ba\b/, () => 'BA'], [/^(plan|arch)/, () => 'ARCH'], [/^design/, () => 'DESIGN'],
+  [/^security/, () => 'SECURITY'],
   [/^(qc|test|dev-qc|e2e)/, () => 'TEST'],
   [/^(implement|gates|review|senior|push|pr|ci|watch|sync|fix|merge)/, () => 'DEV'],
 ];
@@ -300,7 +301,8 @@ export function aggregate(records, settings = mergeSettings(), { month, now = Da
     let humanVnd = 0;
     const hours = {};
     for (const [phase, role] of Object.entries(PHASE_ROLE)) {
-      if (phase === 'DESIGN' && !f.phases.DESIGN && over.DESIGN === undefined) continue;
+      // Design and the security review count only for features that had them (older features had no SECURITY).
+      if ((phase === 'DESIGN' || phase === 'SECURITY') && !f.phases[phase] && over[phase] === undefined) continue;
       hours[phase] = over[phase] ?? settings.hours[phase] ?? 0;
       humanVnd += hours[phase] * (settings.rates[role] || 0);
     }

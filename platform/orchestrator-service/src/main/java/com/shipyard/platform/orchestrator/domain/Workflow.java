@@ -52,7 +52,19 @@ public final class Workflow {
     }
 
     /**
-     * A feature workflow lists every feature step once; PM/BA/ARCH/DESIGN in any order, then DEV, then TEST.
+     * A workflow saved before SECURITY existed (or sent by an older client) lacks it: it goes right
+     * after DEV. Every other order is returned as given.
+     */
+    public static List<Step> withSecurity(List<Step> order) {
+        if (order == null || order.contains(Step.SECURITY) || !order.contains(Step.DEV)) return order;
+        List<Step> out = new ArrayList<>(order);
+        out.add(out.indexOf(Step.DEV) + 1, Step.SECURITY);
+        return out;
+    }
+
+    /**
+     * A feature workflow lists every feature step once; PM/BA/ARCH/DESIGN in any order, then DEV, then
+     * SECURITY and TEST (in either order: both review the code DEV wrote).
      */
     public static void validateOrder(List<Step> order) {
         Set<Step> all = RunKind.FEATURE.steps();
@@ -64,6 +76,7 @@ public final class Workflow {
             if (order.indexOf(s) > dev) throw new BadRequestException(s + " must come before DEV");
         }
         if (order.indexOf(Step.TEST) < dev) throw new BadRequestException("TEST must come after DEV");
+        if (order.indexOf(Step.SECURITY) < dev) throw new BadRequestException("SECURITY must come after DEV");
     }
 
     /** The run's step order: the frozen workflow, else (old runs, SETUP) the natural step order. */
@@ -150,7 +163,7 @@ public final class Workflow {
         run.status = RunStatus.RUNNING;
     }
 
-    /** Post-merge QC failed: reopen DEV (then TEST again) with the failure as feedback. */
+    /** Post-merge QC failed: reopen DEV (then SECURITY and TEST again) with the failure as feedback. */
     public static void reopenDev(Run run, Map<Step, RunStep> steps, String reason) {
         if (run.status != RunStatus.RELEASING && run.status != RunStatus.DONE) {
             throw new ConflictException("Only a released run can be reopened (status " + run.status + ")");
@@ -158,7 +171,11 @@ public final class Workflow {
         RunStep dev = steps.get(Step.DEV);
         dev.status = StepStatus.AI_WORKING;
         dev.pendingFeedback = "Post-merge QC failed: " + (reason == null ? "" : reason.trim());
-        if (!leftOut(steps.get(Step.TEST))) steps.get(Step.TEST).status = StepStatus.PENDING;
+        // Everything that reviewed the old code runs again (a run created before SECURITY has no such step).
+        for (Step after : List.of(Step.SECURITY, Step.TEST)) {
+            RunStep rs = steps.get(after);
+            if (rs != null && !leftOut(rs)) rs.status = StepStatus.PENDING;
+        }
         run.currentStep = Step.DEV;
         run.status = RunStatus.RUNNING;
     }

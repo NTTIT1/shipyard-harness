@@ -5,12 +5,13 @@ import com.shipyard.platform.common.exception.BadRequestException;
 import java.util.Locale;
 
 /**
- * Pipeline steps in order; each is approved by one human project role. MANAGER (the project's
+ * Pipeline steps in order; each is approved by one human project role. SECURITY reviews the code DEV
+ * wrote (secrets, vulnerable dependencies, static analysis, an OWASP review of the diff) before TEST. MANAGER (the project's
  * AI-team rules) is the only step of a SETUP run, BLUEPRINT (the architecture of a project that does
  * not exist yet) the only step of a BLUEPRINT run; neither is ever part of a FEATURE run.
  */
 public enum Step {
-    PM("PM"), BA("BA"), ARCH("TECH_LEAD"), DESIGN("DESIGNER"), DEV("DEVELOPER"), TEST("TESTER"),
+    PM("PM"), BA("BA"), ARCH("TECH_LEAD"), DESIGN("DESIGNER"), DEV("DEVELOPER"), SECURITY("TECH_LEAD"), TEST("TESTER"),
     MANAGER("TECH_LEAD"), BLUEPRINT("TECH_LEAD");
 
     private final String requiredRole;
