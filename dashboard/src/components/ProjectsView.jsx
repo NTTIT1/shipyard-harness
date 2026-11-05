@@ -10,6 +10,7 @@ import ProjectMemoryView from './ProjectMemoryView.jsx';
 import TeamPanel from './TeamPanel.jsx';
 import DeleteProjectButton from './DeleteProjectButton.jsx';
 import ProjectMembersTab from './projects/ProjectMembersTab.jsx';
+import ProjectOverview from './projects/ProjectOverview.jsx';
 import ProjectGatesTab from './projects/ProjectGatesTab.jsx';
 import ProjectRunsTab from './projects/ProjectRunsTab.jsx';
 import BlueprintStatus from './projects/BlueprintStatus.jsx';
@@ -17,13 +18,13 @@ import { scaffold } from '../lib/scaffold.js';
 import { platform } from '../lib/platform.js';
 import { ROLE_LABEL } from '../lib/review.js';
 import { useWorkflowLanes } from '../hooks/useRunViews.js';
-import { fmtVnd, fmtUsd, fmtTokens, sumTokens } from '../lib/costs.js';
+import { sumTokens } from '../lib/costs.js';
 import { tr } from '../lib/i18n.js';
 import { allowed } from '../lib/permissions.js';
 
 
 const SECTION_LABEL = {
-  members: tr('Tổng quan & thành viên'), gates: tr('Quy trình & duyệt'), runs: tr('Tính năng & model AI'),
+  overview: tr('Tổng quan dự án'), members: tr('Thành viên'), gates: tr('Quy trình & duyệt'), runs: tr('Tính năng & model AI'),
   memory: tr('Bộ nhớ dự án'), team: tr('Kỹ năng AI & khung'),
 };
 
@@ -36,11 +37,13 @@ export default function ProjectsView({
   subTab,
   onTabChange,
   onCreateProject,
+  onOpenLane,
 }) {
   const [projects, setProjects] = useState([]);
   const [localSel, setLocalSel] = useState(null);
-  const [localTab, setLocalTab] = useState('members');
-  const tab = subTab || localTab;
+  const [localTab, setLocalTab] = useState('overview');
+  // 'members' used to be the overview too; the overview is its own section now.
+  const tab = (subTab || localTab) in SECTION_LABEL ? (subTab || localTab) : 'overview';
   const setTab = onTabChange || setLocalTab;
   const [err, setErr] = useState('');
   const [copiedType, setCopiedType] = useState('');
@@ -145,7 +148,7 @@ export default function ProjectsView({
         <div className="pj-detail-stack">
           {/* The sidebar picks the section: the overview carries the project header, metrics and
               blueprint; every other section shows only its own content. */}
-          {tab === 'members' ? (<>
+          {tab === 'overview' ? (<>
             {/* Unified Apple-Style Project Header (Identity + Actions + Compact Telemetry Strip) */}
             <div className="pj-apple-header">
               <div className="pj-apple-head-main">
@@ -195,7 +198,7 @@ export default function ProjectsView({
               </div>
 
               {/* Restrained Apple Hairline Telemetry Strip */}
-              <div className="pj-apple-metrics-bar">
+              <div className="pj-apple-metrics-bar pj-apple-metrics-2">
                 <div className="pj-apple-metric">
                   <span className="pj-apple-metric-label">{tr('Tiến độ')}</span>
                   <div className="pj-apple-metric-val-row">
@@ -209,17 +212,6 @@ export default function ProjectsView({
                       {currentMetrics.activeCount > 0
                         ? tr('{0} lane đang chạy', [currentMetrics.activeCount])
                         : tr('Chưa có lane chạy')}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="pj-apple-metric">
-                  <span className="pj-apple-metric-label">{tr('Chi phí')}</span>
-                  <div className="pj-apple-metric-val-row">
-                    <strong className="pj-apple-metric-val">{fmtVnd(currentMetrics.costVnd)}</strong>
-                    <span className="pj-apple-metric-sub">
-                      {fmtUsd(currentMetrics.costUsd)}
-                      {currentMetrics.tokens > 0 ? ` · ${fmtTokens(currentMetrics.tokens)} tok` : ''}
                     </span>
                   </div>
                 </div>
@@ -243,6 +235,8 @@ export default function ProjectsView({
             </div>
 
             <ProjectBlueprint key={`bp-${project.id}`} pid={project.id} onOpenRun={onOpenRun} />
+            <ProjectOverview key={`ov-${project.id}`} pid={project.id} lanes={currentMetrics.matchedLanes}
+              projectCosts={projectCosts} onOpenRun={onOpenRun} onOpenLane={onOpenLane} />
           </>) : (
             <div className="pj-section-head">
               <h1 id="pj-title">{SECTION_LABEL[tab] || tr('Dự án')}</h1>

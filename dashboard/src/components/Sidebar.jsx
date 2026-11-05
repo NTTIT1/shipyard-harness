@@ -119,7 +119,8 @@ export default function Sidebar({
                 <NavItem icon={Inbox} label={tr('Chờ tôi duyệt')} active={view === 'inbox' || view === 'review'} onClick={() => handleNav('inbox')}
                   badge={inboxCount ? <span className="sb-nav-pill-badge" aria-label={tr('{0} bước chờ duyệt', [inboxCount])}>{inboxCount}</span> : null} />
               )}
-              <NavItem icon={FolderKanban} label={tr('Tổng quan & thành viên')} active={view === 'projects' && (!projectSubTab || projectSubTab === 'members')} onClick={() => handleNav('projects', 'members')} />
+              <NavItem icon={FolderKanban} label={tr('Tổng quan dự án')} active={view === 'projects' && (!projectSubTab || projectSubTab === 'overview')} onClick={() => handleNav('projects', 'overview')} />
+              <NavItem icon={Users} label={tr('Thành viên')} active={view === 'projects' && projectSubTab === 'members'} onClick={() => handleNav('projects', 'members')} />
               <NavItem icon={SlidersHorizontal} label={tr('Quy trình & duyệt')} active={view === 'projects' && projectSubTab === 'gates'} onClick={() => handleNav('projects', 'gates')} />
               <NavItem icon={Layers} label={tr('Tính năng & model AI')} active={view === 'projects' && projectSubTab === 'runs'} onClick={() => handleNav('projects', 'runs')} />
               <NavItem icon={MessagesSquare} label={tr('Chat dự án')} active={view === 'chat'} onClick={() => handleNav('chat')} />
