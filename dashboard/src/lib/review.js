@@ -1,7 +1,7 @@
 import { tr } from './i18n.js';
 // Pure helpers for the review screen (unit-tested; mirrors orchestrator rules, spec §3.2).
-export const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST'];
-export const STEP_LABEL = { PM: tr('PM — Yêu cầu'), BA: tr('BA — Nghiệp vụ'), ARCH: tr('Plan — Kiến trúc'), DESIGN: tr('Thiết kế UI'), DEV: tr('Lập trình'), SECURITY: tr('Bảo mật'), TEST: tr('Kiểm thử'),
+export const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'TESTCASE', 'DEV', 'SECURITY', 'TEST'];
+export const STEP_LABEL = { PM: tr('PM — Yêu cầu'), BA: tr('BA — Nghiệp vụ'), ARCH: tr('Plan — Kiến trúc'), DESIGN: tr('Thiết kế UI'), TESTCASE: tr('Ca kiểm thử'), DEV: tr('Lập trình'), SECURITY: tr('Bảo mật'), TEST: tr('Kiểm thử'),
   MANAGER: tr('Luật dự án (AI Manager)'), BLUEPRINT: tr('Kiến trúc dự án (trước khi tạo khung)') };
 
 /**
@@ -33,7 +33,7 @@ export const GATE_MODES = [
 ];
 
 /** Steps that may be reordered (they feed DEV); DEV, then SECURITY and TEST, always close the workflow. */
-export const MOVABLE = ['PM', 'BA', 'ARCH', 'DESIGN'];
+export const MOVABLE = ['PM', 'BA', 'ARCH', 'DESIGN', 'TESTCASE'];
 
 /** Moves a step to `target` inside the movable head of the workflow (drag & drop); returns a new list. */
 export function moveTo(workflow, step, target) {
@@ -60,24 +60,39 @@ export function withSecurity(workflow) {
   if (dev < 0) return workflow;
   return [...workflow.slice(0, dev + 1), { step: 'SECURITY', mode: 'REQUIRED' }, ...workflow.slice(dev + 1)];
 }
+
+/**
+ * A workflow from before the test-case step gets TESTCASE right before DEV, in the TEST step's mode
+ * (an all-automatic workflow does not suddenly wait for a person). Mirrors the orchestrator.
+ */
+export function withTestCases(workflow) {
+  if (!Array.isArray(workflow) || workflow.some(w => w.step === 'TESTCASE')) return workflow;
+  const dev = workflow.findIndex(w => w.step === 'DEV');
+  if (dev < 0) return workflow;
+  const mode = workflow.find(w => w.step === 'TEST')?.mode || 'REQUIRED';
+  return [...workflow.slice(0, dev), { step: 'TESTCASE', mode }, ...workflow.slice(dev)];
+}
+
+/** Every step added since a workflow was written, each in its place. */
+export const withNewSteps = workflow => withTestCases(withSecurity(workflow));
 /**
  * Ready-made workflows (ids are also what the AI advisor may suggest). "Plan" is the ARCH step: it
  * writes plan.md + tasks.md. Auto steps only pass green submissions; a red test waits for a human.
  */
 export const WORKFLOW_PRESETS = [
   { id: 'enterprise', label: tr('Doanh nghiệp'),
-    desc: tr('BA → Kiến trúc → Thiết kế UI → PM chốt phạm vi → Code → Bảo mật → Test, bước nào cũng có người duyệt.'),
-    steps: wf(['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['PM', 'REQUIRED'], ['DEV', 'REQUIRED'], ['SECURITY', 'REQUIRED'], ['TEST', 'REQUIRED']) },
-  { id: 'full', label: tr('Đầy đủ'), desc: tr('PM → BA → Plan → Thiết kế UI → Code → Bảo mật → Test, bước nào cũng có người duyệt.'),
-    steps: wf(['PM', 'REQUIRED'], ['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['DEV', 'REQUIRED'], ['SECURITY', 'REQUIRED'], ['TEST', 'REQUIRED']) },
+    desc: tr('BA → Kiến trúc → Thiết kế UI → PM chốt phạm vi → Ca kiểm thử → Code → Bảo mật → Test, bước nào cũng có người duyệt.'),
+    steps: wf(['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['PM', 'REQUIRED'], ['TESTCASE', 'REQUIRED'], ['DEV', 'REQUIRED'], ['SECURITY', 'REQUIRED'], ['TEST', 'REQUIRED']) },
+  { id: 'full', label: tr('Đầy đủ'), desc: tr('PM → BA → Plan → Thiết kế UI → Ca kiểm thử → Code → Bảo mật → Test, bước nào cũng có người duyệt.'),
+    steps: wf(['PM', 'REQUIRED'], ['BA', 'REQUIRED'], ['ARCH', 'REQUIRED'], ['DESIGN', 'REQUIRED'], ['TESTCASE', 'REQUIRED'], ['DEV', 'REQUIRED'], ['SECURITY', 'REQUIRED'], ['TEST', 'REQUIRED']) },
   { id: 'plan-code-test', label: 'Plan → Code → Test', desc: tr('Bạn duyệt Plan; Code và Test tự qua khi xanh, đỏ thì dừng chờ người.'),
-    steps: wf(['ARCH', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['SECURITY', 'AUTO'], ['TEST', 'AUTO']) },
+    steps: wf(['ARCH', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['TESTCASE', 'AUTO'], ['DEV', 'AUTO'], ['SECURITY', 'AUTO'], ['TEST', 'AUTO']) },
   { id: 'auto', label: tr('Tự chạy hết'), desc: tr('Plan → Code → Test không chờ duyệt; chỉ dừng khi test hoặc CI đỏ.'),
-    steps: wf(['ARCH', 'AUTO'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['SECURITY', 'AUTO'], ['TEST', 'AUTO']) },
+    steps: wf(['ARCH', 'AUTO'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['DESIGN', 'SKIP'], ['TESTCASE', 'AUTO'], ['DEV', 'AUTO'], ['SECURITY', 'AUTO'], ['TEST', 'AUTO']) },
   { id: 'ui', label: tr('Thiết kế UI → Code → Test'), desc: tr('Cho dự án nặng giao diện: duyệt mockup trước khi code.'),
-    steps: wf(['DESIGN', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DEV', 'REQUIRED'], ['SECURITY', 'REQUIRED'], ['TEST', 'REQUIRED']) },
+    steps: wf(['DESIGN', 'REQUIRED'], ['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['TESTCASE', 'REQUIRED'], ['DEV', 'REQUIRED'], ['SECURITY', 'REQUIRED'], ['TEST', 'REQUIRED']) },
   { id: 'code', label: tr('Chỉ Code + Test'), desc: tr('Việc nhỏ, rõ ràng: AI tự lên kế hoạch trong bước Code.'),
-    steps: wf(['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DESIGN', 'SKIP'], ['DEV', 'AUTO'], ['SECURITY', 'AUTO'], ['TEST', 'REQUIRED']) },
+    steps: wf(['PM', 'SKIP'], ['BA', 'SKIP'], ['ARCH', 'SKIP'], ['DESIGN', 'SKIP'], ['TESTCASE', 'SKIP'], ['DEV', 'AUTO'], ['SECURITY', 'AUTO'], ['TEST', 'REQUIRED']) },
 ];
 export const presetById = id => WORKFLOW_PRESETS.find(p => p.id === id) || null;
 
@@ -139,6 +154,7 @@ export function defaultApproverRole(step) {
     case 'PM': return 'PM';
     case 'DEV': return 'TECH_LEAD';
     case 'SECURITY': return 'TECH_LEAD';
+    case 'TESTCASE': return 'TESTER';
     case 'TEST': return 'TESTER';
     default: return 'TECH_LEAD';
   }
@@ -218,7 +234,7 @@ export function inboxCounts(items) {
 export const inboxFor = (items, projectId) => (!projectId || projectId === 'ALL' ? items || [] : (items || []).filter(i => i.projectId === projectId));
 
 /** The usual order of the document steps; an added step slots in by it among the steps that run. */
-const CANON = ['PM', 'BA', 'ARCH', 'DESIGN'];
+const CANON = ['PM', 'BA', 'ARCH', 'DESIGN', 'TESTCASE'];
 
 /**
  * Turns a left-out step back on ("Thêm bước"): it needs a person's approval, and a document step is placed

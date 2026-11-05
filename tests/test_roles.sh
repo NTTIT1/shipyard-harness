@@ -2,7 +2,7 @@
 # Role agents + templates exist and carry the contract the role pipeline relies on.
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 AG="$REPO/claude/agents"
-for a in pm-agent ba-agent architect-agent designer-agent security-agent tester-agent; do
+for a in pm-agent ba-agent architect-agent designer-agent test-designer-agent security-agent tester-agent; do
   f="$AG/$a.md"
   assert_file "$f" "agent $a exists"
   assert_eq "name: \"$a\"" "$(sed -n 2p "$f" 2>/dev/null)" "agent $a front matter names itself"
@@ -20,6 +20,10 @@ assert_contains "$(cat "$AG/designer-agent.md")" "Never edit application code" "
 assert_contains "$(cat "$AG/security-agent.md")" "security-scan.sh" "security reviewer runs the scanners"
 assert_contains "$(cat "$AG/security-agent.md")" "SECURITY-RESULT: pass|fail" "security reviewer reports pass/fail for the gate"
 assert_contains "$(cat "$AG/security-agent.md")" "never install tools" "security reviewer installs nothing"
+assert_contains "$(cat "$AG/test-designer-agent.md")" "keep existing ids" "test designer keeps TC ids stable across revisions"
+assert_contains "$(cat "$AG/tester-agent.md")" ".qc/automated.json" "tester records a result per test case"
+assert_contains "$(cat "$AG/qc-local.md")" "RESULTS.json" "browser QC records a result per test case"
+assert_contains "$(cat "$REPO/templates/roles/qc-plan.md")" "| TC-1 |" "test-case template has TC ids"
 for t in ba design qc-plan security-report; do assert_file "$REPO/templates/roles/$t.md" "role template $t.md exists"; done
 python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$REPO/templates/roles/entities.json" && r=ok || r=bad
 assert_eq "ok" "$r" "entities.json template is valid JSON"
@@ -30,7 +34,9 @@ assert_contains "$c" "PLATFORM_PROJECT_ID" "role mode is selected by PLATFORM_PR
 for cmd in "orch.sh\" \"\$N\" create" "orch.sh\" \"\$N\" next" "orch.sh\" \"\$N\" sync" "orch.sh\" \"\$N\" pack" "orch.sh\" \"\$N\" submit" "orch.sh\" \"\$N\" release" "orch.sh\" \"\$N\" reopen"; do
   assert_contains "$c" "$cmd" "role mode uses $cmd"
 done
-for s in pm ba arch design security test; do assert_contains "$c" "run-step.sh\" \"\$N\" $s" "role mode runs the $s step"; done
+for s in pm ba arch design testcase security test; do assert_contains "$c" "run-step.sh\" \"\$N\" $s" "role mode runs the $s step"; done
+assert_contains "$c" "bin/test-report.py" "TEST builds the test report"
+assert_contains "$c" "bin/bug-log.sh" "TEST files the bugs"
 assert_contains "$c" "status=blocked" "unreachable platform parks the lane blocked"
 assert_contains "$c" "Never write UI code before DESIGN" "UI code waits for design approval"
 assert_contains "$c" "orch.sh\" \"\$N\" release --summary-file" "release before Stage 14 STOP, text from a file"

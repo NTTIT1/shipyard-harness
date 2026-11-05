@@ -5,7 +5,7 @@ import WorkflowEditor from '../projects/WorkflowEditor.jsx';
 import { GitStep } from '../projects/WizardSteps.jsx';
 import ImportRepoWizard from '../projects/ImportRepoWizard.jsx';
 import { scaffold, slugify, findStack, SLUG_RE } from '../../lib/scaffold.js';
-import { WORKFLOW_PRESETS, workflowProblem } from '../../lib/review.js';
+import { WORKFLOW_PRESETS, workflowProblem, withNewSteps } from '../../lib/review.js';
 import { studio } from '../../lib/studio.js';
 import { localDemoPipeline } from '../../lib/pipeline.js';
 import { tr } from '../../lib/i18n.js';
@@ -57,7 +57,7 @@ function GenerateProject({ s, act }) {
   useEffect(() => {
     if (!s.docs.workflow || pending.current || serverKey === lastSent.current) return;
     lastSent.current = serverKey;
-    setWorkflowState(s.docs.workflow);
+    setWorkflowState(withNewSteps(s.docs.workflow));
   }, [serverKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Hand edits are saved to the idea (shortly after the last change) so the AI and a reload see them.

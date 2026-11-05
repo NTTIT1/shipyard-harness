@@ -6,7 +6,7 @@ import flutterAndroid from './stacks/flutter-android.js';
 import { DB_LABEL } from './dbs.js';
 import { SLUG_RE } from './util.js';
 import { normalizePipeline } from '../../../src/lib/pipeline.js';
-import { withSecurity } from '../../../src/lib/review.js';
+import { withNewSteps } from '../../../src/lib/review.js';
 import { ROLE_META, SKILL_CATALOG, defaultRoleSkillsForStack } from './team.js';
 import { BACKEND_STACKS, FRONTEND_STACKS, isMobileStack } from './fullstack.js';
 
@@ -138,13 +138,13 @@ export function validateOptions(stack, given = {}) {
   return options;
 }
 
-const WF_STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST'];
-const WF_DOCS = ['PM', 'BA', 'ARCH', 'DESIGN'];
+const WF_STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'TESTCASE', 'DEV', 'SECURITY', 'TEST'];
+const WF_DOCS = ['PM', 'BA', 'ARCH', 'DESIGN', 'TESTCASE'];
 /** The project's feature workflow chosen in the wizard (same rules as the orchestrator). */
 export function validateWorkflow(w) {
-  // A six-step workflow (from before the security review) gets SECURITY right after DEV.
-  w = withSecurity(Array.isArray(w) ? w.map(x => ({ ...x, step: String(x?.step || '').toUpperCase() })) : w);
-  if (!Array.isArray(w) || w.length !== WF_STEPS.length) throw bad('Quy trình phải có đủ 7 bước');
+  // A workflow from before the security review / test cases gets SECURITY after DEV, TESTCASE before it.
+  w = withNewSteps(Array.isArray(w) ? w.map(x => ({ ...x, step: String(x?.step || '').toUpperCase() })) : w);
+  if (!Array.isArray(w) || w.length !== WF_STEPS.length) throw bad('Quy trình phải có đủ 8 bước');
   // step + mode are checked here; approver and per-step settings travel to the orchestrator, which
   // validates them strictly (StepConfig) when the workflow is saved on the new project.
   const out = w.map(x => ({
@@ -154,7 +154,7 @@ export function validateWorkflow(w) {
     ...(x?.config && typeof x.config === 'object' && !Array.isArray(x.config) ? { config: x.config } : {}),
   }));
   const order = out.map(x => x.step);
-  if (WF_STEPS.some(st => !order.includes(st))) throw bad('Quy trình phải có đủ 7 bước');
+  if (WF_STEPS.some(st => !order.includes(st))) throw bad('Quy trình phải có đủ 8 bước');
   if (out.some(x => !['REQUIRED', 'AUTO', 'SKIP'].includes(x.mode))) throw bad('Chế độ bước phải là REQUIRED, AUTO hoặc SKIP');
   const dev = order.indexOf('DEV');
   if (WF_DOCS.some(st => order.indexOf(st) > dev) || order.indexOf('TEST') < dev || order.indexOf('SECURITY') < dev) {

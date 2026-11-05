@@ -83,7 +83,7 @@ export default function PipelineEditor({ value, onChange, disabled = false, base
             <>
               <div className="wfi-row">
                 <label className="wfi-field" htmlFor={id('url')}>{tr('Địa chỉ môi trường test')}<input id={id('url')} className="mono" value={value.testUrl || ''} maxLength={300} disabled={disabled}
-                    placeholder="http://192.168.56.10" onChange={e => set({ testUrl: e.target.value })} />
+                    placeholder="https://test.example.com" onChange={e => set({ testUrl: e.target.value })} />
                 </label>
                 <label className="wfi-field" htmlFor={id('fail')}>{tr('QC đỏ thì')}<select id={id('fail')} className="msel" value={value.testQcOnFail || 'FIX_PR'} disabled={disabled} onChange={e => set({ testQcOnFail: e.target.value })}>
                     {QC_ON_FAIL.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}

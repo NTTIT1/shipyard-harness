@@ -189,10 +189,11 @@ describe('workflow from the wizard', () => {
       registerProject: async () => ({ id: 'proj_w' }), setWorkflow: async (...a) => { set.push(a); } });
     const j = jobs.start(spec('kho-w', { workflow: pct }), user, 'tok-w');
     await jobs.wait(j.id);
-    // a six-step workflow (from before the security review) is saved with SECURITY right after DEV
-    const saved = [...pct.slice(0, 5), { step: 'SECURITY', mode: 'REQUIRED' }, pct[5]];
+    // a six-step workflow (from before the security review and the test cases) is saved with SECURITY right
+    // after DEV and TESTCASE right before it, in the TEST step's mode
+    const saved = [...pct.slice(0, 4), { step: 'TESTCASE', mode: 'AUTO' }, pct[4], { step: 'SECURITY', mode: 'REQUIRED' }, pct[5]];
     expect(set).toEqual([['proj_w', saved, 'tok-w']]);
-    expect(jobs.get(j.id).log.some(l => l.includes('Quy trình: ARCH → DEV → SECURITY → TEST'))).toBe(true);
+    expect(jobs.get(j.id).log.some(l => l.includes('Quy trình: ARCH → TESTCASE → DEV → SECURITY → TEST'))).toBe(true);
   });
 
   it('the local demo pipeline is saved on the project too', async () => {

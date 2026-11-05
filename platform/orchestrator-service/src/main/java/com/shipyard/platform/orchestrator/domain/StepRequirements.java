@@ -21,9 +21,10 @@ public final class StepRequirements {
             Step.BA, List.of("ba.md"),
             Step.ARCH, List.of("plan.md", "tasks.md", "entities.json"),
             Step.DESIGN, List.of("design.md"),
+            Step.TESTCASE, List.of("qc-plan.md"),
             Step.DEV, List.of(),
             Step.SECURITY, List.of("security-report.md"),
-            Step.TEST, List.of("qc-plan.md"),
+            Step.TEST, List.of("test-report.md"),
             Step.MANAGER, List.of("project.md", "team.json"),
             Step.BLUEPRINT, List.of("architecture.md"));
 

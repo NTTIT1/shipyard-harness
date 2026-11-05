@@ -62,7 +62,7 @@ class WorkflowTest {
     void happyPathWithUiGoesThroughDesignThenRelease() {
         pass(PM, null); pass(BA, null); pass(ARCH, true);
         assertThat(run.currentStep).isEqualTo(DESIGN);
-        pass(DESIGN, null); pass(DEV, null); pass(SECURITY, null); pass(TEST, null);
+        pass(DESIGN, null); pass(TESTCASE, null); pass(DEV, null); pass(SECURITY, null); pass(TEST, null);
         assertThat(run.status).isEqualTo(RunStatus.RELEASING);
         assertThat(run.currentStep).isNull();
         assertThat(Workflow.mode(run, steps)).isEqualTo(NextMode.RELEASE);
@@ -75,7 +75,7 @@ class WorkflowTest {
         pass(PM, null); pass(BA, null); pass(ARCH, false);
         assertThat(steps.get(DESIGN).status).isEqualTo(StepStatus.SKIPPED);
         assertThat(steps.get(DESIGN).skipReason).isEqualTo("has_ui=false");
-        assertThat(run.currentStep).isEqualTo(DEV);
+        assertThat(run.currentStep).isEqualTo(TESTCASE);
     }
 
     @Test
@@ -112,12 +112,12 @@ class WorkflowTest {
 
     @Test
     void sendBackReopensTargetAndResetsEverythingAfterIt() {
-        pass(PM, null); pass(BA, null); pass(ARCH, false); pass(DEV, null); pass(SECURITY, null);
+        pass(PM, null); pass(BA, null); pass(ARCH, false); pass(TESTCASE, null); pass(DEV, null); pass(SECURITY, null);
         Workflow.submit(run, steps, TEST);
         Workflow.decide(run, steps, TEST, new Decision(DecisionAction.SEND_BACK, "AC-3 sai nghiệp vụ", null, BA, null));
         assertThat(steps.get(BA).status).isEqualTo(StepStatus.AI_WORKING);
         assertThat(steps.get(BA).pendingFeedback).contains("TEST").contains("AC-3 sai nghiệp vụ");
-        for (Step s : new Step[]{ARCH, DESIGN, DEV, SECURITY, TEST}) {
+        for (Step s : new Step[]{ARCH, DESIGN, TESTCASE, DEV, SECURITY, TEST}) {
             assertThat(steps.get(s).status).as(s.name()).isEqualTo(StepStatus.PENDING);
             assertThat(steps.get(s).skipReason).isNull();
         }
@@ -128,7 +128,7 @@ class WorkflowTest {
 
     @Test
     void sendBackValidation() {
-        pass(PM, null); pass(BA, null); pass(ARCH, false); pass(DEV, null); pass(SECURITY, null);
+        pass(PM, null); pass(BA, null); pass(ARCH, false); pass(TESTCASE, null); pass(DEV, null); pass(SECURITY, null);
         Workflow.submit(run, steps, TEST);
         assertThatThrownBy(() -> Workflow.decide(run, steps, TEST, new Decision(DecisionAction.SEND_BACK, "x", null, TEST, null)))
                 .isInstanceOf(BadRequestException.class);
@@ -157,7 +157,7 @@ class WorkflowTest {
     @Test
     void reopenDevAfterReleaseOrDone() {
         assertThatThrownBy(() -> Workflow.reopenDev(run, steps, "x")).isInstanceOf(ConflictException.class);
-        pass(PM, null); pass(BA, null); pass(ARCH, false); pass(DEV, null); pass(SECURITY, null); pass(TEST, null);
+        pass(PM, null); pass(BA, null); pass(ARCH, false); pass(TESTCASE, null); pass(DEV, null); pass(SECURITY, null); pass(TEST, null);
         Workflow.release(run);
         Workflow.reopenDev(run, steps, "dev-QC: nút Lưu lỗi 500");
         assertThat(run.currentStep).isEqualTo(DEV);
@@ -176,7 +176,7 @@ class WorkflowTest {
     @Test
     void featureRunsNeverContainManager() {
         assertThat(steps).doesNotContainKey(MANAGER);
-        assertThat(steps.keySet()).containsExactly(PM, BA, ARCH, DESIGN, DEV, SECURITY, TEST);
+        assertThat(steps.keySet()).containsExactly(PM, BA, ARCH, DESIGN, TESTCASE, DEV, SECURITY, TEST);
     }
 
     @Test
@@ -226,7 +226,7 @@ class WorkflowTest {
     @Test
     void workflowCanLeaveStepsOutAndStillGuardsDev() {
         Run r = new Run();
-        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, DEV, SECURITY, TEST), Set.of(PM, BA, DESIGN, SECURITY));
+        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, TESTCASE, DEV, SECURITY, TEST), Set.of(PM, BA, DESIGN, SECURITY, TESTCASE));
         assertThat(r.currentStep).isEqualTo(ARCH);
         assertThat(st.get(PM).status).isEqualTo(StepStatus.SKIPPED);
         assertThat(st.get(PM).skipReason).isEqualTo(Workflow.SKIP_WORKFLOW);
@@ -242,7 +242,7 @@ class WorkflowTest {
     @Test
     void devWaitsForArchitectureApprovalWhateverTheOrder() {
         Run r = new Run();
-        Map<Step, RunStep> st = custom(r, List.of(ARCH, DESIGN, PM, BA, DEV, SECURITY, TEST), Set.of(BA, SECURITY, TEST));
+        Map<Step, RunStep> st = custom(r, List.of(ARCH, DESIGN, PM, BA, TESTCASE, DEV, SECURITY, TEST), Set.of(BA, SECURITY, TEST, TESTCASE));
         assertThat(r.currentStep).isEqualTo(ARCH);
         assertThatThrownBy(() -> Workflow.activate(r, st, DEV)).isInstanceOf(ConflictException.class).hasMessageContaining("ARCH");
         r.hasUi = false;
@@ -261,7 +261,7 @@ class WorkflowTest {
     @Test
     void sendBackFollowsTheWorkflowOrderAndKeepsLeftOutSteps() {
         Run r = new Run();
-        Map<Step, RunStep> st = custom(r, List.of(ARCH, PM, BA, DESIGN, DEV, SECURITY, TEST), Set.of(BA, SECURITY));
+        Map<Step, RunStep> st = custom(r, List.of(ARCH, PM, BA, DESIGN, TESTCASE, DEV, SECURITY, TEST), Set.of(BA, SECURITY, TESTCASE));
         r.hasUi = false;
         for (Step s : new Step[]{ARCH, PM, DEV}) { Workflow.submit(r, st, s); Workflow.decide(r, st, s, approve()); }
         Workflow.submit(r, st, TEST);
@@ -277,19 +277,19 @@ class WorkflowTest {
     @Test
     void workflowValidation() {
         Run r = new Run();
-        assertThatThrownBy(() -> custom(r, List.of(PM, BA, ARCH, DESIGN, DEV, SECURITY, TEST), Set.of(DEV)))
+        assertThatThrownBy(() -> custom(r, List.of(PM, BA, ARCH, DESIGN, TESTCASE, DEV, SECURITY, TEST), Set.of(DEV, TESTCASE)))
                 .isInstanceOf(BadRequestException.class).hasMessageContaining("DEV");
-        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, DEV, DESIGN, SECURITY, TEST)))
+        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, TESTCASE, DEV, DESIGN, SECURITY, TEST)))
                 .isInstanceOf(BadRequestException.class).hasMessageContaining("DESIGN must come before DEV");
-        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, DESIGN, TEST, DEV, SECURITY)))
+        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, DESIGN, TESTCASE, TEST, DEV, SECURITY)))
                 .isInstanceOf(BadRequestException.class).hasMessageContaining("TEST");
-        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, DEV, SECURITY, TEST)))
+        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, TESTCASE, DEV, SECURITY, TEST)))
                 .isInstanceOf(BadRequestException.class);
-        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, PM, ARCH, DESIGN, DEV, SECURITY, TEST)))
+        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, PM, ARCH, DESIGN, TESTCASE, DEV, SECURITY, TEST)))
                 .isInstanceOf(BadRequestException.class);
-        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, DESIGN, SECURITY, DEV, TEST)))
+        assertThatThrownBy(() -> Workflow.validateOrder(List.of(PM, BA, ARCH, DESIGN, TESTCASE, SECURITY, DEV, TEST)))
                 .isInstanceOf(BadRequestException.class).hasMessageContaining("SECURITY must come after DEV");
-        Workflow.validateOrder(List.of(PM, BA, ARCH, DESIGN, DEV, TEST, SECURITY)); // either review may come first
+        Workflow.validateOrder(List.of(PM, BA, ARCH, DESIGN, TESTCASE, DEV, TEST, SECURITY)); // either review may come first
     }
 
     @Test
@@ -301,8 +301,28 @@ class WorkflowTest {
     }
 
     @Test
+    void aWorkflowSavedBeforeTestCasesGetsThemRightBeforeDev() {
+        assertThat(Workflow.withNewSteps(List.of(ARCH, PM, BA, DESIGN, DEV, TEST)))
+                .containsExactly(ARCH, PM, BA, DESIGN, TESTCASE, DEV, SECURITY, TEST);
+        List<Step> moved = List.of(TESTCASE, PM, BA, ARCH, DESIGN, DEV, SECURITY, TEST);
+        assertThat(Workflow.withNewSteps(moved)).isSameAs(moved);
+    }
+
+    @Test
+    void testCasesAreReviewedBeforeTheCodeAndCanBeSentBackFromTest() {
+        pass(PM, null); pass(BA, null); pass(ARCH, false);
+        assertThat(run.currentStep).isEqualTo(TESTCASE);
+        assertThatThrownBy(() -> Workflow.activate(run, steps, DEV)).isInstanceOf(ConflictException.class).hasMessageContaining("TESTCASE");
+        pass(TESTCASE, null); pass(DEV, null); pass(SECURITY, null);
+        Workflow.submit(run, steps, TEST);
+        Workflow.decide(run, steps, TEST, new Decision(DecisionAction.SEND_BACK, "thiếu ca kiểm thử quyền", null, TESTCASE, null));
+        assertThat(run.currentStep).isEqualTo(TESTCASE);
+        assertThat(steps.get(DEV).status).isEqualTo(StepStatus.PENDING);
+    }
+
+    @Test
     void securityReviewSitsBetweenDevAndTest() {
-        pass(PM, null); pass(BA, null); pass(ARCH, false); pass(DEV, null);
+        pass(PM, null); pass(BA, null); pass(ARCH, false); pass(TESTCASE, null); pass(DEV, null);
         assertThat(run.currentStep).isEqualTo(SECURITY);
         Workflow.submit(run, steps, SECURITY);
         Workflow.decide(run, steps, SECURITY, new Decision(DecisionAction.SEND_BACK, "SQL injection ở /api/report", null, DEV, null));
@@ -315,7 +335,7 @@ class WorkflowTest {
     @Test
     void reopenKeepsALeftOutTestSkipped() {
         Run r = new Run();
-        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, DEV, SECURITY, TEST), Set.of(PM, BA, ARCH, DESIGN, SECURITY, TEST));
+        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, TESTCASE, DEV, SECURITY, TEST), Set.of(PM, BA, ARCH, DESIGN, SECURITY, TEST, TESTCASE));
         assertThat(r.currentStep).isEqualTo(DEV);
         Workflow.submit(r, st, DEV);
         Workflow.decide(r, st, DEV, approve());
@@ -327,7 +347,7 @@ class WorkflowTest {
     void conditionHasUiSkipsAnyStepWhenTheFeatureHasNoUi() {
         Run r = new Run();
         r.stepConfig = Map.of("TEST", Map.of("condition", "HAS_UI"));
-        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, DEV, SECURITY, TEST), Set.of(PM, BA, SECURITY));
+        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, TESTCASE, DEV, SECURITY, TEST), Set.of(PM, BA, SECURITY, TESTCASE));
         r.hasUi = false;
         Workflow.submit(r, st, ARCH); Workflow.decide(r, st, ARCH, approve());
         Workflow.submit(r, st, DEV); Workflow.decide(r, st, DEV, approve());
@@ -339,7 +359,7 @@ class WorkflowTest {
     void conditionPrevPassedSkipsAfterAFailedCheck() {
         Run r = new Run();
         r.stepConfig = Map.of("TEST", Map.of("condition", "PREV_PASSED"));
-        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, DEV, SECURITY, TEST), Set.of(PM, BA, ARCH, DESIGN, SECURITY));
+        Map<Step, RunStep> st = custom(r, List.of(PM, BA, ARCH, DESIGN, TESTCASE, DEV, SECURITY, TEST), Set.of(PM, BA, ARCH, DESIGN, SECURITY, TESTCASE));
         Workflow.submit(r, st, DEV);
         st.get(DEV).reportedFailure = true;   // e.g. ci=fail, approved by a human anyway
         Workflow.decide(r, st, DEV, approve());
@@ -348,7 +368,7 @@ class WorkflowTest {
 
         Run g = new Run();
         g.stepConfig = Map.of("TEST", Map.of("condition", "PREV_PASSED"));
-        Map<Step, RunStep> st2 = custom(g, List.of(PM, BA, ARCH, DESIGN, DEV, SECURITY, TEST), Set.of(PM, BA, ARCH, DESIGN, SECURITY));
+        Map<Step, RunStep> st2 = custom(g, List.of(PM, BA, ARCH, DESIGN, TESTCASE, DEV, SECURITY, TEST), Set.of(PM, BA, ARCH, DESIGN, TESTCASE, SECURITY));
         Workflow.submit(g, st2, DEV); Workflow.decide(g, st2, DEV, approve());
         assertThat(g.currentStep).as("green DEV → TEST runs").isEqualTo(TEST);
     }

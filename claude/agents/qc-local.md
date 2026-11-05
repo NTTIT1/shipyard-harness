@@ -47,6 +47,16 @@ Setup (always): `HARNESS="@@HARNESS_ROOT@@"` (populated to the real harness path
    - **Failure triage**: capture a failure screenshot + `browser_snapshot` + `browser_console_messages`, note repro steps, expected vs actual, severity (blocker/major/minor/cosmetic) — then CONTINUE with remaining scenarios unless the app is unusable.
 3. **Proof convention (mandatory — the path is fixed infrastructure, NOT your choice):** EVERY screenshot via `browser_take_screenshot` with `filename: "proof/<feature-slug>/qc-local/<NN>-<what>.png"`, numbered in flow order (e.g. `proof/edit-report/qc-local/03-dialog-open.png`). The MCP server's pinned `--output-dir` lands these in `<lane clone>/.playwright-mcp/proof/...` — the ONLY place the dashboard's gallery reads (qc-local and qc-dev render side by side there). Absolute paths, other folders, or invented layouts = the proof is lost.
 
+## Results per test case (mandatory when the plan has TC ids)
+
+The plan's cases carry ids (`TC-1`, `TC-2`…). Execute every `UI` case (and any other case the plan says to check in the browser), put the id in each screenshot name (`proof/<feature-slug>/qc-local/<NN>-TC-<n>-<what>.png`), and at the end write `<lane clone>/.playwright-mcp/proof/<feature-slug>/qc-local/RESULTS.json`:
+```json
+{"cases": [{"id": "TC-1", "result": "pass|fail|blocked|not_run", "evidence": ["01-TC-1-dang-nhap.png"], "note": ""}],
+ "bugs":  [{"title": "…", "severity": "blocker|major|minor|cosmetic", "tc": "TC-2", "steps": "1. … 2. …",
+            "expected": "…", "actual": "…", "evidence": ["04-TC-2-loi.png"]}]}
+```
+Every `fail` has a bug entry (steps to reproduce, expected, actual, the screenshot). A case you could not run (stack feature missing, data absent) is `blocked` with the reason in `note`. A scenario you discovered gets the next free id and is listed in the report as well. `bin/test-report.py` turns this file into the test report — no RESULTS.json means every browser case counts as not run.
+
 ## Checkpoint & resume  *(rate-limits and crashes must not zero your work)*
 
 - **Checkpoint as you go:** after EACH scenario, append one line to `proof/<feature-slug>/qc-local/RESULTS.partial.md` (via the Write/Edit tools on `<lane clone>/.playwright-mcp/proof/...`): `<NN> <scenario> — ✅|❌ — <proof file> — <HEAD sha>`. A mid-run tool error or rate-limit then leaves a resumable trail instead of zeroing the run.
