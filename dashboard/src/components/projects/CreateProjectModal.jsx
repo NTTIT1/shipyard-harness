@@ -83,7 +83,8 @@ export default function CreateProjectModal({ onClose, onStarted }) {
         </fieldset>}
 
         {step === 1 && <div className="wz-fields">
-          {kind === 'template' && <TemplatePicker catalog={catalog} value={f.template} onChange={template => set({ template })} />}
+          {kind === 'template' && <TemplatePicker catalog={catalog} value={f.template} onChange={template => set({ template })}
+            onFrameworksChanged={() => scaffold.catalog().then(setCatalog, e => setErr(e.message))} />}
 
           {kind === 'git' && (
             <>

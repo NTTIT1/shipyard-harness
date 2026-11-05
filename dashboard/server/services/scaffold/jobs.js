@@ -145,6 +145,11 @@ export function createJobRunner({ root = WORKSPACES_ROOT, tools = () => probeToo
           fs.chmodSync(path.join(j.dir, 'dev.sh'), 0o755);
           writeFiles(j.dir, fullstackCiFiles(provider, parts));
           writeFiles(j.dir, teamFiles(ctx, backend.stack, fullstackStarterRules(ctx, backend, frontend)));
+        } else if (stack.keepsOwnFiles) {
+          // A company framework already has its README, compose file and CI: only what is missing.
+          const missing = files => Object.fromEntries(Object.entries(files).filter(([f]) => !fs.existsSync(path.join(j.dir, f))));
+          writeFiles(j.dir, missing(commonFiles(ctx, stack, now().toISOString())));
+          writeFiles(j.dir, missing(teamFiles(ctx, stack)));
         } else {
           writeFiles(j.dir, commonFiles(ctx, stack, now().toISOString()));
           writeFiles(j.dir, ciFiles(provider, stack.id, ctx.options));

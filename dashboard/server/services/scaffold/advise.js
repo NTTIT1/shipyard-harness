@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { run as runCmd } from './util.js';
-import { publicCatalog, stackById, validateOptions, STACKS } from './catalog.js';
+import { publicCatalog, stackById, validateOptions, allStacks } from './catalog.js';
 import { BACKEND_STACKS, FRONTEND_STACKS } from './fullstack.js';
 import { parseVerdict, resultLine } from './setup.js';
 
@@ -23,7 +23,7 @@ const PRESET_HINT = {
 const MAX_REQ = 20000;
 
 /** Only what the model needs to choose: stacks this machine can build, with option ids and choices. */
-export function catalogForPrompt(tools, stacks = STACKS) {
+export function catalogForPrompt(tools, stacks = allStacks()) {
   const out = [];
   for (const lang of publicCatalog(tools, stacks).languages) {
     for (const s of lang.stacks) {
@@ -68,7 +68,7 @@ export function advisePrompt(requirements, stacks) {
 }
 
 /** The JSON block of the model's answer, validated against the catalog; throws in Vietnamese. */
-export function parseAdvice(text, tools, stacks = STACKS) {
+export function parseAdvice(text, tools, stacks = allStacks()) {
   const m = String(text).match(/```json\s*([\s\S]*?)```/) || String(text).match(/(\{[\s\S]*\})/);
   if (!m) throw new Error('AI không trả về gợi ý dạng JSON');
   let a;
@@ -95,7 +95,7 @@ export function parseAdvice(text, tools, stacks = STACKS) {
 }
 
 export function createAdvisor({ run = runCmd, tools, claudeBin = process.env.CLAUDE_BIN || path.join(os.homedir(), '.local/bin/claude'),
-  model = 'claude-opus-5-5', stacks = STACKS } = {}) {
+  model = 'claude-opus-5-5', stacks = allStacks() } = {}) {
   return async function advise(requirements) {
     const req = String(requirements || '').trim();
     if (req.length < 10) throw Object.assign(new Error('Mô tả hệ thống cần xây (ít nhất 10 ký tự)'), { status: 400 });

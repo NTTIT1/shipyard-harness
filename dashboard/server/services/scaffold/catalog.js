@@ -9,8 +9,18 @@ import { normalizePipeline } from '../../../src/lib/pipeline.js';
 import { withNewSteps } from '../../../src/lib/review.js';
 import { ROLE_META, SKILL_CATALOG, defaultRoleSkillsForStack } from './team.js';
 import { BACKEND_STACKS, FRONTEND_STACKS, isMobileStack } from './fullstack.js';
+import { readFrameworks, frameworkStack } from './frameworks.js';
 
 export const STACKS = [javaSpring, pythonFastapi, tsReactVite, tsNestjs, flutterAndroid];
+
+/** Git credentials for cloning a framework repo (set by the scaffold router: the configured providers). */
+let frameworkGitEnv = () => ({});
+export function setFrameworkGitEnv(fn) { frameworkGitEnv = fn; }
+
+/** Built-in stacks plus the company frameworks registered by an administrator (config/frameworks.json). */
+export function allStacks() {
+  return [...STACKS, ...readFrameworks().map(fw => frameworkStack(fw, { gitEnv: url => frameworkGitEnv(url) }))];
+}
 
 const TOOL_HINT = {
   java: 'Cài JDK (ví dụ: sudo apt install openjdk-21-jdk)',
@@ -25,14 +35,14 @@ const TOOL_HINT = {
 export const choiceOf = c => (typeof c === 'string' ? { id: c, label: DB_LABEL[c] || c } : c);
 
 /** Catalog for the wizard: languages → stacks → options, with what is missing on this machine. */
-export function publicCatalog(tools, stacks = STACKS) {
+export function publicCatalog(tools, stacks = allStacks()) {
   const languages = [];
   for (const s of stacks) {
     let lang = languages.find(l => l.id === s.language);
     if (!lang) languages.push(lang = { id: s.language, label: s.languageLabel, stacks: [] });
     const missing = [...new Set(s.requires({}))].filter(t => !tools[t]?.ok);
     lang.stacks.push({
-      id: s.id, label: s.label, description: s.description, noDatabase: !!s.noDatabase,
+      id: s.id, label: s.label, description: s.description, noDatabase: !!s.noDatabase, company: !!s.company,
       // which half of a fullstack repo this stack can be
       role: BACKEND_STACKS.includes(s.id) ? 'backend' : FRONTEND_STACKS.includes(s.id) ? 'frontend' : null,
       options: s.options.map(o => ({ ...o, choices: o.choices?.map(choiceOf) })),
@@ -44,7 +54,7 @@ export function publicCatalog(tools, stacks = STACKS) {
   return { languages, roles: ROLE_META, skillCatalog: SKILL_CATALOG, kinds: ['single', 'fullstack'] };
 }
 
-export function stackById(id, stacks = STACKS) {
+export function stackById(id, stacks = allStacks()) {
   return stacks.find(s => s.id === id) || null;
 }
 
@@ -70,7 +80,7 @@ export function validateRoleSkills(rs) {
  * either a listed choice, a boolean, or text matching its pattern, so nothing free-form reaches
  * a command line.
  */
-export function validateRequest(body, tools, stacks = STACKS) {
+export function validateRequest(body, tools, stacks = allStacks()) {
   const b = body || {};
   const name = String(b.name || '').trim();
   const slug = String(b.slug || '').trim();

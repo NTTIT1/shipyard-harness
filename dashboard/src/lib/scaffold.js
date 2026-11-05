@@ -16,6 +16,9 @@ async function call(method, url, body) {
 
 export const scaffold = {
   catalog: () => call('GET', '/api/scaffold/catalog'),
+  frameworks: () => call('GET', '/api/frameworks'),
+  saveFrameworks: frameworks => call('PUT', '/api/frameworks', { frameworks }),
+  checkFramework: fw => call('POST', '/api/frameworks/check', fw),
   start: body => call('POST', '/api/scaffold/jobs', body),
   job: id => call('GET', `/api/scaffold/jobs/${id}`),
   cancel: id => call('POST', `/api/scaffold/jobs/${id}/cancel`),
