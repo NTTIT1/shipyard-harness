@@ -4,6 +4,7 @@ import com.shipyard.platform.common.dto.ApiResponse;
 import com.shipyard.platform.common.exception.BadRequestException;
 import com.shipyard.platform.common.exception.ResourceNotFoundException;
 import com.shipyard.platform.context.api.Dtos.*;
+import com.shipyard.platform.context.service.CodeGraphService;
 import com.shipyard.platform.context.service.ContextPackService;
 import com.shipyard.platform.context.service.IngestService;
 import com.shipyard.platform.context.service.SearchService;
@@ -21,8 +22,11 @@ public class InternalMemoryController {
     private final SearchService search;
     private final MemoryStore store;
     private final ContextPackService packs;
+    private final CodeGraphService codeGraph;
 
-    public InternalMemoryController(IngestService ingest, SearchService search, MemoryStore store, ContextPackService packs) {
+    public InternalMemoryController(IngestService ingest, SearchService search, MemoryStore store, ContextPackService packs,
+                                    CodeGraphService codeGraph) {
+        this.codeGraph = codeGraph;
         this.ingest = ingest;
         this.search = search;
         this.store = store;
@@ -33,6 +37,12 @@ public class InternalMemoryController {
     @org.springframework.web.bind.annotation.DeleteMapping("/projects/{projectId}/memory")
     public ApiResponse<java.util.Map<String, Integer>> purge(@org.springframework.web.bind.annotation.PathVariable String projectId) {
         return ApiResponse.ok(store.purgeProject(projectId));
+    }
+
+    /** dashboard → here: the project's code & document map (bin/code-graph.py), replacing the previous one. */
+    @PostMapping("/projects/{projectId}/code-graph")
+    public ApiResponse<java.util.Map<String, Integer>> codeGraph(@PathVariable String projectId, @RequestBody CodeGraphService.Request req) {
+        return ApiResponse.ok(codeGraph.replace(projectId, req));
     }
 
     @PostMapping("/memory/events")

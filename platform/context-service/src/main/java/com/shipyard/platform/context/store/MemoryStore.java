@@ -97,6 +97,57 @@ public class MemoryStore {
                 .param("p", projectId).param("f", fromId).param("t", toId).param("ty", type).param("s", sourceItemId).update();
     }
 
+    // ---- code & document map (CodeGraphService) ----
+
+    /** Removes every item a source wrote (its chunks and edges go with it): the previous map of the repo. */
+    public int deleteBySourcePrefix(String projectId, String prefix) {
+        return db.sql("delete from memory_items where project_id = :p and source_ref like :ref")
+                .param("p", projectId).param("ref", prefix.replace("%", "") + "%").update();
+    }
+
+    /** Entities of these types that no edge uses any more (a class that was deleted, a document renamed). */
+    public int pruneEntities(String projectId, Collection<String> types) {
+        return db.sql("""
+                delete from memory_entities e where e.project_id = :p and e.type in (:t)
+                   and not exists (select 1 from memory_edges g where g.from_id = e.id or g.to_id = e.id)""")
+                .param("p", projectId).param("t", types).update();
+    }
+
+    public record GraphNode(long id, String type, String key, String name, int degree) {}
+
+    public record GraphEdge(long from, long to, String type) {}
+
+    /** The best-connected entities (optionally of one type / matching a text), for the map screen. */
+    public List<GraphNode> graphNodes(String projectId, String q, String type, int limit) {
+        StringBuilder sql = new StringBuilder("""
+                select e.id, e.type, e.key, e.name,
+                       (select count(*) from memory_edges g join memory_items i on i.id = g.source_item_id
+                         where (g.from_id = e.id or g.to_id = e.id) and i.superseded_by is null and not i.disabled) as degree
+                  from memory_entities e where e.project_id = :p""");
+        Map<String, Object> params = new HashMap<>(Map.of("p", projectId, "l", limit));
+        if (type != null && !type.isBlank()) { sql.append(" and e.type = :t"); params.put("t", type); }
+        if (q != null && !q.isBlank()) { sql.append(" and (e.key like :q or lower(e.name) like :q)"); params.put("q", "%" + q.trim().toLowerCase(Locale.ROOT) + "%"); }
+        sql.append(" order by degree desc, e.name limit :l");
+        return db.sql(sql.toString()).params(params)
+                .query((rs, n) -> new GraphNode(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getInt(5))).list();
+    }
+
+    public List<GraphEdge> graphEdges(String projectId, Collection<Long> ids) {
+        if (ids.isEmpty()) return List.of();
+        return db.sql("""
+                select distinct g.from_id, g.to_id, g.type from memory_edges g join memory_items i on i.id = g.source_item_id
+                 where g.project_id = :p and g.from_id in (:ids) and g.to_id in (:ids) and i.superseded_by is null and not i.disabled""")
+                .param("p", projectId).param("ids", ids)
+                .query((rs, n) -> new GraphEdge(rs.getLong(1), rs.getLong(2), rs.getString(3))).list();
+    }
+
+    public Map<String, Integer> graphCounts(String projectId) {
+        Map<String, Integer> out = new TreeMap<>();
+        db.sql("select type, count(*) from memory_entities where project_id = :p group by type").param("p", projectId)
+                .query((rs, n) -> out.put(rs.getString(1), rs.getInt(2))).list();
+        return out;
+    }
+
     // ---- embedding worker ----
 
     public List<PendingChunk> duePending(int limit) {
@@ -218,6 +269,9 @@ public class MemoryStore {
         if (kind != null && !kind.isBlank()) {
             sql.append(" and i.kind = :k");
             params.put("k", kind.trim().toUpperCase(Locale.ROOT));
+        } else {
+            // The repo's documents and map have their own screen; the list is what the team approved and said.
+            sql.append(" and i.kind not in ('DOC', 'CODE_MAP')");
         }
         sql.append(" order by i.created_at desc limit :l");
         return db.sql(sql.toString()).params(params).query(ITEM).list();

@@ -3,6 +3,7 @@ import { AUTH_ENABLED, AT_COOKIE, PLATFORM_URL, parseCookies } from '../services
 import { createTeamHub } from '../services/scaffold/teamhub.js';
 import { createProviderStore } from '../services/scaffold/remotes.js';
 import { defaultSetupRunner } from '../services/scaffold/setup.js';
+import { createCodeGraph } from '../services/codegraph.js';
 
 /** Roles that may change a project's AI-team rules (reviewers still approve every change). */
 export const TEAM_MANAGERS = ['OWNER', 'MAINTAINER', 'TECH_LEAD'];
@@ -26,7 +27,8 @@ export function platformProjectLookup(gatewayUrl = PLATFORM_URL, fetchImpl = fet
 
 // "Đội AI" tab of a project (spec 2026-10-19 §5, P5).
 export function teamRouter({ authEnabled = AUTH_ENABLED, providers = createProviderStore(), setup = defaultSetupRunner({ providers }),
-  skillCatalog = [], hub = createTeamHub({ setup, providers, skillCatalog }), lookup = platformProjectLookup() } = {}) {
+  skillCatalog = [], hub = createTeamHub({ setup, providers, skillCatalog }), lookup = platformProjectLookup(),
+  codeGraph = createCodeGraph({ providers }) } = {}) {
   const router = Router();
   const fail = (res, e) => res.status(e.status || 500).json({ ok: false, error: e.message, ...(e.branches ? { branches: e.branches } : {}) });
 
@@ -79,6 +81,12 @@ export function teamRouter({ authEnabled = AUTH_ENABLED, providers = createProvi
   });
   router.delete('/api/team/:pid/human/:name', member, manager, async (req, res) => {
     try { res.json(await hub.deleteHuman(req.project, req.params.name)); } catch (e) { fail(res, e); }
+  });
+  // "Bản đồ mã nguồn & tài liệu": any member sees its state, the people who run lanes rebuild it.
+  router.get('/api/projects/:pid/code-graph', member, (req, res) => res.json({ ...codeGraph.status(req.params.pid), canManage: req.canManage }));
+  router.post('/api/projects/:pid/code-graph', member, (req, res, next) => (req.canManage ? next()
+    : res.status(403).json({ ok: false, error: 'Chỉ Owner, Maintainer hoặc Tech Lead của dự án được dựng lại bản đồ' })), async (req, res) => {
+    try { res.json(await codeGraph.build(req.project, req.user)); } catch (e) { fail(res, e); }
   });
   return router;
 }

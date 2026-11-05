@@ -35,6 +35,29 @@ public class UserMemoryController {
         return ApiResponse.ok(store.listItems(projectId, q, kind, Math.max(1, Math.min(200, limit))));
     }
 
+    /** The code & document map: best-connected entities (filter by type / text) and the edges among them. */
+    @GetMapping("/graph")
+    public ApiResponse<Map<String, Object>> graph(@RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,
+                                                  @PathVariable String projectId,
+                                                  @RequestParam(required = false) String q,
+                                                  @RequestParam(required = false) String type,
+                                                  @RequestParam(defaultValue = "60") int limit) {
+        requireMember(projectId, userId);
+        List<MemoryStore.GraphNode> nodes = store.graphNodes(projectId, q, type == null ? null : type.trim().toUpperCase(java.util.Locale.ROOT),
+                Math.max(1, Math.min(300, limit)));
+        List<MemoryStore.GraphEdge> edges = store.graphEdges(projectId, nodes.stream().map(MemoryStore.GraphNode::id).toList());
+        return ApiResponse.ok(Map.of("counts", store.graphCounts(projectId), "nodes", nodes, "edges", edges));
+    }
+
+    /** Everything one entity is connected to, with the item (document, plan, map) each link comes from. */
+    @GetMapping("/graph/related")
+    public ApiResponse<List<MemoryStore.Neighbor>> related(@RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,
+                                                          @PathVariable String projectId,
+                                                          @RequestParam String type, @RequestParam String key) {
+        requireMember(projectId, userId);
+        return ApiResponse.ok(store.neighbors(projectId, type.trim().toUpperCase(java.util.Locale.ROOT), key));
+    }
+
     @PatchMapping("/{itemId}")
     public ApiResponse<MemoryStore.ItemRow> setDisabled(@RequestHeader(SecurityConstants.HEADER_USER_ID) String userId,
                                                         @PathVariable String projectId, @PathVariable String itemId,
