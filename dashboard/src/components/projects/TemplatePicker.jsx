@@ -1,5 +1,6 @@
 import React from 'react';
 import { Choice } from './WizardSteps.jsx';
+import FrameworkManager from './FrameworkManager.jsx';
 import { TEMPLATE_KINDS, languagesFor, frontendStacks, findStack, defaultOptions } from '../../lib/scaffold.js';
 import { tr } from '../../lib/i18n.js';
 
@@ -8,7 +9,8 @@ import { tr } from '../../lib/i18n.js';
  * framework of each, its database and options — before the chat starts. value/onChange:
  * { kind: 'single'|'fullstack', stack, options, frontend: { stack, options } }.
  */
-export default function TemplatePicker({ catalog, value, onChange }) {
+export default function TemplatePicker({ catalog, value, onChange, onFrameworksChanged }) {
+  const [managing, setManaging] = React.useState(false);
   const t = value;
   const set = patch => onChange({ ...t, ...patch });
   const stack = findStack(catalog, t.stack);
@@ -39,8 +41,14 @@ export default function TemplatePicker({ catalog, value, onChange }) {
             <option key={s.id} value={s.id} disabled={!s.available}>{s.languageLabel} · {s.label}{s.available ? '' : ` (${tr('máy chưa cài đủ công cụ')})`}</option>
           ))}
         </select>
-        {stack?.description && <span className="faint">{tr(stack.description)}</span>}
+        {stack?.description && <span className="faint">{stack.company ? stack.description : tr(stack.description)}</span>}
+        {!two && (
+          <button type="button" className="linklike fw-manage-link" onClick={() => setManaging(m => !m)} aria-expanded={managing}>
+            {managing ? tr('Đóng quản lý framework công ty') : tr('Framework của công ty…')}
+          </button>
+        )}
       </div>
+      {managing && <FrameworkManager onSaved={() => onFrameworksChanged?.()} />}
 
       {db && (
         <div className="form-field">

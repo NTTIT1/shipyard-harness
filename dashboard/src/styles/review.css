@@ -587,3 +587,21 @@ table.grid { width: 100%; border-collapse: collapse; font-size: 13px }
 .rl-env-edit { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px }
 .rl-env-edit legend { padding: 0 4px; font-size: 12px; font-weight: 600; color: var(--text-muted) }
 @media (max-width: 640px) { .rl-form { grid-template-columns: 1fr } }
+
+/* Framework của công ty (in "Từ khung") */
+.fw-manage-link { justify-self: start; margin-top: 2px; font-size: 12.5px }
+.fw-box { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-subtle); min-width: 0 }
+.fw-box h3 { margin: 0 }
+.fw-box p { margin: 0 }
+.fw-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none }
+.fw-list li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 36px; font-size: 13px }
+.fw-list .faint { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere }
+.fw-name { font-weight: 600 }
+.fw-form { display: grid; gap: 12px }
+.fw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px }
+.fw-wide { grid-column: span 2 }
+.fw-set { display: grid; gap: 8px; margin: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px }
+.fw-rep { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: 6px }
+.fw-actions { display: flex; flex-wrap: wrap; gap: 8px }
+.fw-box textarea.msel { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12.5px; resize: vertical }
+@media (max-width: 640px) { .fw-wide { grid-column: auto } .fw-rep { grid-template-columns: 1fr auto } .fw-rep > span { display: none } }

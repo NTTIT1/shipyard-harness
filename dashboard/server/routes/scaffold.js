@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { AUTH_ENABLED, AT_COOKIE, PLATFORM_URL, parseCookies } from '../services/auth.js';
-import { publicCatalog, validateRequest } from '../services/scaffold/catalog.js';
+import { publicCatalog, validateRequest, setFrameworkGitEnv } from '../services/scaffold/catalog.js';
+import { readFrameworks, saveFrameworks, normalizeFramework } from '../services/scaffold/frameworks.js';
+import { gitAuthEnv } from '../services/scaffold/setup.js';
+import { providerFor } from '../services/scaffold/teamhub.js';
+import { run as runCmd } from '../services/scaffold/util.js';
 import { createJobRunner, STAGES } from '../services/scaffold/jobs.js';
 import { probeTools } from '../services/scaffold/util.js';
 import { createProviderStore } from '../services/scaffold/remotes.js';
@@ -124,6 +128,25 @@ export function scaffoldRouter({ authEnabled = AUTH_ENABLED, runner, tools = cac
     if (owner !== req.user.id) return res.status(403).json({ ok: false, error: 'Job của người khác' });
     next();
   };
+
+  // Company frameworks (config/frameworks.json): offered in "Từ khung" next to the built-in stacks.
+  const fwEnv = url => (path.isAbsolute(url) ? { GIT_TERMINAL_PROMPT: '0' } : gitAuthEnv(providers, providerFor(url, providers)));
+  setFrameworkGitEnv(fwEnv);
+  router.get('/api/frameworks', admin, (_req, res) => res.json({ frameworks: readFrameworks() }));
+  router.put('/api/frameworks', admin, (req, res) => {
+    try { res.json({ frameworks: saveFrameworks(req.body?.frameworks) }); } catch (e) { fail(res, e); }
+  });
+  // Can Shipyard reach the repo and its branch? (git ls-remote — nothing is cloned)
+  router.post('/api/frameworks/check', admin, async (req, res) => {
+    try {
+      const fw = normalizeFramework(req.body || {});
+      let out = '';
+      await runCmd('git', ['ls-remote', '--heads', '--', fw.repoUrl, fw.branch], { extraEnv: fwEnv(fw.repoUrl), timeoutMs: 30_000,
+        log: l => { if (!l.startsWith('$ ')) out += `${l}\n`; } });
+      if (!out.trim()) return res.status(400).json({ ok: false, error: `Repo không có nhánh ${fw.branch}` });
+      res.json({ ok: true, sha: out.trim().split(/\s+/)[0].slice(0, 7) });
+    } catch (e) { res.status(e.status || 502).json({ ok: false, error: e.status ? e.message : `Không đọc được repo: ${String(e.message).split('\n').pop().slice(0, 200)}` }); }
+  });
 
   router.get('/api/scaffold/catalog', admin, (_req, res) => {
     try { res.json({ ...publicCatalog(tools()), stages: STAGES.filter(s => s.id !== 'reserve' && s.id !== 'blueprint'), root: jobs.root, providers: providers.list() }); } catch (e) { fail(res, e); }
