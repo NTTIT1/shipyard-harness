@@ -55,7 +55,7 @@ export default function App({ user, onLogout }) {
   const [activeProjectId, setActiveProjectId] = useRemembered('shipyard-project', 'ALL');
   const activeRef = useRef(activeProjectId);
   activeRef.current = activeProjectId;
-  const [projectSubTab, setProjectSubTab] = useRemembered('shipyard-project-tab', 'members');
+  const [projectSubTab, setProjectSubTab] = useRemembered('shipyard-project-tab', 'overview');
   const [selectedLane, setSelectedLane] = useRemembered('shipyard-lane', null);
   const [shot, setShot] = useState(null);
   const [gallery, setGallery] = useState(null);
@@ -308,6 +308,7 @@ export default function App({ user, onLogout }) {
             subTab={projectSubTab}
             onTabChange={setProjectSubTab}
             onCreateProject={() => setCreating(true)}
+            onOpenLane={n => { setSelectedLane(n); setView('lanes'); }}
           />
         )}
         {view === 'users' && <UsersView user={user} onLogout={onLogout} />}
@@ -321,7 +322,7 @@ export default function App({ user, onLogout }) {
                 onBack={() => setView('hub')}
                 onOpenChat={async pid => { await loadProjects(); setActiveProjectId(pid); setView('chat'); }}
                 onProjectCreated={async pid => { await loadProjects(); setActiveProjectId(pid); }}
-                onOpenProject={async pid => { await loadProjects(); setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }}
+                onOpenProject={async pid => { await loadProjects(); setActiveProjectId(pid); setView('projects'); setProjectSubTab('overview'); }}
               />
             </ErrorBoundary>
           </Suspense>
@@ -331,7 +332,7 @@ export default function App({ user, onLogout }) {
             <ProjectHubView projects={projects} lanes={lanes} pending={pending} canScaffold={canScaffold} onCreate={() => setCreating(true)}
               onOpenDraft={id => { setStudioSession(id); setView('studio'); }}
               onOpenChat={pid => { setActiveProjectId(pid); setView('chat'); }}
-              onOpenSettings={pid => { setActiveProjectId(pid); setView('projects'); setProjectSubTab('members'); }} />
+              onOpenSettings={pid => { setActiveProjectId(pid); setView('projects'); setProjectSubTab('overview'); }} />
           </Suspense>
         )}
         {view === 'chat' && (
@@ -406,7 +407,7 @@ export default function App({ user, onLogout }) {
             onClose={() => setWizard(false)}
             onCreated={async id => {
               await loadProjects();
-              if (id) { setActiveProjectId(id); setView('projects'); setProjectSubTab('members'); }
+              if (id) { setActiveProjectId(id); setView('projects'); setProjectSubTab('overview'); }
               refreshNow();
             }}
           />
