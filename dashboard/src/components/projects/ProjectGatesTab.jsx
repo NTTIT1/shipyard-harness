@@ -3,7 +3,7 @@ import { AlertCircle, Workflow, Save, Undo2, GitMerge } from 'lucide-react';
 import Button from '../ui/Button.jsx';
 import WorkflowEditor from './WorkflowEditor.jsx';
 import { platform } from '../../lib/platform.js';
-import { workflowProblem } from '../../lib/review.js';
+import { workflowProblem, withNewSteps } from '../../lib/review.js';
 import { cleanConfig } from '../../lib/workflow.js';
 import PipelineEditor from './PipelineEditor.jsx';
 import { defaultPipeline, normalizePipeline, pipelineProblem } from '../../lib/pipeline.js';
@@ -19,7 +19,8 @@ export default function ProjectGatesTab({ pid, canManage }) {
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    platform.workflow(pid).then(w => { setSaved(w); setDraft(w); }, e => setErr(e.message));
+    // An older platform lists fewer steps: show the new ones in their place, saved with the next save.
+    platform.workflow(pid).then(w => { setSaved(w); setDraft(withNewSteps(w)); }, e => setErr(e.message));
   }, [pid]);
 
   const save = async () => {

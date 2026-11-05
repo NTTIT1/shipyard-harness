@@ -33,7 +33,7 @@ public final class Workflow {
     public static final String SKIP_WORKFLOW = "workflow";
 
     /** Steps that hand documents to DEV; they may be reordered among themselves but always come before DEV. */
-    private static final Set<Step> BEFORE_DEV = EnumSet.of(Step.PM, Step.BA, Step.ARCH, Step.DESIGN);
+    private static final Set<Step> BEFORE_DEV = EnumSet.of(Step.PM, Step.BA, Step.ARCH, Step.DESIGN, Step.TESTCASE);
 
     /**
      * Freezes a feature run's workflow: the step order and the steps left out. DEV is the one step that
@@ -62,8 +62,21 @@ public final class Workflow {
         return out;
     }
 
+    /** Likewise a workflow from before the test-case step lacks TESTCASE: it goes right before DEV. */
+    public static List<Step> withTestCases(List<Step> order) {
+        if (order == null || order.contains(Step.TESTCASE) || !order.contains(Step.DEV)) return order;
+        List<Step> out = new ArrayList<>(order);
+        out.add(out.indexOf(Step.DEV), Step.TESTCASE);
+        return out;
+    }
+
+    /** Every step added since a workflow was saved, each in its place. */
+    public static List<Step> withNewSteps(List<Step> order) {
+        return withTestCases(withSecurity(order));
+    }
+
     /**
-     * A feature workflow lists every feature step once; PM/BA/ARCH/DESIGN in any order, then DEV, then
+     * A feature workflow lists every feature step once; PM/BA/ARCH/DESIGN/TESTCASE in any order, then DEV, then
      * SECURITY and TEST (in either order: both review the code DEV wrote).
      */
     public static void validateOrder(List<Step> order) {

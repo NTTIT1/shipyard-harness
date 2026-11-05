@@ -10,7 +10,7 @@ import {
 import { PHASE_LABEL, PHASE_ORDER, ROLE_LABEL, EFFORT_LABEL, fmtVnd, fmtTokens, fmtUsd, sumTokens, ratioTone } from '../../lib/costs.js';
 import { tr, locale } from '../../lib/i18n.js';
 
-export const HUMAN_PHASES = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST'];
+export const HUMAN_PHASES = ['PM', 'BA', 'ARCH', 'DESIGN', 'TESTCASE', 'DEV', 'SECURITY', 'TEST'];
 export const PLAN_LABEL = { five_hour: tr('Hạn mức 5 giờ'), seven_day: tr('Hạn mức 7 ngày'), seven_day_opus: tr('7 ngày (Opus)'), seven_day_sonnet: tr('7 ngày (Sonnet)') };
 export const fmtTime = iso => (iso ? new Date(iso).toLocaleString(locale, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '');
 export const pctTone = p => (p >= 90 ? 'danger' : p >= 70 ? 'warn' : 'ok');

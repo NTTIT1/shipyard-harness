@@ -12,7 +12,7 @@ declared). Shape: {"brief": "...", "architecture": "...", "design": "...", "mock
 
   project_docs.py <lane_dir> <step> [profile_dir]   prints the section (nothing when there are no docs)
 
-step: pm | ba | arch | design | dev | security | test | qc  (sub-steps map to these; unknown -> nothing)
+step: pm | ba | arch | design | testcase | dev | security | test | qc  (sub-steps map to these; unknown -> nothing)
 """
 import html
 import json
@@ -92,6 +92,9 @@ HOW = {
         "Đối chiếu phân quyền: ai được làm gì theo vai trò người dùng trong `docs/product-brief.md` và mô hình dữ liệu/API trong `docs/architecture.md`; "
         "endpoint hay màn hình nào cho phép nhiều hơn tài liệu đã duyệt là phát hiện cần báo.",
         "Dữ liệu nhạy cảm (thông tin cá nhân, lương, mật khẩu, token) theo `docs/product-brief.md` không được lộ ra log, API hay giao diện ngoài người được phép.",
+    ],
+    "testcase": [
+        "Ca kiểm thử bám theo `docs/product-brief.md` (vai trò, quy tắc nghiệp vụ) và mockup đã duyệt trong `docs/design/mockups/` (mỗi màn hình có ít nhất một ca kiểm tra giao diện).",
     ],
     "test": [
         "Ca kiểm thử bao gồm: hành vi đúng `docs/product-brief.md`, và giao diện khớp mockup đã duyệt trong `docs/design/mockups/` (bố cục, nhãn, trạng thái).",

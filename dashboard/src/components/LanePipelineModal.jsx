@@ -6,7 +6,7 @@ import { STEP_LABEL } from '../lib/review.js';
 import { defaultPipeline, pipelineProblem, pipelineSteps, SOURCE_LABEL } from '../lib/pipeline.js';
 import { tr } from '../lib/i18n.js';
 
-const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST'];
+const STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'TESTCASE', 'DEV', 'SECURITY', 'TEST'];
 const strip = ({ source, ...p }) => p;
 const cleanGates = g => Object.fromEntries(Object.entries(g || {}).filter(([, v]) => v));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);

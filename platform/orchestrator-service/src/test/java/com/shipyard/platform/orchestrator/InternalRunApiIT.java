@@ -39,9 +39,10 @@ class InternalRunApiIT extends OrchestratorIT {
             case BA -> p.put("documents", Map.of("ba.md", "# BA"));
             case ARCH -> { p.put("documents", Map.of("plan.md", "# Plan", "tasks.md", "- [ ] t", "entities.json", "{\"entities\":[]}")); p.put("hasUi", hasUi); }
             case DESIGN -> { p.put("documents", Map.of("design.md", "# Design")); p.put("images", List.of(Map.of("path", "/proof/1/x/design/01.png", "caption", "list"))); }
+            case TESTCASE -> p.put("documents", Map.of("qc-plan.md", "# Ca kiểm thử\n| TC-1 | Đăng xuất | AC-1 |"));
             case DEV -> { p.put("documents", Map.of()); p.put("meta", Map.of("branch", "feat/logout")); }
             case SECURITY -> p.put("documents", Map.of("security-report.md", "# Security\nKhông có lỗ hổng mức cao"));
-            case TEST -> { p.put("documents", Map.of("qc-plan.md", "# QC")); p.put("images", List.of(Map.of("path", "/proof/1/x/qc/01.png", "caption", "ok"))); }
+            case TEST -> { p.put("documents", Map.of("qc-plan.md", "# QC", "test-report.md", "# Báo cáo kiểm thử\n1/1 đạt")); p.put("images", List.of(Map.of("path", "/proof/1/x/qc/01.png", "caption", "ok"))); }
         }
         return p;
     }
@@ -113,13 +114,15 @@ class InternalRunApiIT extends OrchestratorIT {
 
         submit(id, Step.BA, null);
         submit(id, Step.ARCH, false);
+        assertThat(next(id).get("step")).as("test cases are reviewed before the code").isEqualTo("TESTCASE");
+        submit(id, Step.TESTCASE, null);
         assertThat(next(id).get("step")).isEqualTo("DEV");
         submit(id, Step.DEV, null);
         assertThat(next(id).get("step")).as("security review right after the code").isEqualTo("SECURITY");
         submit(id, Step.SECURITY, null);
         submit(id, Step.TEST, null);
         assertThat(next(id).get("mode")).isEqualTo("RELEASE");
-        assertThat(outbox.findByTypeOrderByIdAsc("STEP_APPROVED")).hasSize(6);
+        assertThat(outbox.findByTypeOrderByIdAsc("STEP_APPROVED")).hasSize(7);
         assertThat(outbox.findByTypeOrderByIdAsc("HUMAN_FEEDBACK")).isEmpty();
     }
 
@@ -128,7 +131,7 @@ class InternalRunApiIT extends OrchestratorIT {
         allAuto();
         String id = createRun();
         submit(id, Step.PM, null); submit(id, Step.BA, null); submit(id, Step.ARCH, false);
-        submit(id, Step.DEV, null); submit(id, Step.SECURITY, null); submit(id, Step.TEST, null);
+        submit(id, Step.TESTCASE, null); submit(id, Step.DEV, null); submit(id, Step.SECURITY, null); submit(id, Step.TEST, null);
 
         assertThat(internal(HttpMethod.POST, "/internal/v1/runs/" + id + "/release", Map.of("summary", "Đã merge PR #12"))
                 .getStatusCode().value()).isEqualTo(200);
@@ -195,6 +198,7 @@ class InternalRunApiIT extends OrchestratorIT {
         String id = createRun();
         for (Step s : new Step[]{Step.PM, Step.BA}) submit(id, s, null);
         submit(id, Step.ARCH, false);
+        submit(id, Step.TESTCASE, null);
         Map<String, Object> dev = payload(Step.DEV, null);
         dev.put("meta", Map.of("branch", "feat/x", "ci", "fail"));
         Map<String, Object> r = data(internal(HttpMethod.POST, "/internal/v1/runs/" + id + "/steps/DEV/submit", dev));
@@ -208,9 +212,12 @@ class InternalRunApiIT extends OrchestratorIT {
         String id = createRun();
         for (Step s : new Step[]{Step.PM, Step.BA}) submit(id, s, null);
         submit(id, Step.ARCH, false);
+        submit(id, Step.TESTCASE, null);
         submit(id, Step.DEV, null);
         submit(id, Step.SECURITY, null);
         Map<String, Object> test = payload(Step.TEST, null);
+        assertThat(internal(HttpMethod.POST, "/internal/v1/runs/" + id + "/steps/TEST/submit", payload(Step.TESTCASE, null))
+                .getStatusCode().value()).as("test-report.md is required").isEqualTo(400);
         test.put("meta", Map.of("result", "FAIL"));
         assertThat(((Map) data(internal(HttpMethod.POST, "/internal/v1/runs/" + id + "/steps/TEST/submit", test))).get("autoApproved")).isEqualTo(false);
     }
@@ -221,6 +228,7 @@ class InternalRunApiIT extends OrchestratorIT {
         String id = createRun();
         for (Step s : new Step[]{Step.PM, Step.BA}) submit(id, s, null);
         submit(id, Step.ARCH, false);
+        submit(id, Step.TESTCASE, null);
         submit(id, Step.DEV, null);
         assertThat(internal(HttpMethod.POST, "/internal/v1/runs/" + id + "/steps/SECURITY/submit", payload(Step.PM, null))
                 .getStatusCode().value()).as("security-report.md is required").isEqualTo(400);

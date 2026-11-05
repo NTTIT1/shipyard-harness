@@ -27,7 +27,8 @@ import urllib.request
 
 BIN = pathlib.Path(__file__).resolve().parent
 STEP_DOCS = {'PM': ['spec.md'], 'BA': ['ba.md'], 'ARCH': ['plan.md', 'tasks.md', 'entities.json'],
-             'DESIGN': ['design.md'], 'DEV': [], 'SECURITY': ['security-report.md'], 'TEST': ['qc-plan.md']}
+             'DESIGN': ['design.md'], 'TESTCASE': ['qc-plan.md'], 'DEV': [],
+             'SECURITY': ['security-report.md'], 'TEST': ['test-report.md', 'qc-plan.md', 'test-results.json']}
 OPEN_MODES = {'WORK', 'REVISE', 'WAIT', 'RELEASE'}
 
 

@@ -20,6 +20,7 @@ PHASE = {
     'pm': 'PM', 'ba': 'BA', 'arch': 'ARCH', 'plan-critic': 'ARCH',
     'design': 'DESIGN', 'ux-design': 'DESIGN', 'ui-design': 'DESIGN', 'design-qa': 'DESIGN',
     'dev': 'DEV', 'impl-worker': 'DEV', 'code-review': 'DEV', 'backend-dev': 'DEV', 'frontend-dev': 'DEV',
+    'testcase': 'TESTCASE',
     'security': 'SECURITY',
     'test': 'TEST', 'qc-local': 'TEST',
 }

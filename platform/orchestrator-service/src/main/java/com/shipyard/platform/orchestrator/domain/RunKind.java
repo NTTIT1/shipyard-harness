@@ -7,7 +7,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * FEATURE runs walk PM → DEV → SECURITY → TEST; a SETUP run has the single MANAGER step (project rules); a BLUEPRINT
+ * FEATURE runs walk PM → TESTCASE → DEV → SECURITY → TEST; a SETUP run has the single MANAGER step (project rules); a BLUEPRINT
  * run has the single BLUEPRINT step (architecture approved before the project is scaffolded).
  */
 public enum RunKind {
@@ -17,7 +17,7 @@ public enum RunKind {
         return switch (this) {
             case SETUP -> EnumSet.of(Step.MANAGER);
             case BLUEPRINT -> EnumSet.of(Step.BLUEPRINT);
-            case FEATURE -> EnumSet.of(Step.PM, Step.BA, Step.ARCH, Step.DESIGN, Step.DEV, Step.SECURITY, Step.TEST);
+            case FEATURE -> EnumSet.of(Step.PM, Step.BA, Step.ARCH, Step.DESIGN, Step.TESTCASE, Step.DEV, Step.SECURITY, Step.TEST);
         };
     }
 

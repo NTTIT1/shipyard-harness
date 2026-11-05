@@ -43,6 +43,7 @@ case "$STEP" in
   backend-dev) AGENT="backend-dev-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   frontend-dev) AGENT="frontend-dev-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   dev) AGENT=""; VERDICT_RE='^ROLE-STEP: ' ;;  # engine chosen below from the configured model
+  testcase) AGENT="test-designer-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   security) AGENT="security-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   test) AGENT="tester-agent"; VERDICT_RE='^ROLE-STEP: ' ;;
   *) usage ;;

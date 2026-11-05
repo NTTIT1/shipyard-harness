@@ -79,7 +79,7 @@ describe('studio', () => {
     expect(s.stage).toBe('create');
     expect(s.messages.at(-1).text).toContain('Bước cuối');
     // The advised preset is the starting workflow; the chat at "Tạo dự án" changes it in workflow.json.
-    expect(s.docs.workflow.map(w => `${w.step}:${w.mode}`)).toEqual(['ARCH:REQUIRED', 'PM:SKIP', 'BA:SKIP', 'DESIGN:SKIP', 'DEV:AUTO', 'SECURITY:AUTO', 'TEST:AUTO']);
+    expect(s.docs.workflow.map(w => `${w.step}:${w.mode}`)).toEqual(['ARCH:REQUIRED', 'PM:SKIP', 'BA:SKIP', 'DESIGN:SKIP', 'TESTCASE:AUTO', 'DEV:AUTO', 'SECURITY:AUTO', 'TEST:AUTO']);
     st.send(s.id, me, 'Bước Test dùng Haiku, tối đa 30 phút, lỗi thì thử lại 2 lần');
     await until(() => !st.isBusy(s.id));
     expect(calls.at(-1).agent).toBe('studio-workflow-agent');
@@ -91,7 +91,7 @@ describe('studio', () => {
     const hand = s.docs.workflow.map(w => (w.step === 'ARCH' ? { ...w, config: { timeoutMinutes: 9999, junk: 1 } } : w));
     s = st.setWorkflow(s.id, me, hand);
     expect(s.docs.workflow.find(w => w.step === 'ARCH').config).toEqual({ timeoutMinutes: 480 });
-    expect(() => st.setWorkflow(s.id, me, hand.filter(w => w.step !== 'DEV'))).toThrow(/đủ 7 bước/);
+    expect(() => st.setWorkflow(s.id, me, hand.filter(w => w.step !== 'DEV'))).toThrow(/đủ 8 bước/);
 
     s = st.create(s.id, me, 'tok', { name: 'Bán hàng', slug: 'ban-hang', git: { provider: 'local' }, aiTeam: false,
       delivery: { openPr: false, localMerge: true, e2e: false } });

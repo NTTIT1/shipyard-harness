@@ -21,6 +21,11 @@
 .rv-sub { font-size: 13px; color: var(--text-muted) }
 .rv-box { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; background: var(--bg-subtle) }
 .rv-box h2 { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint) }
+.rv-tests-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 14px }
+.rv-bugs { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px }
+.rv-bugs li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px }
+.rv-bugs .bdg { min-width: 72px; justify-content: center }
+.rv-bug-title { flex: 1 1 200px; min-width: 0 }
 .rv-ctx { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-muted) }
 .rv-doc-tools { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 }
 .rv-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }

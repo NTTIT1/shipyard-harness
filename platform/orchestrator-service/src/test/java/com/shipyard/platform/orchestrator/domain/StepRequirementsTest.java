@@ -34,8 +34,12 @@ class StepRequirementsTest {
                 .isInstanceOf(BadRequestException.class).hasMessageContaining("image");
         assertThatThrownBy(() -> StepRequirements.validateSubmission(Step.DEV, "s", Map.of(), 0, Map.of(), null))
                 .isInstanceOf(BadRequestException.class).hasMessageContaining("branch");
-        assertThatCode(() -> StepRequirements.validateSubmission(Step.TEST, "s", Map.of("qc-plan.md", "q"), 2, Map.of(), null))
+        assertThatThrownBy(() -> StepRequirements.validateSubmission(Step.TEST, "s", Map.of("qc-plan.md", "q"), 2, Map.of(), null))
+                .isInstanceOf(BadRequestException.class).hasMessageContaining("test-report.md");
+        assertThatCode(() -> StepRequirements.validateSubmission(Step.TEST, "s", Map.of("test-report.md", "r"), 2, Map.of(), null))
                 .doesNotThrowAnyException();
+        assertThatThrownBy(() -> StepRequirements.validateSubmission(Step.TESTCASE, "s", Map.of(), 0, Map.of(), null))
+                .isInstanceOf(BadRequestException.class).hasMessageContaining("qc-plan.md");
     }
 
     @Test

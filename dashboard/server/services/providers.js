@@ -39,6 +39,7 @@ export const STEPS = [
   { id: 'ba', label: 'BA (AI)' },
   { id: 'arch', label: 'Kiến trúc sư (AI)' },
   { id: 'design', label: 'Designer (AI)', warn: 'cần Chrome để chụp mockup' },
+  { id: 'testcase', label: 'Ca kiểm thử (AI)' },
   { id: 'security', label: 'Bảo mật (AI)' },
   { id: 'test', label: 'Tester (AI)', openhands: true },  // may run in the OpenHands sandbox
   { id: 'plan-critic', label: 'Phản biện plan' },
@@ -227,7 +228,7 @@ function normalizeEntry(d = {}, eff = {}, fallback = null) {
   return out;
 }
 
-const GATE_STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'DEV', 'SECURITY', 'TEST'];
+const GATE_STEPS = ['PM', 'BA', 'ARCH', 'DESIGN', 'TESTCASE', 'DEV', 'SECURITY', 'TEST'];
 function cleanGates(g) {
   const out = {};
   for (const [k, v] of Object.entries(g && typeof g === 'object' ? g : {})) {

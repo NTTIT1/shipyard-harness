@@ -58,19 +58,38 @@ public class WorkflowPolicy {
     public List<WorkflowStep> of(String projectId) {
         Map<Step, GatePolicy> rows = new EnumMap<>(Step.class);
         policies.findByProjectId(projectId).forEach(p -> rows.put(p.step, p));
-        List<Step> order = new ArrayList<>(RunKind.FEATURE.steps());
-        order.sort(Comparator.comparingInt(s -> rows.containsKey(s) && rows.get(s).position != null
-                ? rows.get(s).position : s.ordinal()));
+        Set<Step> all = RunKind.FEATURE.steps();
+        List<Step> order;
+        if (rows.keySet().stream().noneMatch(all::contains)) {
+            order = new ArrayList<>(all);
+        } else {
+            // The saved order; steps added since then go to their place (SECURITY after DEV, TESTCASE before it).
+            order = new ArrayList<>(rows.keySet().stream().filter(all::contains)
+                    .sorted(Comparator.comparingInt(s -> rows.get(s).position != null ? rows.get(s).position : s.ordinal()))
+                    .toList());
+            order = new ArrayList<>(Workflow.withNewSteps(order));
+            for (Step s : all) if (!order.contains(s)) order.add(s);
+        }
         List<WorkflowStep> out = new ArrayList<>();
         for (Step s : order) {
             GatePolicy p = rows.get(s);
             String defRole = s == Step.DESIGN ? "PM" : s.requiredRole();
             String role = (p != null && p.approverRole != null && !p.approverRole.isBlank()) ? p.approverRole : defRole;
             String approverId = p != null ? p.approverId : null;
-            out.add(new WorkflowStep(s.name(), (p == null || p.mode == null ? GateMode.REQUIRED : p.mode).name(), role, approverId,
+            GateMode mode = p != null && p.mode != null ? p.mode : defaultMode(s, rows.get(Step.TEST) == null ? null : rows.get(Step.TEST).mode);
+            out.add(new WorkflowStep(s.name(), mode.name(), role, approverId,
                     p == null || p.config == null ? Map.of() : p.config));
         }
         return out;
+    }
+
+    /**
+     * The mode of a step the project never saved: test cases follow how the project treats testing
+     * (an all-automatic workflow does not suddenly stop for a person), everything else needs a person.
+     */
+    static GateMode defaultMode(Step s, GateMode testMode) {
+        if (s == Step.TESTCASE && testMode != null) return testMode;
+        return GateMode.REQUIRED;
     }
 
     /** Replaces the whole workflow (every feature step, in order). */
@@ -85,7 +104,7 @@ public class WorkflowPolicy {
             modes.put(s, parseMode(s, w.mode()));
             bodyMap.put(s, w);
         }
-        order = Workflow.withSecurity(order);
+        order = Workflow.withNewSteps(order);
         Workflow.validateOrder(order);
         Map<Step, GatePolicy> rows = new EnumMap<>(Step.class);
         policies.findByProjectId(projectId).forEach(p -> rows.put(p.step, p));
@@ -93,9 +112,9 @@ public class WorkflowPolicy {
         for (int i = 0; i < order.size(); i++) {
             Step s = order.get(i);
             GatePolicy p = rows.getOrDefault(s, new GatePolicy(projectId, s, GateMode.REQUIRED));
-            // A step the client did not send (SECURITY from an older client) keeps its mode, else REQUIRED.
+            // A step the client did not send (SECURITY/TESTCASE from an older client) keeps its mode, else its default.
             if (modes.containsKey(s)) p.mode = modes.get(s);
-            else if (p.mode == null) p.mode = GateMode.REQUIRED;
+            else if (p.mode == null || !rows.containsKey(s)) p.mode = defaultMode(s, modes.get(Step.TEST));
             p.position = i;
             WorkflowStep stepBody = bodyMap.get(s);
             if (stepBody != null) {

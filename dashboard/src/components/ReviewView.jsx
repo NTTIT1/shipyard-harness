@@ -8,6 +8,7 @@ import Markdown from './Markdown.jsx';
 import { platform } from '../lib/platform.js';
 import { runSteps, STEP_LABEL, ROLE_LABEL, STATUS_LABEL, ACTION_LABEL, validateDecision, sendBackTargets, pendingRevision, previousRevision, lineDiff, inboxItemFor, hasUiToSend, safeImageSrc } from '../lib/review.js';
 import { tr } from '../lib/i18n.js';
+import { testSummary, visibleDocs, SEVERITY_LABEL, SEVERITY_TONE } from '../lib/testing.js';
 
 function Stepper({ steps, current }) {
   return (
@@ -78,7 +79,7 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
     Promise.all([platform.revision(runId, revId), p ? platform.revision(runId, p.id) : null]).then(([d, pd]) => {
       if (!alive) return;
       setDetail(d); setPrev(pd);
-      setDoc(Object.keys(d.documents || {})[0] || '');
+      setDoc(visibleDocs(Object.keys(d.documents || {}))[0] || '');
       setEdits({}); setMode('view'); setFeedback(''); setSendBackTo(''); setHasUi(view.run.hasUi ?? null);
     }).catch(e => setErr(e.message));
     return () => { alive = false; };
@@ -92,7 +93,8 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
   const inboxItem = inboxItemFor(inboxItems, rev);
   const canDecide = pending && !!inboxItem;
   const docs = { ...(detail.documents || {}) };
-  const names = Object.keys(docs);
+  const names = visibleDocs(Object.keys(docs));
+  const tests = testSummary(docs['test-results.json']);
   const current = doc && (edits[doc] ?? docs[doc]);
   const prevText = prev?.documents?.[doc] ?? prev?.approvedDocuments?.[doc];
   const steps = view.steps;
@@ -147,6 +149,31 @@ export default function ReviewView({ runId, approvalId, inboxItems, onBack, onDe
       <div className="rv-box"><h2>{tr('Tóm tắt của AI')}</h2><Markdown text={rev.summary} />
         {rev.feedback && !pending && <p className="rv-sub">{tr('Góp ý khi duyệt ({0}): {1}', [ROLE_LABEL[rev.decidedAsRole] || rev.decidedAsRole, rev.feedback])}</p>}
       </div>
+
+      {tests && (
+        <div className="rv-box rv-tests" aria-labelledby="rv-tests-h">
+          <h2 id="rv-tests-h">{tr('Kết quả kiểm thử')}</h2>
+          <p className="rv-tests-line">
+            <Badge tone={tests.pass ? 'ok' : 'danger'}>{tests.pass ? tr('Đạt') : tr('Chưa đạt')}</Badge>
+            <span>{tr('{0} ca · {1} đạt · {2} không đạt · {3} bị chặn · {4} chưa chạy · tỉ lệ đạt {5}%',
+              [tests.total, tests.passed, tests.failed, tests.blocked, tests.notRun, tests.rate])}</span>
+          </p>
+          {tests.reasons.length > 0 && <p className="rv-sub">{tr('Vì sao chưa đạt: {0}', [tests.reasons.join('; ')])}</p>}
+          {tests.bugs.length > 0 ? (
+            <ul className="rv-bugs">
+              {tests.bugs.map(b => (
+                <li key={b.id}>
+                  <Badge tone={SEVERITY_TONE[b.severity] || 'neutral'}>{SEVERITY_LABEL[b.severity] || b.severity}</Badge>
+                  <span className="rv-bug-title">{b.id} · {b.title}{b.tc ? ` (${b.tc})` : ''}</span>
+                  {b.tracker?.url
+                    ? <a href={b.tracker.url} target="_blank" rel="noreferrer">{b.tracker.key}</a>
+                    : <span className="faint">{b.tracker?.key || tr('chưa ghi vào công cụ theo dõi')}</span>}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="rv-sub">{tr('Không có bug.')}</p>}
+        </div>
+      )}
 
       {(detail.contextUsed || []).length > 0 && (
         <details className="rv-box"><summary>{tr('AI đã dùng {0} mục ngữ cảnh', [detail.contextUsed.length])}</summary>
